@@ -1,0 +1,14 @@
+.loginPage {
+    height: 100vh;
+    display: grid;
+    place-items: center;
+  }
+  
+  .loginCard {
+    width: 420px;
+    max-width: calc(100vw - 32px);
+    padding: 28px;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 14px;
+  }
+  
