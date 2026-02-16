@@ -1,0 +1,69 @@
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+  }
+  
+  .backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+  }
+  
+  .panel {
+    position: relative;
+    width: 560px;
+    max-width: calc(100vw - 32px);
+    margin: 12vh auto 0;
+    background: #fff;
+    border-radius: 18px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    padding: 18px;
+  }
+  
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  
+  .title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  
+  .subTitle {
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.6);
+    margin-top: 4px;
+  }
+  
+  .field {
+    display: grid;
+    gap: 6px;
+  }
+  
+  .label {
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.65);
+  }
+  
+  .error {
+    margin-top: 10px;
+    border: 1px solid rgba(220, 38, 38, 0.35);
+    background: rgba(220, 38, 38, 0.06);
+    color: rgba(160, 10, 10, 0.95);
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+  }
+  
+  .actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  

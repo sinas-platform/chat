@@ -1,8 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
-import { router } from "./app/router";
-import { AppProviders } from "./app/providers";
+import { router } from "./app/router.tsx";
+import { AppProviders } from "./app/providers.tsx";
 
 import "./styles/global.scss";
 

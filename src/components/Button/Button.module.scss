@@ -1,0 +1,48 @@
+.button {
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #fff;
+  color: #111;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.primary {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.link {
+  border: none;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.75);
+  padding: 0;
+  font-size: 13px;
+  text-decoration: underline;
+  border-radius: 0;
+}
+
+.icon {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.minimal {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
