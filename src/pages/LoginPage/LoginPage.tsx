@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Loader2 } from "lucide-react";
 
@@ -40,6 +40,7 @@ export function LoginPage() {
   const [emailError, setEmailError] = useState("");
 
   const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
+  const lastAutoSubmittedOtp = useRef<string | null>(null);
 
   // refresh label after save by depending on modal open state
   const workspaceUrl = useMemo(() => getWorkspaceUrl(), [workspaceModalOpen]);
@@ -69,10 +70,9 @@ export function LoginPage() {
     }
   };
 
-  const submitOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const verifyOtpCode = useCallback(async (otpCode: string) => {
     setError("");
-    const parsedOtp = otpSchema.safeParse(otp);
+    const parsedOtp = otpSchema.safeParse(otpCode);
 
     if (!parsedOtp.success) {
       setError(parsedOtp.error.issues[0]?.message ?? "Enter a valid 6-digit code.");
@@ -89,7 +89,27 @@ export function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }, [navigate, sessionId, verifyOTP]);
+
+  const submitOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await verifyOtpCode(otp);
   };
+
+  useEffect(() => {
+    if (step !== "otp" || !sessionId || loading) return;
+
+    const cleanOtp = otp.replace(/\D/g, "").slice(0, 6);
+    if (cleanOtp.length !== 6) {
+      lastAutoSubmittedOtp.current = null;
+      return;
+    }
+
+    if (lastAutoSubmittedOtp.current === cleanOtp) return;
+    lastAutoSubmittedOtp.current = cleanOtp;
+
+    void verifyOtpCode(cleanOtp);
+  }, [loading, otp, sessionId, step, verifyOtpCode]);
 
   const onWorkspaceSave = (url: string) => {
     setWorkspaceUrl(url);
@@ -183,17 +203,6 @@ export function LoginPage() {
 
               {error && <div className={styles.error}>{error}</div>}
 
-              <Button variant="primary" type="submit" disabled={loading || otp.length !== 6}>
-                {loading ? (
-                  <>
-                    <Loader2 className={styles.spin} size={18} />
-                    <span>Verifying…</span>
-                  </>
-                ) : (
-                  <span>Verify</span>
-                )}
-              </Button>
-
               <div className={styles.actions}>
                 <Button
                   type="button"
@@ -206,15 +215,6 @@ export function LoginPage() {
                   disabled={loading}
                 >
                   Use a different email
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="link"
-                  onClick={() => setWorkspaceModalOpen(true)}
-                  disabled={loading}
-                >
-                  Switch workspace
                 </Button>
               </div>
             </form>
