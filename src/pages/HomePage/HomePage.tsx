@@ -1,12 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 
 import styles from "./HomePage.module.scss";
-import sinasLogo from "../../icons/sinas-logo.svg";
+import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { apiClient } from "../../lib/api";
-import { getWorkspaceUrl } from "../../lib/workspace";
-import type { Chat } from "../../types";
 
 const DEFAULT_AGENT = {
   namespace: "default",
@@ -21,22 +18,9 @@ function getChatTitleFromDraft(draft: string) {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const ws = getWorkspaceUrl();
 
   const [messageDraft, setMessageDraft] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-
-  const meQ = useQuery({
-    queryKey: ["me", ws],
-    queryFn: () => apiClient.me(),
-  });
-
-  const chatsQ = useQuery({
-    queryKey: ["chats", ws],
-    queryFn: () => apiClient.listChats(),
-  });
-
-  const chats = chatsQ.data ?? [];
 
   async function createNewChat(initialDraft?: string) {
     if (isCreating) return;
@@ -75,48 +59,8 @@ export default function HomePage() {
   }
 
   return (
-    <div className={styles.homeLayout}>
-      <aside className={styles.sidebar}>
-        <div className={styles.sidebarTop}>
-          <img className={styles.sidebarLogo} src={sinasLogo} alt="Sinas" />
-
-          {/* single New chat button */}
-          <button className={styles.newChatBtn} onClick={() => createNewChat("")} disabled={isCreating}>
-            New chat <span aria-hidden>+</span>
-          </button>
-
-          <div className={styles.sidebarSectionTitle}>Your chats</div>
-
-          <div className={styles.chatList}>
-            {chatsQ.isLoading ? (
-              <div className={styles.muted}>Loading…</div>
-            ) : chats.length === 0 ? (
-              <div className={styles.muted}>No chats yet</div>
-            ) : (
-              chats.map((c: Chat) => (
-                <button
-                  key={c.id}
-                  className={styles.chatRow}
-                  onClick={() => navigate(`/chats/${c.id}`)}
-                >
-                  <span className={styles.chatTitle}>{(c as any).title ?? "Untitled chat"}</span>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className={styles.sidebarBottom}>
-          <button className={styles.settingsBtn} onClick={() => navigate("/settings")}>
-            Settings
-          </button>
-
-          <div className={styles.userRow}>
-            <div className={styles.userAvatar}>{(meQ.data?.email?.[0] ?? "U").toUpperCase()}</div>
-            <div className={styles.userEmail}>{meQ.data?.email ?? "…"}</div>
-          </div>
-        </div>
-      </aside>
+    <div className={styles.layout}>
+      <AppSidebar />
 
       <main className={styles.main}>
         <div className={styles.mainContent}>

@@ -1,14 +1,45 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import styles from "./Chat.module.scss";
+import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { apiClient } from "../../lib/api";
 import type { Message } from "../../types";
 
 type LocationState = {
   initialDraft?: string;
 };
+
+function getMessageText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (content == null) return "";
+
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object" && "text" in item) {
+          const text = (item as { text?: unknown }).text;
+          if (typeof text === "string") return text;
+        }
+        try {
+          return JSON.stringify(item);
+        } catch {
+          return String(item);
+        }
+      })
+      .join("\n");
+  }
+
+  try {
+    return JSON.stringify(content, null, 2);
+  } catch {
+    return String(content);
+  }
+}
 
 export function ChatPage() {
   const { chatId } = useParams<{ chatId: string }>();
@@ -99,57 +130,74 @@ export function ChatPage() {
 
   if (!chatId) {
     return (
-      <div className={styles.chatPage}>
-        <div className={styles.chatShell}>
-          <p>Missing chat id</p>
-        </div>
+      <div className={styles.layout}>
+        <AppSidebar />
+        <main className={styles.main}>
+          <div className={styles.chatShell}>
+            <p>Missing chat id</p>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className={styles.chatPage}>
-      <div className={styles.chatShell}>
-        <div className={styles.header}>
-          <h1 className={styles.title}>
-            {chatQ.data ? ((chatQ.data as any).title ?? "Chat") : "Chat"}
-          </h1>
-          {chatQ.isLoading ? <span className={styles.muted}>Loading…</span> : null}
+    <div className={styles.layout}>
+      <AppSidebar activeChatId={chatId} />
+      <main className={styles.main}>
+        <div className={styles.chatShell}>
+          <div className={styles.header}>
+            <h1 className={styles.title}>
+              {chatQ.data ? ((chatQ.data as any).title ?? "Chat") : "Chat"}
+            </h1>
+            {chatQ.isLoading ? <span className={styles.muted}>Loading…</span> : null}
+          </div>
+
+          <div className={styles.messages}>
+            {chatQ.isError ? <div className={styles.error}>Could not load chat</div> : null}
+
+            {!chatQ.isLoading && messages.length === 0 ? (
+              <div className={styles.empty}>No messages yet</div>
+            ) : (
+              messages.map((m: any) => {
+                const messageText = getMessageText(m.content);
+                return (
+                  <div
+                    key={m.id ?? `${m.role}-${m.created_at}-${messageText.slice(0, 20)}`}
+                    className={`${styles.message} ${m.role === "user" ? styles.userMsg : styles.assistantMsg}`}
+                  >
+                    <div className={styles.messageRole}>{m.role ?? "assistant"}</div>
+                    <div className={styles.messageBody}>
+                      {m.role === "assistant" ? (
+                        <div className={styles.messageMarkdown}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className={styles.messageText}>{messageText}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
+            {sendMsgM.isPending ? <div className={styles.muted}>Sending…</div> : null}
+          </div>
+
+          <form className={styles.composer} onSubmit={onSubmit}>
+            <textarea
+              className={styles.input}
+              placeholder="Ask something…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              rows={4}
+            />
+            <button className={styles.sendBtn} type="submit" disabled={sendMsgM.isPending || !input.trim()}>
+              Send
+            </button>
+          </form>
         </div>
-
-        <div className={styles.messages}>
-          {chatQ.isError ? <div className={styles.error}>Could not load chat</div> : null}
-
-          {!chatQ.isLoading && messages.length === 0 ? (
-            <div className={styles.empty}>No messages yet</div>
-          ) : (
-            messages.map((m: any) => (
-              <div
-                key={m.id ?? `${m.role}-${m.created_at}-${m.content?.slice?.(0, 20)}`}
-                className={`${styles.message} ${m.role === "user" ? styles.userMsg : styles.assistantMsg}`}
-              >
-                <div className={styles.messageRole}>{m.role ?? "assistant"}</div>
-                <div className={styles.messageBody}>{m.content}</div>
-              </div>
-            ))
-          )}
-
-          {sendMsgM.isPending ? <div className={styles.muted}>Sending…</div> : null}
-        </div>
-
-        <form className={styles.composer} onSubmit={onSubmit}>
-          <textarea
-            className={styles.input}
-            placeholder="Ask something…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            rows={1}
-          />
-          <button className={styles.sendBtn} type="submit" disabled={sendMsgM.isPending || !input.trim()}>
-            Send
-          </button>
-        </form>
-      </div>
+      </main>
     </div>
   );
 }

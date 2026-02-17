@@ -1,16 +1,25 @@
-.chatPage {
+.layout {
   height: 100vh;
   display: grid;
-  place-items: center;
+  grid-template-columns: 280px 1fr;
   background: #fff;
+  overflow: hidden;
+}
+
+.main {
+  min-width: 0;
+  min-height: 0;
+  padding: 24px 28px;
+  display: flex;
+  overflow: hidden;
 }
 
 .chatShell {
   width: min(900px, 100%);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 16px;
 }
 
@@ -25,10 +34,11 @@
 }
 
 .messages {
-  flex: 1;
-  overflow: auto;
-  border: 1px solid #eee;
-  border-radius: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: none;
+  border-radius: 0;
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -57,20 +67,58 @@
 }
 
 .messageBody {
+  overflow-wrap: anywhere;
+}
+
+.messageText {
   white-space: pre-wrap;
+}
+
+.messageMarkdown {
+  line-height: 1.45;
+}
+
+.messageMarkdown :global(p) {
+  margin: 0 0 10px;
+}
+
+.messageMarkdown :global(ul),
+.messageMarkdown :global(ol) {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+
+.messageMarkdown :global(h1),
+.messageMarkdown :global(h2),
+.messageMarkdown :global(h3),
+.messageMarkdown :global(h4) {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.messageMarkdown :global(p:last-child),
+.messageMarkdown :global(ul:last-child),
+.messageMarkdown :global(ol:last-child),
+.messageMarkdown :global(h1:last-child),
+.messageMarkdown :global(h2:last-child),
+.messageMarkdown :global(h3:last-child),
+.messageMarkdown :global(h4:last-child) {
+  margin-bottom: 0;
 }
 
 .composer {
   display: flex;
   gap: 10px;
   align-items: flex-end;
+  background: #fff;
 }
 
 .input {
   flex: 1;
   border: 1px solid #ddd;
   border-radius: 14px;
-  padding: 10px 12px;
+  min-height: 112px;
+  padding: 12px 14px;
   resize: none;
 }
 

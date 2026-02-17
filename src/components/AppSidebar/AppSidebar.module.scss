@@ -1,0 +1,147 @@
+.sidebar {
+  border-right: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 0;
+  padding: 16px;
+  gap: 12px;
+}
+
+.sidebarTop {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.sidebarLogo {
+  width: 88px;
+  height: auto;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.newChatBtn {
+  width: 100%;
+  height: 44px;
+  border: 1px solid #111;
+  border-radius: 12px;
+  background: #fff;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.sidebarSectionTitle {
+  margin-top: 18px;
+  font-size: 12px;
+  color: #666;
+}
+
+.chatList {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 6px;
+  overflow: auto;
+  min-height: 0;
+  max-height: none;
+  padding-right: 2px;
+}
+
+.chatRow {
+  width: 100%;
+  border: 1px solid transparent;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #ddd;
+    background: #fafafa;
+  }
+}
+
+.chatRowActive {
+  border-color: #ddd;
+  background: #f7f7f7;
+}
+
+.chatTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.allChatsBtn {
+  margin-top: 12px;
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+}
+
+.allChatsBtnActive {
+  background: #f7f7f7;
+  border-color: #d7d7d7;
+}
+
+.sidebarBottom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settingsBtn {
+  width: 100%;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+}
+
+.userRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logoutBtn {
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #111;
+  flex: 0 0 auto;
+}
+
+.userEmail {
+  min-width: 0;
+  font-size: 13px;
+  color: #111;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted {
+  color: #888;
+  font-size: 13px;
+}
