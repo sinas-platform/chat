@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock3, MoreHorizontal, Search } from "lucide-react";
 
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { Button } from "../../components/Button/Button";
+import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { Input } from "../../components/Input/Input";
 import { apiClient } from "../../lib/api";
 import { getWorkspaceUrl } from "../../lib/workspace";
@@ -67,10 +68,8 @@ export function AllChatsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const ws = getWorkspaceUrl();
-  const openMenuRootRef = useRef<HTMLDivElement | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [openMenuChatId, setOpenMenuChatId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [renameDialog, setRenameDialog] = useState<{
     chatId: string;
@@ -103,29 +102,6 @@ export function AllChatsPage() {
     },
   });
 
-  useEffect(() => {
-    if (!openMenuChatId) return;
-
-    function onPointerDown(e: MouseEvent) {
-      const target = e.target as Node | null;
-      const openMenuRoot = openMenuRootRef.current;
-      if (!openMenuRoot || !target) return;
-      if (!openMenuRoot.contains(target)) setOpenMenuChatId(null);
-    }
-
-    function onEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpenMenuChatId(null);
-    }
-
-    window.addEventListener("mousedown", onPointerDown);
-    window.addEventListener("keydown", onEscape);
-
-    return () => {
-      window.removeEventListener("mousedown", onPointerDown);
-      window.removeEventListener("keydown", onEscape);
-    };
-  }, [openMenuChatId]);
-
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const filteredChats = useMemo(() => {
     const chats = chatsQ.data ?? [];
@@ -149,14 +125,12 @@ export function AllChatsPage() {
       nextTitle: currentTitle,
     });
     setDeleteDialog(null);
-    setOpenMenuChatId(null);
   }
 
   function onStartDelete(chat: Chat) {
     const title = chat.title?.trim() || "Untitled chat";
     setDeleteDialog({ chatId: chat.id, title });
     setRenameDialog(null);
-    setOpenMenuChatId(null);
   }
 
   async function onConfirmRenameChat() {
@@ -249,44 +223,32 @@ export function AllChatsPage() {
                     </span>
                   </Button>
 
-                  <div
-                    className={styles.chatMeta}
-                    ref={openMenuChatId === chat.id ? openMenuRootRef : null}
-                  >
+                  <div className={styles.chatMeta}>
                     <span className={styles.chatTime}>
                       <Clock3 size={14} />
                       {formatTimeAgo(chat.updated_at ?? chat.created_at)}
                     </span>
 
-                    <Button
+                    <DropdownMenu
+                      trigger={<MoreHorizontal size={16} />}
+                      triggerAriaLabel="Open chat actions"
                       variant="icon"
-                      className={styles.menuTrigger}
-                      onClick={() =>
-                        setOpenMenuChatId((prev) => (prev === chat.id ? null : chat.id))
-                      }
-                      aria-label="Open chat actions"
-                    >
-                      <MoreHorizontal size={16} />
-                    </Button>
-
-                    {openMenuChatId === chat.id ? (
-                      <div className={styles.menu}>
-                        <button
-                          className={styles.menuItem}
-                          onClick={() => onStartRename(chat)}
-                          disabled={renameChatM.isPending || deleteChatM.isPending}
-                        >
-                          Change title
-                        </button>
-                        <button
-                          className={`${styles.menuItem} ${styles.menuDanger}`}
-                          onClick={() => onStartDelete(chat)}
-                          disabled={renameChatM.isPending || deleteChatM.isPending}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    ) : null}
+                      items={[
+                        {
+                          id: "rename",
+                          label: "Change title",
+                          onSelect: () => onStartRename(chat),
+                          disabled: renameChatM.isPending || deleteChatM.isPending,
+                        },
+                        {
+                          id: "delete",
+                          label: "Delete",
+                          onSelect: () => onStartDelete(chat),
+                          danger: true,
+                          disabled: renameChatM.isPending || deleteChatM.isPending,
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
               ))

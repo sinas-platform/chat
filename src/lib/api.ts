@@ -160,7 +160,9 @@ class APIClient {
   }
 
   async createChatWithAgent(namespace: string, name: string, data: ChatCreate): Promise<Chat> {
-    const res = await this.client.post(`/agents/${namespace}/${name}/chats`, data);
+    const encodedNamespace = encodeURIComponent(namespace);
+    const encodedName = encodeURIComponent(name);
+    const res = await this.client.post(`/agents/${encodedNamespace}/${encodedName}/chats`, data);
     return res.data as Chat;
   }
 

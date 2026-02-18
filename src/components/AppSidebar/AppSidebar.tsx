@@ -5,16 +5,12 @@ import { LogOut } from "lucide-react";
 
 import sinasLogo from "../../icons/sinas-logo.svg";
 import { apiClient } from "../../lib/api";
+import { getSelectedAgent } from "../../lib/agents";
 import { useAuth } from "../../lib/authContext";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import { Button } from "../Button/Button";
 import type { Chat } from "../../types";
 import styles from "./AppSidebar.module.scss";
-
-const DEFAULT_AGENT = {
-  namespace: "default",
-  name: "futurist agent",
-};
 
 type AppSidebarProps = {
   activeChatId?: string;
@@ -51,7 +47,8 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
     setIsCreating(true);
 
     try {
-      const chat = await apiClient.createChatWithAgent(DEFAULT_AGENT.namespace, DEFAULT_AGENT.name, {
+      const selectedAgent = getSelectedAgent();
+      const chat = await apiClient.createChatWithAgent(selectedAgent.namespace, selectedAgent.name, {
         title: "New chat",
         input: {},
       });

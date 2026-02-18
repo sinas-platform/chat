@@ -31,15 +31,17 @@ export interface User {
   }
   
   // Chats
-  export interface Chat {
+export interface Chat {
     id: string;
     user_id: string;
+    user_email?: string;
     agent_id: string | null;
     agent_namespace: string | null;
     agent_name: string | null;
     title: string;
     created_at: string;
     updated_at: string;
+    last_message_at?: string | null;
   }
   
   export interface ChatCreate {

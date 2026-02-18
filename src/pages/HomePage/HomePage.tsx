@@ -1,14 +1,22 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Bot, ChevronDown, Lightbulb, Newspaper, type LucideIcon } from "lucide-react";
 
 import styles from "./HomePage.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
+import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { apiClient } from "../../lib/api";
-
-const DEFAULT_AGENT = {
-  namespace: "default",
-  name: "futurist agent",
-};
+import {
+  AGENT_OPTIONS,
+  getAgentById,
+  getDefaultAgent,
+  getSelectedAgent,
+  saveSelectedAgentId,
+  type AgentOption,
+} from "../../lib/agents";
+import { getWorkspaceUrl } from "../../lib/workspace";
+import type { Chat } from "../../types";
 
 function getChatTitleFromDraft(draft: string) {
   const t = draft.trim().replace(/\s+/g, " ");
@@ -16,11 +24,131 @@ function getChatTitleFromDraft(draft: string) {
   return t.length > 48 ? `${t.slice(0, 48)}…` : t;
 }
 
+function joinClasses(...classNames: Array<string | undefined | false>) {
+  return classNames.filter(Boolean).join(" ");
+}
+
+const AGENT_ICONS: Record<string, LucideIcon> = {
+  "mistral-test-nl": Bot,
+  "futurist-agent": Lightbulb,
+  "pulsr-news-editor": Newspaper,
+};
+
+const AGENT_BY_ENDPOINT_KEY = new Map(
+  AGENT_OPTIONS.map((agent) => [`${agent.namespace}::${agent.name}`, agent] as const),
+);
+
+type AgentSortMode = "alphabetical" | "recent";
+
+function getLatestChatTimestamp(chat: Chat): number {
+  const timestamp = Date.parse(chat.last_message_at ?? chat.updated_at ?? chat.created_at);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+type AgentCardProps = {
+  agent: AgentOption;
+  isActive: boolean;
+  onSelect: (agentId: string) => void;
+  className?: string;
+};
+
+function AgentCard({ agent, isActive, onSelect, className }: AgentCardProps) {
+  const AgentIcon = AGENT_ICONS[agent.id] ?? Bot;
+
+  return (
+    <button
+      key={agent.id}
+      type="button"
+      className={joinClasses(
+        styles.agentCard,
+        styles[`agentCardTone${agent.tone[0].toUpperCase()}${agent.tone.slice(1)}`],
+        isActive && styles.agentCardActive,
+        className,
+      )}
+      onClick={() => onSelect(agent.id)}
+      aria-pressed={isActive}
+    >
+      <div className={styles.agentCardTop}>
+        <span className={styles.agentIconWrap} aria-hidden>
+          <AgentIcon size={14} />
+        </span>
+        <span className={styles.agentName}>{agent.displayName}</span>
+      </div>
+      <div className={styles.agentBadge}>{agent.namespace}</div>
+      <div className={styles.agentDescription}>{agent.description}</div>
+    </button>
+  );
+}
+
 export default function HomePage() {
   const navigate = useNavigate();
+  const ws = getWorkspaceUrl();
 
+  const [selectedAgentId, setSelectedAgentId] = useState(() => getSelectedAgent().id);
   const [messageDraft, setMessageDraft] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [agentSearch, setAgentSearch] = useState("");
+  const [agentSort, setAgentSort] = useState<AgentSortMode>("alphabetical");
+
+  const chatsQ = useQuery({
+    queryKey: ["chats", ws],
+    queryFn: () => apiClient.listChats(),
+  });
+
+  const selectedAgent = useMemo(
+    () => getAgentById(selectedAgentId) ?? getDefaultAgent(),
+    [selectedAgentId],
+  );
+  const SelectedAgentIcon = AGENT_ICONS[selectedAgent.id] ?? Bot;
+
+  const recentAgents = useMemo(() => {
+    const chats = [...(chatsQ.data ?? [])];
+    chats.sort((left, right) => getLatestChatTimestamp(right) - getLatestChatTimestamp(left));
+
+    const recent: AgentOption[] = [];
+    const seenAgentIds = new Set<string>();
+
+    for (const chat of chats) {
+      if (!chat.agent_namespace || !chat.agent_name) continue;
+
+      const agent = AGENT_BY_ENDPOINT_KEY.get(`${chat.agent_namespace}::${chat.agent_name}`);
+      if (!agent || seenAgentIds.has(agent.id)) continue;
+
+      recent.push(agent);
+      seenAgentIds.add(agent.id);
+    }
+
+    return recent;
+  }, [chatsQ.data]);
+
+  const recentAgentRank = useMemo(
+    () => new Map(recentAgents.map((agent, index) => [agent.id, index])),
+    [recentAgents],
+  );
+
+  const normalizedAgentSearch = agentSearch.trim().toLowerCase();
+  const agentSortLabel = agentSort === "recent" ? "Recently used" : "Alphabetical";
+  const allAgents = useMemo(() => {
+    const filteredAgents = AGENT_OPTIONS.filter((agent) => {
+      if (!normalizedAgentSearch) return true;
+
+      const searchable = `${agent.displayName} ${agent.name} ${agent.namespace} ${agent.description}`.toLowerCase();
+      return searchable.includes(normalizedAgentSearch);
+    });
+
+    return filteredAgents.sort((left, right) => {
+      if (agentSort === "recent") {
+        const leftRank = recentAgentRank.get(left.id);
+        const rightRank = recentAgentRank.get(right.id);
+
+        if (leftRank != null && rightRank != null) return leftRank - rightRank;
+        if (leftRank != null) return -1;
+        if (rightRank != null) return 1;
+      }
+
+      return left.displayName.localeCompare(right.displayName);
+    });
+  }, [agentSort, normalizedAgentSearch, recentAgentRank]);
 
   async function createNewChat(initialDraft?: string) {
     if (isCreating) return;
@@ -29,7 +157,7 @@ export default function HomePage() {
     try {
       const draft = (initialDraft ?? "").trim();
 
-      const chat = await apiClient.createChatWithAgent(DEFAULT_AGENT.namespace, DEFAULT_AGENT.name, {
+      const chat = await apiClient.createChatWithAgent(selectedAgent.namespace, selectedAgent.name, {
         title: getChatTitleFromDraft(draft),
         input: {},
       });
@@ -58,6 +186,11 @@ export default function HomePage() {
     setMessageDraft("");
   }
 
+  function onSelectAgent(agentId: string) {
+    setSelectedAgentId(agentId);
+    saveSelectedAgentId(agentId);
+  }
+
   return (
     <div className={styles.layout}>
       <AppSidebar />
@@ -66,21 +199,104 @@ export default function HomePage() {
         <div className={styles.mainContent}>
           <div className={styles.hero}>
             <div className={styles.heroText}>
-              <div className={styles.heroTitle}>Welcome back</div>
-              <div className={styles.heroSubtitle}>Start a new conversation.</div>
+              <div className={styles.heroTitleRow}>
+                <span
+                  className={joinClasses(
+                    styles.heroIconWrap,
+                    styles[`heroIconTone${selectedAgent.tone[0].toUpperCase()}${selectedAgent.tone.slice(1)}`],
+                  )}
+                >
+                  <SelectedAgentIcon size={18} />
+                </span>
+                <div className={styles.heroTitle}>Hello! I&apos;m {selectedAgent.displayName} agent</div>
+              </div>
+              <div className={styles.heroHint}>Ask me about {selectedAgent.askHint}</div>
             </div>
           </div>
 
           <form className={styles.composer} onSubmit={onSubmit}>
             <textarea
               className={styles.composerInput}
-              placeholder="Ask something…"
+              placeholder={`Ask ${selectedAgent.displayName}…`}
               value={messageDraft}
               onChange={(e) => setMessageDraft(e.target.value)}
               onKeyDown={onComposerKeyDown}
               rows={3}
+              disabled={isCreating}
             />
           </form>
+
+          <section className={styles.agentPicker}>
+            <div className={styles.agentPickerTitle}>Recent agents</div>
+            {chatsQ.isLoading ? (
+              <div className={styles.muted}>Loading recent agents…</div>
+            ) : recentAgents.length === 0 ? (
+              <div className={styles.muted}>No recently used agents yet.</div>
+            ) : (
+              <div className={styles.recentAgentRow}>
+                {recentAgents.map((agent) => (
+                  <AgentCard
+                    key={agent.id}
+                    agent={agent}
+                    isActive={selectedAgent.id === agent.id}
+                    onSelect={onSelectAgent}
+                    className={styles.recentAgentCard}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className={styles.allAgentsSection}>
+            <div className={styles.agentPickerTitle}>All agents</div>
+
+            <div className={styles.agentControls}>
+              <input
+                className={styles.agentSearchInput}
+                type="search"
+                placeholder="Search agents..."
+                value={agentSearch}
+                onChange={(e) => setAgentSearch(e.target.value)}
+              />
+              <DropdownMenu
+                trigger={
+                  <>
+                    {agentSortLabel}
+                    <ChevronDown size={14} />
+                  </>
+                }
+                triggerAriaLabel="Sort agents"
+                variant="text"
+                items={[
+                  {
+                    id: "sort-alphabetical",
+                    label: "Alphabetical",
+                    onSelect: () => setAgentSort("alphabetical"),
+                  },
+                  {
+                    id: "sort-recent",
+                    label: "Recently used",
+                    onSelect: () => setAgentSort("recent"),
+                  },
+                ]}
+              />
+            </div>
+
+            <div className={styles.allAgentGrid}>
+              {allAgents.length === 0 ? (
+                <div className={styles.muted}>No agents match your search.</div>
+              ) : (
+                allAgents.map((agent) => (
+                  <AgentCard
+                    key={agent.id}
+                    agent={agent}
+                    isActive={selectedAgent.id === agent.id}
+                    onSelect={onSelectAgent}
+                  />
+                ))
+              )}
+            </div>
+          </section>
         </div>
       </main>
     </div>

@@ -14,7 +14,7 @@
 }
 
 .mainContent {
-  width: min(720px, 100%);
+  width: min(780px, 100%);
 }
 
 .hero {
@@ -25,25 +25,205 @@
 .heroText {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+.heroTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.heroIconWrap {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid #111;
+  background: #f4f4f4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #111;
+}
+
+.heroIconToneYellow {
+  background: #faf7de;
+}
+
+.heroIconToneBlue {
+  background: #e9f0ff;
+}
+
+.heroIconToneMint {
+  background: #eaf8f1;
 }
 
 .heroTitle {
-  font-size: 28px;
-  font-weight: 800;
+  font-size: 30px;
+  font-weight: 600;
 }
 
-.heroSubtitle {
+.heroHint {
   color: #666;
-  max-width: 720px;
+  font-size: 14px;
+  margin-left: 40px;
+}
+
+.agentPicker {
+  margin-top: 18px;
+  border: 1px solid #e3e3e3;
+  border-radius: 16px;
+  padding: 12px;
+  width: min(760px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.agentPickerTitle {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #444;
+}
+
+.recentAgentRow {
+  margin-top: 10px;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.recentAgentCard {
+  flex: 0 0 236px;
+}
+
+.allAgentsSection {
+  margin-top: 14px;
+  border: none;
+  padding: 0;
+  width: min(760px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.agentControls {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agentSearchInput {
+  width: 100%;
+  border: 1px solid #d7d7d7;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+
+  &:focus {
+    border-color: #8f8f8f;
+  }
+}
+
+.allAgentGrid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.agentCard {
+  border: 1px solid #d0d0d0;
+  border-radius: 18px;
+  background: #f8f8f8;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  min-height: 138px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: #acacac;
+  }
+}
+
+.agentCardActive {
+  border-color: #111;
+}
+
+.agentCardToneYellow {
+  background: #faf7de;
+}
+
+.agentCardToneBlue {
+  background: #e9f0ff;
+}
+
+.agentCardToneMint {
+  background: #eaf8f1;
+}
+
+.agentCardTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agentIconWrap {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(17, 17, 17, 0.35);
+  background: rgba(255, 255, 255, 0.72);
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agentName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+}
+
+.agentBadge {
+  width: fit-content;
+  font-size: 12px;
+  color: #242424;
+  border: 1px solid rgba(17, 17, 17, 0.35);
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.agentDescription {
+  font-size: 12px;
+  color: #4d4d4d;
+  line-height: 1.35;
+}
+
+.muted {
+  margin-top: 10px;
+  color: #7b7b7b;
+  font-size: 13px;
 }
 
 .composer {
   margin-top: 22px;
-  border: 2px solid #111;
+  border: 1px solid #111;
   border-radius: 18px;
   padding: 12px 14px;
-  max-width: 720px;
+  width: min(720px, 100%);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .composerInput {
@@ -54,4 +234,38 @@
   font-size: 14px;
   padding: 8px 0;
   min-height: 96px;
+}
+
+@media (max-width: 980px) {
+  .allAgentGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .main {
+    padding: 20px 16px;
+    align-items: flex-start;
+  }
+
+  .mainContent {
+    width: 100%;
+  }
+
+  .agentControls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .allAgentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .recentAgentCard {
+    flex-basis: 100%;
+  }
 }

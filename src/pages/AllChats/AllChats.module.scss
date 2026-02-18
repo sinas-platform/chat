@@ -123,55 +123,6 @@
   white-space: nowrap;
 }
 
-.menuTrigger {
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-
-  &:hover {
-    background: #f6f6f6;
-  }
-}
-
-.menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 150px;
-  border: 1px solid #d9d9d9;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  z-index: 10;
-}
-
-.menuItem {
-  width: 100%;
-  border: none;
-  background: #fff;
-  text-align: left;
-  padding: 9px 11px;
-  font-size: 13px;
-  color: #111;
-  cursor: pointer;
-
-  &:hover {
-    background: #f6f6f6;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-.menuDanger {
-  color: #b42318;
-}
-
 .muted {
   color: #888;
   font-size: 13px;
