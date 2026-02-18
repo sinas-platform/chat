@@ -150,6 +150,15 @@ class APIClient {
     return res.data as ChatWithMessages;
   }
 
+  async updateChat(chatId: string, data: Pick<Chat, "title">): Promise<Chat> {
+    const res = await this.client.put(`/chats/${chatId}`, data);
+    return res.data as Chat;
+  }
+
+  async deleteChat(chatId: string): Promise<void> {
+    await this.client.delete(`/chats/${chatId}`);
+  }
+
   async createChatWithAgent(namespace: string, name: string, data: ChatCreate): Promise<Chat> {
     const res = await this.client.post(`/agents/${namespace}/${name}/chats`, data);
     return res.data as Chat;

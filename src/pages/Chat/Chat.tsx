@@ -128,6 +128,15 @@ export function ChatPage() {
     setInput("");
   }
 
+  function onComposerKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    e.preventDefault();
+    const trimmed = input.trim();
+    if (!trimmed || sendMsgM.isPending) return;
+    sendMsgM.mutate(trimmed);
+    setInput("");
+  }
+
   if (!chatId) {
     return (
       <div className={styles.layout}>
@@ -190,11 +199,9 @@ export function ChatPage() {
               placeholder="Ask something…"
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onComposerKeyDown}
               rows={4}
             />
-            <button className={styles.sendBtn} type="submit" disabled={sendMsgM.isPending || !input.trim()}>
-              Send
-            </button>
           </form>
         </div>
       </main>
