@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut } from "lucide-react";
+import { CirclePlus, LogOut, Settings } from "lucide-react";
 
 import sinasLogo from "../../icons/sinas-logo.svg";
 import { apiClient } from "../../lib/api";
-import { getAgentByNamespaceAndName, getSelectedAgent } from "../../lib/agents";
+import { getAgentByNamespaceAndName } from "../../lib/agents";
 import { useAuth } from "../../lib/authContext";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import { Button } from "../Button/Button";
@@ -42,7 +42,6 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
   const { logout } = useAuth();
   const ws = getWorkspaceUrl();
 
-  const [isCreating, setIsCreating] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const meQ = useQuery({
@@ -58,21 +57,8 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
   const chats = chatsQ.data ?? [];
   const isAllChatsPage = location.pathname === "/chats";
 
-  async function onCreateNewChat() {
-    if (isCreating) return;
-    setIsCreating(true);
-
-    try {
-      const selectedAgent = getSelectedAgent();
-      const chat = await apiClient.createChatWithAgent(selectedAgent.namespace, selectedAgent.name, {
-        title: "New chat",
-        input: {},
-      });
-
-      navigate(`/chats/${chat.id}`);
-    } finally {
-      setIsCreating(false);
-    }
+  function onCreateNewChat() {
+    navigate("/");
   }
 
   async function onLogout() {
@@ -90,22 +76,16 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.sidebarTop}>
-        <button
-          type="button"
-          className={styles.sidebarLogoBtn}
-          onClick={() => navigate("/")}
-          aria-label="Go to homepage"
-        >
+        <div className={styles.sidebarLogoWrap}>
           <img className={styles.sidebarLogo} src={sinasLogo} alt="Sinas" />
-        </button>
+        </div>
 
         <Button
           variant="minimal"
           className={styles.newChatBtn}
           onClick={onCreateNewChat}
-          disabled={isCreating}
         >
-          New chat <span aria-hidden>+</span>
+          New chat <CirclePlus size={16} aria-hidden />
         </Button>
 
         <div className={styles.sidebarSectionTitle}>Your chats</div>
@@ -141,7 +121,8 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
 
       <div className={styles.sidebarBottom}>
         <Button variant="minimal" className={styles.settingsBtn} onClick={() => navigate("/settings")}>
-          Settings
+          <Settings size={16} aria-hidden />
+          <span>Settings</span>
         </Button>
 
         <div className={styles.userRow}>

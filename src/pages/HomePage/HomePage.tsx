@@ -250,8 +250,6 @@ export default function HomePage() {
           </section>
 
           <section className={styles.allAgentsSection}>
-            <div className={styles.agentPickerTitle}>All agents</div>
-
             <div className={styles.agentControls}>
               <input
                 className={styles.agentSearchInput}
