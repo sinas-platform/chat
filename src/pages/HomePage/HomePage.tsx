@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, ChevronDown, Lightbulb, Newspaper, type LucideIcon } from "lucide-react";
+import { Bot, ChevronDown, LayoutGrid, Lightbulb, List, Newspaper, type LucideIcon } from "lucide-react";
 
 import styles from "./HomePage.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
@@ -39,6 +39,7 @@ const AGENT_BY_ENDPOINT_KEY = new Map(
 );
 
 type AgentSortMode = "alphabetical" | "recent";
+type AgentViewMode = "grid" | "list";
 
 function getLatestChatTimestamp(chat: Chat): number {
   const timestamp = Date.parse(chat.last_message_at ?? chat.updated_at ?? chat.created_at);
@@ -89,6 +90,7 @@ export default function HomePage() {
   const [isCreating, setIsCreating] = useState(false);
   const [agentSearch, setAgentSearch] = useState("");
   const [agentSort, setAgentSort] = useState<AgentSortMode>("alphabetical");
+  const [agentView, setAgentView] = useState<AgentViewMode>("grid");
 
   const chatsQ = useQuery({
     queryKey: ["chats", ws],
@@ -258,31 +260,54 @@ export default function HomePage() {
                 value={agentSearch}
                 onChange={(e) => setAgentSearch(e.target.value)}
               />
-              <DropdownMenu
-                trigger={
-                  <>
-                    {agentSortLabel}
-                    <ChevronDown size={14} />
-                  </>
-                }
-                triggerAriaLabel="Sort agents"
-                variant="text"
-                items={[
-                  {
-                    id: "sort-alphabetical",
-                    label: "Alphabetical",
-                    onSelect: () => setAgentSort("alphabetical"),
-                  },
-                  {
-                    id: "sort-recent",
-                    label: "Recently used",
-                    onSelect: () => setAgentSort("recent"),
-                  },
-                ]}
-              />
+              <div className={styles.agentControlActions}>
+                <div className={styles.agentViewToggle} role="group" aria-label="Agent card view mode">
+                  <button
+                    type="button"
+                    className={joinClasses(styles.agentViewBtn, agentView === "grid" && styles.agentViewBtnActive)}
+                    onClick={() => setAgentView("grid")}
+                    aria-label="Show agents as grid"
+                    aria-pressed={agentView === "grid"}
+                  >
+                    <LayoutGrid size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={joinClasses(styles.agentViewBtn, agentView === "list" && styles.agentViewBtnActive)}
+                    onClick={() => setAgentView("list")}
+                    aria-label="Show agents as list"
+                    aria-pressed={agentView === "list"}
+                  >
+                    <List size={14} />
+                  </button>
+                </div>
+
+                <DropdownMenu
+                  trigger={
+                    <>
+                      {agentSortLabel}
+                      <ChevronDown size={14} />
+                    </>
+                  }
+                  triggerAriaLabel="Sort agents"
+                  variant="text"
+                  items={[
+                    {
+                      id: "sort-alphabetical",
+                      label: "Alphabetical",
+                      onSelect: () => setAgentSort("alphabetical"),
+                    },
+                    {
+                      id: "sort-recent",
+                      label: "Recently used",
+                      onSelect: () => setAgentSort("recent"),
+                    },
+                  ]}
+                />
+              </div>
             </div>
 
-            <div className={styles.allAgentGrid}>
+            <div className={joinClasses(styles.allAgentGrid, agentView === "list" && styles.allAgentList)}>
               {allAgents.length === 0 ? (
                 <div className={styles.muted}>No agents match your search.</div>
               ) : (
@@ -292,6 +317,7 @@ export default function HomePage() {
                     agent={agent}
                     isActive={selectedAgent.id === agent.id}
                     onSelect={onSelectAgent}
+                    className={agentView === "list" ? styles.agentCardList : undefined}
                   />
                 ))
               )}

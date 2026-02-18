@@ -5,7 +5,7 @@ import { LogOut } from "lucide-react";
 
 import sinasLogo from "../../icons/sinas-logo.svg";
 import { apiClient } from "../../lib/api";
-import { getSelectedAgent } from "../../lib/agents";
+import { getAgentByNamespaceAndName, getSelectedAgent } from "../../lib/agents";
 import { useAuth } from "../../lib/authContext";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import { Button } from "../Button/Button";
@@ -18,6 +18,22 @@ type AppSidebarProps = {
 
 function joinClasses(...classNames: Array<string | undefined | false>) {
   return classNames.filter(Boolean).join(" ");
+}
+
+function getBadgeToneClass(chat: Chat): string {
+  const agent = getAgentByNamespaceAndName(chat.agent_namespace, chat.agent_name);
+  if (!agent) return styles.chatBadgeToneNeutral;
+  if (agent.tone === "yellow") return styles.chatBadgeToneYellow;
+  if (agent.tone === "blue") return styles.chatBadgeToneBlue;
+  if (agent.tone === "mint") return styles.chatBadgeToneMint;
+  return styles.chatBadgeToneNeutral;
+}
+
+function getBadgeLabel(chat: Chat): string {
+  const agent = getAgentByNamespaceAndName(chat.agent_namespace, chat.agent_name);
+  if (agent) return agent.displayName;
+  if (chat.agent_name) return chat.agent_name;
+  return "Unknown";
 }
 
 export function AppSidebar({ activeChatId }: AppSidebarProps) {
@@ -74,7 +90,14 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.sidebarTop}>
-        <img className={styles.sidebarLogo} src={sinasLogo} alt="Sinas" />
+        <button
+          type="button"
+          className={styles.sidebarLogoBtn}
+          onClick={() => navigate("/")}
+          aria-label="Go to homepage"
+        >
+          <img className={styles.sidebarLogo} src={sinasLogo} alt="Sinas" />
+        </button>
 
         <Button
           variant="minimal"
@@ -101,6 +124,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
                 onClick={() => navigate(`/chats/${chat.id}`)}
               >
                 <span className={styles.chatTitle}>{chat.title ?? "Untitled chat"}</span>
+                <span className={joinClasses(styles.chatBadge, getBadgeToneClass(chat))}>{getBadgeLabel(chat)}</span>
               </Button>
             ))
           )}

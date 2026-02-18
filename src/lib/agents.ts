@@ -42,10 +42,27 @@ const SELECTED_AGENT_STORAGE_KEY = "chat.selected_agent_id";
 const DEFAULT_AGENT_ID = "mistral-test-nl";
 
 const agentById = new Map(AGENT_OPTIONS.map((agent) => [agent.id, agent]));
+const agentByEndpointKey = new Map(
+  AGENT_OPTIONS.map((agent) => [`${agent.namespace.toLowerCase()}::${agent.name.toLowerCase()}`, agent]),
+);
+
+function toEndpointKey(namespace?: string | null, name?: string | null) {
+  if (!namespace || !name) return null;
+  return `${namespace.toLowerCase()}::${name.toLowerCase()}`;
+}
 
 export function getAgentById(agentId?: string | null): AgentOption | undefined {
   if (!agentId) return undefined;
   return agentById.get(agentId);
+}
+
+export function getAgentByNamespaceAndName(
+  namespace?: string | null,
+  name?: string | null,
+): AgentOption | undefined {
+  const key = toEndpointKey(namespace, name);
+  if (!key) return undefined;
+  return agentByEndpointKey.get(key);
 }
 
 export function getDefaultAgent(): AgentOption {

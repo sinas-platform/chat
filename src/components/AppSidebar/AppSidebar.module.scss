@@ -19,7 +19,15 @@
   width: 88px;
   height: auto;
   display: block;
-  margin-bottom: 16px;
+}
+
+.sidebarLogoBtn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0 0 16px;
+  width: fit-content;
+  cursor: pointer;
 }
 
 .newChatBtn {
@@ -82,10 +90,42 @@
 }
 
 .chatTitle {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: left;
+}
+
+.chatBadge {
+  flex: 0 0 auto;
+  max-width: 44%;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(17, 17, 17, 0.3);
+  font-size: 11px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chatBadgeToneYellow {
+  background: #faf7de;
+}
+
+.chatBadgeToneBlue {
+  background: #e9f0ff;
+}
+
+.chatBadgeToneMint {
+  background: #eaf8f1;
+}
+
+.chatBadgeToneNeutral {
+  background: #f2f2f2;
 }
 
 .allChatsBtn {
