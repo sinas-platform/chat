@@ -45,6 +45,13 @@
   gap: 10px;
 }
 
+.messages:focus,
+.messages:focus-visible {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
 .message {
   max-width: 75%;
   border-radius: 14px;
@@ -111,7 +118,6 @@
   gap: 10px;
   align-items: flex-end;
   background: #fff;
-  position: relative;
 }
 
 .input {
@@ -119,40 +125,15 @@
   border: 1px solid #ddd;
   border-radius: 14px;
   min-height: 112px;
-  padding: 12px 54px 12px 14px;
+  padding: 12px 14px;
   resize: none;
-}
 
-.micButton {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  width: 32px;
-  height: 32px;
-  border: 1px solid #ddd;
-  border-radius: 999px;
-  background: #fff;
-  color: #444;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    border-color: #bbb;
-    background: #f7f7f7;
+  &:focus,
+  &:focus-visible {
+    outline: none;
+    border-color: #ddd;
+    box-shadow: none;
   }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-.micButtonActive {
-  color: #0e6a33;
-  border-color: #86cca2;
-  background: #edf8f1;
 }
 
 .muted {

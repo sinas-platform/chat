@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Mic, MicOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import styles from "./Chat.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
+import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { apiClient } from "../../lib/api";
-import { useSpeechToText } from "../../lib/useSpeechToText";
 import type { Message } from "../../types";
 
 type LocationState = {
@@ -55,19 +54,6 @@ export function ChatPage() {
 
   const [input, setInput] = useState("");
   const sentInitialDraftRef = useRef<Record<string, boolean>>({});
-  const {
-    isSupported: isSpeechSupported,
-    isListening,
-    startListening,
-    stopListening,
-  } = useSpeechToText({
-    onTranscript: (spokenText) => {
-      setInput((prev) => {
-        if (!prev.trim()) return spokenText;
-        return /\s$/.test(prev) ? `${prev}${spokenText}` : `${prev} ${spokenText}`;
-      });
-    },
-  });
 
   const chatQ = useQuery({
     queryKey: ["chat", chatId],
@@ -135,17 +121,7 @@ export function ChatPage() {
     setInput("");
   }, [chatId, initialDraft, chatQ.isLoading, chatQ.isError, sendMsgM]);
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = input.trim();
-    if (!trimmed || sendMsgM.isPending) return;
-    sendMsgM.mutate(trimmed);
-    setInput("");
-  }
-
-  function onComposerKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key !== "Enter" || e.shiftKey) return;
-    e.preventDefault();
+  function submitInput() {
     const trimmed = input.trim();
     if (!trimmed || sendMsgM.isPending) return;
     sendMsgM.mutate(trimmed);
@@ -208,27 +184,16 @@ export function ChatPage() {
             {sendMsgM.isPending ? <div className={styles.muted}>Sending…</div> : null}
           </div>
 
-          <form className={styles.composer} onSubmit={onSubmit}>
-            <textarea
-              className={styles.input}
-              placeholder="Ask something…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onComposerKeyDown}
-              rows={4}
-            />
-            <button
-              type="button"
-              className={`${styles.micButton} ${isListening ? styles.micButtonActive : ""}`}
-              onClick={isListening ? stopListening : startListening}
-              disabled={!isSpeechSupported || sendMsgM.isPending}
-              aria-label={isListening ? "Stop voice input" : "Start voice input"}
-              aria-pressed={isListening}
-              title={isSpeechSupported ? "Voice input" : "Voice input is not supported in this browser"}
-            >
-              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-            </button>
-          </form>
+          <ChatComposer
+            className={styles.composer}
+            textareaClassName={styles.input}
+            placeholder="Ask something…"
+            value={input}
+            onChange={setInput}
+            onSubmit={submitInput}
+            rows={4}
+            disabled={sendMsgM.isPending}
+          />
         </div>
       </main>
     </div>

@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, ChevronDown, LayoutGrid, Lightbulb, List, Mic, MicOff, Newspaper, type LucideIcon } from "lucide-react";
+import { Bot, ChevronDown, LayoutGrid, Lightbulb, List, Newspaper, type LucideIcon } from "lucide-react";
 
 import styles from "./HomePage.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
+import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { apiClient } from "../../lib/api";
 import {
@@ -15,7 +16,6 @@ import {
   saveSelectedAgentId,
   type AgentOption,
 } from "../../lib/agents";
-import { useSpeechToText } from "../../lib/useSpeechToText";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import type { Chat } from "../../types";
 
@@ -92,19 +92,6 @@ export default function HomePage() {
   const [agentSearch, setAgentSearch] = useState("");
   const [agentSort, setAgentSort] = useState<AgentSortMode>("alphabetical");
   const [agentView, setAgentView] = useState<AgentViewMode>("grid");
-  const {
-    isSupported: isSpeechSupported,
-    isListening,
-    startListening,
-    stopListening,
-  } = useSpeechToText({
-    onTranscript: (spokenText) => {
-      setMessageDraft((prev) => {
-        if (!prev.trim()) return spokenText;
-        return /\s$/.test(prev) ? `${prev}${spokenText}` : `${prev} ${spokenText}`;
-      });
-    },
-  });
 
   const chatsQ = useQuery({
     queryKey: ["chats", ws],
@@ -184,18 +171,7 @@ export default function HomePage() {
     }
   }
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const draft = messageDraft.trim();
-    if (!draft || isCreating) return;
-    createNewChat(draft);
-    setMessageDraft("");
-  }
-
-  function onComposerKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key !== "Enter" || e.shiftKey) return;
-    e.preventDefault();
-
+  function submitDraft() {
     const draft = messageDraft.trim();
     if (!draft || isCreating) return;
     createNewChat(draft);
@@ -230,28 +206,16 @@ export default function HomePage() {
             </div>
           </div>
 
-          <form className={styles.composer} onSubmit={onSubmit}>
-            <textarea
-              className={styles.composerInput}
-              placeholder={`Ask ${selectedAgent.displayName}…`}
-              value={messageDraft}
-              onChange={(e) => setMessageDraft(e.target.value)}
-              onKeyDown={onComposerKeyDown}
-              rows={3}
-              disabled={isCreating}
-            />
-            <button
-              type="button"
-              className={joinClasses(styles.micButton, isListening && styles.micButtonActive)}
-              onClick={isListening ? stopListening : startListening}
-              disabled={!isSpeechSupported || isCreating}
-              aria-label={isListening ? "Stop voice input" : "Start voice input"}
-              aria-pressed={isListening}
-              title={isSpeechSupported ? "Voice input" : "Voice input is not supported in this browser"}
-            >
-              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-            </button>
-          </form>
+          <ChatComposer
+            className={styles.composer}
+            textareaClassName={styles.composerInput}
+            placeholder={`Ask ${selectedAgent.displayName}…`}
+            value={messageDraft}
+            onChange={setMessageDraft}
+            onSubmit={submitDraft}
+            rows={3}
+            disabled={isCreating}
+          />
 
           <section className={styles.agentPicker}>
             <div className={styles.agentPickerTitle}>Recent agents</div>

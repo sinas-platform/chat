@@ -1,0 +1,39 @@
+.root {
+  position: relative;
+}
+
+.textarea {
+  width: 100%;
+}
+
+.micButton {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  background: #fff;
+  color: #444;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: #bbb;
+    background: #f7f7f7;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.micButtonActive {
+  color: #0e6a33;
+  border-color: #86cca2;
+  background: #edf8f1;
+}
