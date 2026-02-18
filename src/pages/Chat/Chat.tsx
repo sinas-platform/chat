@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Mic, MicOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import styles from "./Chat.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { apiClient } from "../../lib/api";
+import { useSpeechToText } from "../../lib/useSpeechToText";
 import type { Message } from "../../types";
 
 type LocationState = {
@@ -53,6 +55,19 @@ export function ChatPage() {
 
   const [input, setInput] = useState("");
   const sentInitialDraftRef = useRef<Record<string, boolean>>({});
+  const {
+    isSupported: isSpeechSupported,
+    isListening,
+    startListening,
+    stopListening,
+  } = useSpeechToText({
+    onTranscript: (spokenText) => {
+      setInput((prev) => {
+        if (!prev.trim()) return spokenText;
+        return /\s$/.test(prev) ? `${prev}${spokenText}` : `${prev} ${spokenText}`;
+      });
+    },
+  });
 
   const chatQ = useQuery({
     queryKey: ["chat", chatId],
@@ -202,6 +217,17 @@ export function ChatPage() {
               onKeyDown={onComposerKeyDown}
               rows={4}
             />
+            <button
+              type="button"
+              className={`${styles.micButton} ${isListening ? styles.micButtonActive : ""}`}
+              onClick={isListening ? stopListening : startListening}
+              disabled={!isSpeechSupported || sendMsgM.isPending}
+              aria-label={isListening ? "Stop voice input" : "Start voice input"}
+              aria-pressed={isListening}
+              title={isSpeechSupported ? "Voice input" : "Voice input is not supported in this browser"}
+            >
+              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+            </button>
           </form>
         </div>
       </main>
