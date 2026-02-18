@@ -67,6 +67,18 @@ export function ChatPage() {
     return Array.isArray(data.messages) ? (data.messages as Message[]) : [];
   }, [chatQ.data]);
 
+  const chatTitle = useMemo(() => {
+    const rawTitle = (chatQ.data as any)?.title;
+    if (typeof rawTitle !== "string") return "Chat";
+
+    const trimmedTitle = rawTitle.trim();
+    return trimmedTitle || "Chat";
+  }, [chatQ.data]);
+
+  useEffect(() => {
+    document.title = `${chatTitle}`;
+  }, [chatTitle]);
+
   const sendMsgM = useMutation({
     mutationFn: async (content: string) => {
       if (!chatId) throw new Error("Missing chatId");
@@ -147,9 +159,7 @@ export function ChatPage() {
       <main className={styles.main}>
         <div className={styles.chatShell}>
           <div className={styles.header}>
-            <h1 className={styles.title}>
-              {chatQ.data ? ((chatQ.data as any).title ?? "Chat") : "Chat"}
-            </h1>
+            <h1 className={styles.title}>{chatTitle}</h1>
             {chatQ.isLoading ? <span className={styles.muted}>Loading…</span> : null}
           </div>
 

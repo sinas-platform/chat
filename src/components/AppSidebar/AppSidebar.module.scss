@@ -38,6 +38,12 @@
   justify-content: space-between;
   padding: 0 14px;
   cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+
+  &:not(:disabled):hover {
+    background: #fafafa;
+    border-color: #d6d6d6;
+  }
 
   &:disabled {
     opacity: 0.6;
@@ -73,6 +79,7 @@
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
 
   &:hover {
     border-color: #ddd;
@@ -132,6 +139,12 @@
   border: 1px solid #ddd;
   background: #fff;
   cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+
+  &:not(.allChatsBtnActive):hover {
+    background: #fafafa;
+    border-color: #d6d6d6;
+  }
 }
 
 .allChatsBtnActive {
@@ -162,6 +175,11 @@
   padding: 0 16px;
   color: #111;
   cursor: pointer;
+  transition: background-color 140ms ease;
+
+  &:hover {
+    background: #f7f7f7;
+  }
 }
 
 .userRow {
@@ -177,6 +195,12 @@
   background: #fff;
   color: #111;
   flex: 0 0 auto;
+  transition: background-color 140ms ease, border-color 140ms ease;
+
+  &:not(:disabled):hover {
+    background: #fafafa;
+    border-color: #d6d6d6;
+  }
 }
 
 .userEmail {

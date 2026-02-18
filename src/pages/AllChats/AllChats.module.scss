@@ -18,7 +18,7 @@
 
 .searchRow {
   display: grid;
-  gap: 10px;
+  gap: 24px;
 }
 
 .searchField {
@@ -93,6 +93,18 @@
   white-space: nowrap;
 }
 
+.actionMenuLabel {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.actionMenuIcon {
+  flex: 0 0 auto;
+}
+
 .list {
   border: none;
   border-radius: 0;
@@ -149,7 +161,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 650;
+  font-weight: 400;
   color: #111;
   line-height: 1.3;
 

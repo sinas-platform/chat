@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Clock3, MoreHorizontal, Search } from "lucide-react";
+import { ChevronDown, Clock3, MoreHorizontal, Pencil, Search, Trash } from "lucide-react";
 
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { Button } from "../../components/Button/Button";
@@ -121,6 +121,10 @@ export function AllChatsPage() {
     chatIds: string[];
     title?: string;
   } | null>(null);
+
+  useEffect(() => {
+    document.title = "Sinas - Chats";
+  }, []);
 
   const chatsQ = useQuery({
     queryKey: ["chats", ws],
@@ -333,7 +337,7 @@ export function AllChatsPage() {
                       onClick={onStartBulkDelete}
                       disabled={!selectedCount || renameChatM.isPending || deleteChatsM.isPending}
                     >
-                      Delete
+                      Delete <Trash size={14} aria-hidden />
                     </Button>
                   </>
                 ) : (
@@ -436,13 +440,23 @@ export function AllChatsPage() {
                           items={[
                             {
                               id: "rename",
-                              label: "Change title",
+                              label: (
+                                <span className={styles.actionMenuLabel}>
+                                  <span>Change title</span>
+                                  <Pencil size={14} className={styles.actionMenuIcon} aria-hidden />
+                                </span>
+                              ),
                               onSelect: () => onStartRename(chat),
                               disabled: renameChatM.isPending || deleteChatsM.isPending,
                             },
                             {
                               id: "delete",
-                              label: "Delete",
+                              label: (
+                                <span className={styles.actionMenuLabel}>
+                                  <span>Delete</span>
+                                  <Trash size={14} className={styles.actionMenuIcon} aria-hidden />
+                                </span>
+                              ),
                               onSelect: () => onStartDelete(chat),
                               danger: true,
                               disabled: renameChatM.isPending || deleteChatsM.isPending,
@@ -533,7 +547,7 @@ export function AllChatsPage() {
                 onClick={onConfirmDeleteChat}
                 disabled={!canDelete}
               >
-                Delete
+                Delete <Trash size={14} aria-hidden />
               </Button>
             </div>
           </div>

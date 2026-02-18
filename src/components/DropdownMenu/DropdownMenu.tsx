@@ -7,7 +7,7 @@ type DropdownAlign = "left" | "right";
 
 export type DropdownMenuItem = {
   id: string;
-  label: string;
+  label: ReactNode;
   onSelect: () => void;
   danger?: boolean;
   disabled?: boolean;

@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, ChevronDown, LayoutGrid, Lightbulb, List, Newspaper, type LucideIcon } from "lucide-react";
+import { Bot, ChevronDown, LayoutGrid, Lightbulb, List, Newspaper, Search, type LucideIcon } from "lucide-react";
 
 import styles from "./HomePage.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
@@ -92,6 +92,10 @@ export default function HomePage() {
   const [agentSearch, setAgentSearch] = useState("");
   const [agentSort, setAgentSort] = useState<AgentSortMode>("alphabetical");
   const [agentView, setAgentView] = useState<AgentViewMode>("grid");
+
+  useEffect(() => {
+    document.title = "Sinas - Chat";
+  }, []);
 
   const chatsQ = useQuery({
     queryKey: ["chats", ws],
@@ -240,13 +244,16 @@ export default function HomePage() {
 
           <section className={styles.allAgentsSection}>
             <div className={styles.agentControls}>
-              <input
-                className={styles.agentSearchInput}
-                type="search"
-                placeholder="Search agents..."
-                value={agentSearch}
-                onChange={(e) => setAgentSearch(e.target.value)}
-              />
+              <div className={styles.agentSearchField}>
+                <Search size={16} aria-hidden />
+                <input
+                  className={styles.agentSearchInput}
+                  type="search"
+                  placeholder="Search agents..."
+                  value={agentSearch}
+                  onChange={(e) => setAgentSearch(e.target.value)}
+                />
+              </div>
               <div className={styles.agentControlActions}>
                 <div className={styles.agentViewToggle} role="group" aria-label="Agent card view mode">
                   <button
