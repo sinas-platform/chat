@@ -14,6 +14,12 @@ type LocationState = {
   initialDraft?: string;
 };
 
+type SendMessageVariables = {
+  content: string;
+  userTempId: string;
+  assistantTempId: string;
+};
+
 function getMessageText(content: unknown): string {
   if (typeof content === "string") return content;
   if (content == null) return "";
@@ -80,11 +86,34 @@ export function ChatPage() {
   }, [chatTitle]);
 
   const sendMsgM = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async (vars: SendMessageVariables) => {
       if (!chatId) throw new Error("Missing chatId");
-      return apiClient.sendMessage(chatId, { content });
+      await apiClient.sendMessageStream(
+        chatId,
+        { content: vars.content },
+        {
+          onChunk: (chunk) => {
+            queryClient.setQueryData(["chat", chatId], (old: any) => {
+              if (!old) return old;
+
+              const oldMsgs = Array.isArray(old.messages) ? old.messages : [];
+              const nextMsgs = oldMsgs.map((msg: any) => {
+                if (msg.id !== vars.assistantTempId) return msg;
+
+                const previousText = getMessageText(msg.content);
+                const nextText =
+                  chunk.mode === "replace" ? chunk.text : `${previousText}${chunk.text}`;
+
+                return { ...msg, content: nextText };
+              });
+
+              return { ...old, messages: nextMsgs };
+            });
+          },
+        }
+      );
     },
-    onMutate: async (content: string) => {
+    onMutate: async (vars: SendMessageVariables) => {
       if (!chatId) return;
 
       // Cancel in-flight chat query so we don't overwrite our optimistic update
@@ -96,26 +125,32 @@ export function ChatPage() {
       // Optimistically add the user message
       queryClient.setQueryData(["chat", chatId], (old: any) => {
         if (!old) return old;
-        const nextMsg: any = {
-          id: `tmp-${Date.now()}`,
+        const nextUserMsg: any = {
+          id: vars.userTempId,
           role: "user",
-          content,
+          content: vars.content,
+          created_at: new Date().toISOString(),
+        };
+        const nextAssistantMsg: any = {
+          id: vars.assistantTempId,
+          role: "assistant",
+          content: "",
           created_at: new Date().toISOString(),
         };
         const oldMsgs = Array.isArray(old.messages) ? old.messages : [];
-        return { ...old, messages: [...oldMsgs, nextMsg] };
+        return { ...old, messages: [...oldMsgs, nextUserMsg, nextAssistantMsg] };
       });
 
       return { previous };
     },
-    onError: (_err, _content, ctx) => {
+    onError: (_err, _vars, ctx) => {
       if (!chatId) return;
       // Roll back optimistic update
       if (ctx?.previous) queryClient.setQueryData(["chat", chatId], ctx.previous);
     },
-    onSuccess: () => {
+    onSettled: () => {
       if (!chatId) return;
-      // Refetch chat so we get the server message + assistant response
+      // Refetch chat so temp IDs/partial content are replaced by server data
       queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
     },
   });
@@ -129,14 +164,24 @@ export function ChatPage() {
     if (sentInitialDraftRef.current[chatId]) return;
     sentInitialDraftRef.current[chatId] = true;
 
-    sendMsgM.mutate(initialDraft);
+    const ts = Date.now();
+    sendMsgM.mutate({
+      content: initialDraft,
+      userTempId: `tmp-user-${ts}`,
+      assistantTempId: `tmp-assistant-${ts}`,
+    });
     setInput("");
   }, [chatId, initialDraft, chatQ.isLoading, chatQ.isError, sendMsgM]);
 
   function submitInput() {
     const trimmed = input.trim();
     if (!trimmed || sendMsgM.isPending) return;
-    sendMsgM.mutate(trimmed);
+    const ts = Date.now();
+    sendMsgM.mutate({
+      content: trimmed,
+      userTempId: `tmp-user-${ts}`,
+      assistantTempId: `tmp-assistant-${ts}`,
+    });
     setInput("");
   }
 
@@ -186,7 +231,7 @@ export function ChatPage() {
               })
             )}
 
-            {sendMsgM.isPending ? <div className={styles.muted}>Sending…</div> : null}
+            {sendMsgM.isPending ? <div className={styles.muted}>Generating…</div> : null}
           </div>
 
           <ChatComposer
