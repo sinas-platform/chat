@@ -13,7 +13,7 @@ import {
   useInteractions,
 } from "@floating-ui/react";
 
-import sinasLogo from "../../icons/sinas-logo.svg";
+import sinasLogo from "../../icons/sinas-logo-small.svg";
 import { apiClient } from "../../lib/api";
 import { getAgentByNamespaceAndName } from "../../lib/agents";
 import { useAuth } from "../../lib/authContext";

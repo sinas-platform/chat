@@ -9,6 +9,7 @@ import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { apiClient } from "../../lib/api";
 import type { Message } from "../../types";
+import sinasLogoSmall from "../../icons/sinas-logo-small.svg";
 
 type LocationState = {
   initialDraft?: string;
@@ -211,20 +212,34 @@ export function ChatPage() {
             ) : (
               messages.map((m: any) => {
                 const messageText = getMessageText(m.content);
+                const isUser = m.role === "user";
+                const isAssistant = m.role === "assistant";
                 return (
                   <div
                     key={m.id ?? `${m.role}-${m.created_at}-${messageText.slice(0, 20)}`}
-                    className={`${styles.message} ${m.role === "user" ? styles.userMsg : styles.assistantMsg}`}
+                    className={`${styles.messageRow} ${isUser ? styles.userRow : styles.assistantRow}`}
                   >
-                    <div className={styles.messageRole}>{m.role ?? "assistant"}</div>
-                    <div className={styles.messageBody}>
-                      {m.role === "assistant" ? (
-                        <div className={styles.messageMarkdown}>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
-                        </div>
-                      ) : (
-                        <div className={styles.messageText}>{messageText}</div>
-                      )}
+                    {isAssistant ? (
+                      <div className={styles.assistantAvatar}>
+                        <img
+                          className={styles.assistantAvatarImage}
+                          src={sinasLogoSmall}
+                          alt=""
+                          aria-hidden="true"
+                        />
+                      </div>
+                    ) : null}
+
+                    <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
+                      <div className={styles.messageBody}>
+                        {isAssistant ? (
+                          <div className={styles.messageMarkdown}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          <div className={styles.messageText}>{messageText}</div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
