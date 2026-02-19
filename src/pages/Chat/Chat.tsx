@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
@@ -8,7 +8,6 @@ import styles from "./Chat.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { apiClient } from "../../lib/api";
-import type { Message } from "../../types";
 import sinasLogoSmall from "../../icons/sinas-logo-small.svg";
 
 type LocationState = {
@@ -20,6 +19,23 @@ type SendMessageVariables = {
   userTempId: string;
   assistantTempId: string;
 };
+
+type ChatMessageViewModel = {
+  id?: string | null;
+  role?: string | null;
+  content?: unknown;
+  created_at?: string | null;
+};
+
+type ChatMessagesProps = {
+  messages: ChatMessageViewModel[];
+  isLoading: boolean;
+  isError: boolean;
+  isPending: boolean;
+};
+
+const MARKDOWN_PLUGINS = [remarkGfm];
+const MemoizedAppSidebar = memo(AppSidebar);
 
 function getMessageText(content: unknown): string {
   if (typeof content === "string") return content;
@@ -49,6 +65,59 @@ function getMessageText(content: unknown): string {
   }
 }
 
+const ChatMessageRow = memo(function ChatMessageRow({ message }: { message: ChatMessageViewModel }) {
+  const messageText = getMessageText(message.content);
+  const isUser = message.role === "user";
+  const isAssistant = message.role === "assistant";
+
+  return (
+    <div className={`${styles.messageRow} ${isUser ? styles.userRow : styles.assistantRow}`}>
+      {isAssistant ? (
+        <div className={styles.assistantAvatar}>
+          <img className={styles.assistantAvatarImage} src={sinasLogoSmall} alt="" aria-hidden="true" />
+        </div>
+      ) : null}
+
+      <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
+        <div className={styles.messageBody}>
+          {isAssistant ? (
+            <div className={styles.messageMarkdown}>
+              <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS}>{messageText}</ReactMarkdown>
+            </div>
+          ) : (
+            <div className={styles.messageText}>{messageText}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+ChatMessageRow.displayName = "ChatMessageRow";
+
+const ChatMessages = memo(function ChatMessages({ messages, isLoading, isError, isPending }: ChatMessagesProps) {
+  return (
+    <div className={styles.messages}>
+      {isError ? <div className={styles.error}>Could not load chat</div> : null}
+
+      {!isLoading && messages.length === 0 ? (
+        <div className={styles.empty}>No messages yet</div>
+      ) : (
+        messages.map((message, index) => (
+          <ChatMessageRow
+            key={message.id ?? `${message.role ?? "message"}-${message.created_at ?? "unknown"}-${index}`}
+            message={message}
+          />
+        ))
+      )}
+
+      {isPending ? <div className={styles.muted}>Generating…</div> : null}
+    </div>
+  );
+});
+
+ChatMessages.displayName = "ChatMessages";
+
 export function ChatPage() {
   const { chatId } = useParams<{ chatId: string }>();
   const location = useLocation();
@@ -68,10 +137,10 @@ export function ChatPage() {
     queryFn: async () => apiClient.getChat(chatId!),
   });
 
-  const messages: Message[] = useMemo(() => {
+  const messages: ChatMessageViewModel[] = useMemo(() => {
     const data: any = chatQ.data;
     if (!data) return [];
-    return Array.isArray(data.messages) ? (data.messages as Message[]) : [];
+    return Array.isArray(data.messages) ? (data.messages as ChatMessageViewModel[]) : [];
   }, [chatQ.data]);
 
   const chatTitle = useMemo(() => {
@@ -171,7 +240,6 @@ export function ChatPage() {
       userTempId: `tmp-user-${ts}`,
       assistantTempId: `tmp-assistant-${ts}`,
     });
-    setInput("");
   }, [chatId, initialDraft, chatQ.isLoading, chatQ.isError, sendMsgM]);
 
   function submitInput() {
@@ -189,7 +257,7 @@ export function ChatPage() {
   if (!chatId) {
     return (
       <div className={styles.layout}>
-        <AppSidebar />
+        <MemoizedAppSidebar />
         <main className={styles.main}>
           <div className={styles.chatShell}>
             <p>Missing chat id</p>
@@ -201,53 +269,15 @@ export function ChatPage() {
 
   return (
     <div className={styles.layout}>
-      <AppSidebar activeChatId={chatId} />
+      <MemoizedAppSidebar activeChatId={chatId} />
       <main className={styles.main}>
         <div className={styles.chatShell}>
-          <div className={styles.messages}>
-            {chatQ.isError ? <div className={styles.error}>Could not load chat</div> : null}
-
-            {!chatQ.isLoading && messages.length === 0 ? (
-              <div className={styles.empty}>No messages yet</div>
-            ) : (
-              messages.map((m: any) => {
-                const messageText = getMessageText(m.content);
-                const isUser = m.role === "user";
-                const isAssistant = m.role === "assistant";
-                return (
-                  <div
-                    key={m.id ?? `${m.role}-${m.created_at}-${messageText.slice(0, 20)}`}
-                    className={`${styles.messageRow} ${isUser ? styles.userRow : styles.assistantRow}`}
-                  >
-                    {isAssistant ? (
-                      <div className={styles.assistantAvatar}>
-                        <img
-                          className={styles.assistantAvatarImage}
-                          src={sinasLogoSmall}
-                          alt=""
-                          aria-hidden="true"
-                        />
-                      </div>
-                    ) : null}
-
-                    <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
-                      <div className={styles.messageBody}>
-                        {isAssistant ? (
-                          <div className={styles.messageMarkdown}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{messageText}</ReactMarkdown>
-                          </div>
-                        ) : (
-                          <div className={styles.messageText}>{messageText}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-
-            {sendMsgM.isPending ? <div className={styles.muted}>Generating…</div> : null}
-          </div>
+          <ChatMessages
+            messages={messages}
+            isLoading={chatQ.isLoading}
+            isError={chatQ.isError}
+            isPending={sendMsgM.isPending}
+          />
 
           <ChatComposer
             className={styles.composer}
