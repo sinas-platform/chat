@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { useAuth } from "../../lib/authContext.tsx";
 import { getWorkspaceUrl, setWorkspaceUrl } from "../../lib/workspace";
@@ -9,6 +9,7 @@ import { emailSchema, otpSchema } from "../../lib/validation";
 import sinasLogo from "../../icons/sinas-logo.svg";
 import { Input } from "../../components/Input/Input.tsx";
 import { Button } from "../../components/Button/Button.tsx";
+import SinasLoader from "../../components/Loader/Loader.tsx";
 
 import { OTPInput } from "../OTPInput/OTPInput.tsx";
 import { WorkspaceModal } from "./WorkspaceModal/WorkspaceModal.tsx";
@@ -160,7 +161,7 @@ export function LoginPage() {
                       disabled={loading || !email.trim()}
                       aria-label="Send one-time code"
                     >
-                      {loading ? <Loader2 className={styles.spin} size={18} /> : <ArrowRight size={20} />}
+                      {loading ? <SinasLoader size={20} /> : <ArrowRight size={20} />}
                     </Button>
                   }
                 />
@@ -172,6 +173,12 @@ export function LoginPage() {
               </div>
 
               <div className={styles.hint}>We’ll send a one-time code to your email.</div>
+              {loading ? (
+                <div className={styles.loadingState} role="status" aria-live="polite">
+                  <SinasLoader size={26} />
+                  <span className={styles.loadingText}>Sending one-time code...</span>
+                </div>
+              ) : null}
 
               <div className={styles.workspaceRow}>
                 <div className={styles.workspaceLabel}>
@@ -200,6 +207,12 @@ export function LoginPage() {
 
             <form onSubmit={submitOtp} className={styles.form} noValidate>
               <OTPInput value={otp} onChange={setOtp} disabled={loading} />
+              {loading ? (
+                <div className={styles.loadingState} role="status" aria-live="polite">
+                  <SinasLoader size={26} />
+                  <span className={styles.loadingText}>Verifying code...</span>
+                </div>
+              ) : null}
 
               {error && <div className={styles.error}>{error}</div>}
 

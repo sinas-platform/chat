@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import styles from "./Chat.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
+import SinasLoader from "../../components/Loader/Loader";
 import { apiClient } from "../../lib/api";
 import sinasLogoSmall from "../../icons/sinas-logo-small.svg";
 
@@ -65,30 +66,47 @@ function getMessageText(content: unknown): string {
   }
 }
 
-const ChatMessageRow = memo(function ChatMessageRow({ message }: { message: ChatMessageViewModel }) {
+type ChatMessageRowProps = {
+  message: ChatMessageViewModel;
+  showAssistantAvatarLoading?: boolean;
+};
+
+const ChatMessageRow = memo(function ChatMessageRow({
+  message,
+  showAssistantAvatarLoading = false,
+}: ChatMessageRowProps) {
   const messageText = getMessageText(message.content);
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
+  const shouldHideAssistantBubble = isAssistant && showAssistantAvatarLoading;
 
   return (
     <div className={`${styles.messageRow} ${isUser ? styles.userRow : styles.assistantRow}`}>
       {isAssistant ? (
         <div className={styles.assistantAvatar}>
-          <img className={styles.assistantAvatarImage} src={sinasLogoSmall} alt="" aria-hidden="true" />
+          {showAssistantAvatarLoading ? (
+            <div className={styles.assistantAvatarLoading} role="status" aria-live="polite" aria-label="Generating response">
+              <SinasLoader size={24} />
+            </div>
+          ) : (
+            <img className={styles.assistantAvatarImage} src={sinasLogoSmall} alt="" aria-hidden="true" />
+          )}
         </div>
       ) : null}
 
-      <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
-        <div className={styles.messageBody}>
-          {isAssistant ? (
-            <div className={styles.messageMarkdown}>
-              <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS}>{messageText}</ReactMarkdown>
-            </div>
-          ) : (
-            <div className={styles.messageText}>{messageText}</div>
-          )}
+      {!shouldHideAssistantBubble ? (
+        <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
+          <div className={styles.messageBody}>
+            {isAssistant ? (
+              <div className={styles.messageMarkdown}>
+                <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS}>{messageText}</ReactMarkdown>
+              </div>
+            ) : (
+              <div className={styles.messageText}>{messageText}</div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 });
@@ -96,22 +114,41 @@ const ChatMessageRow = memo(function ChatMessageRow({ message }: { message: Chat
 ChatMessageRow.displayName = "ChatMessageRow";
 
 const ChatMessages = memo(function ChatMessages({ messages, isLoading, isError, isPending }: ChatMessagesProps) {
+  const lastMessage = messages[messages.length - 1];
+  const isWaitingForFirstChunk =
+    isPending &&
+    lastMessage?.role === "assistant" &&
+    getMessageText(lastMessage.content).length === 0;
+
   return (
     <div className={styles.messages}>
       {isError ? <div className={styles.error}>Could not load chat</div> : null}
 
-      {!isLoading && messages.length === 0 ? (
+      {isLoading && messages.length === 0 ? (
+        <div className={styles.loadingState} role="status" aria-live="polite">
+          <SinasLoader size={28} />
+          <span className={styles.loadingText}>Loading conversation...</span>
+        </div>
+      ) : messages.length === 0 ? (
         <div className={styles.empty}>No messages yet</div>
       ) : (
-        messages.map((message, index) => (
-          <ChatMessageRow
-            key={message.id ?? `${message.role ?? "message"}-${message.created_at ?? "unknown"}-${index}`}
-            message={message}
-          />
-        ))
-      )}
+        messages.map((message, index) => {
+          const isLastMessage = index === messages.length - 1;
+          const shouldShowAssistantLoading =
+            isWaitingForFirstChunk &&
+            isLastMessage &&
+            message.role === "assistant" &&
+            getMessageText(message.content).length === 0;
 
-      {isPending ? <div className={styles.muted}>Generating…</div> : null}
+          return (
+            <ChatMessageRow
+              key={message.id ?? `${message.role ?? "message"}-${message.created_at ?? "unknown"}-${index}`}
+              message={message}
+              showAssistantAvatarLoading={shouldShowAssistantLoading}
+            />
+          );
+        })
+      )}
     </div>
   );
 });

@@ -228,6 +228,18 @@
   white-space: nowrap;
 }
 
+.loadingState {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loadingText {
+  color: #e97203;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .muted {
   color: #888;
   font-size: 13px;

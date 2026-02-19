@@ -103,6 +103,18 @@
   font-size: 12px;
 }
 
+.loadingState {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.loadingText {
+  color: #e97203;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .inputAction {
   border: none;
   background: transparent;
@@ -112,14 +124,4 @@
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     monospace;
-}
-
-.spin {
-  animation: spin 0.9s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }

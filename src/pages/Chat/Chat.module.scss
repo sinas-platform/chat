@@ -97,6 +97,14 @@
   overflow-wrap: anywhere;
 }
 
+.assistantAvatarLoading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
 .messageText {
   white-space: pre-wrap;
 }
@@ -154,6 +162,18 @@
     border-color: #ddd;
     box-shadow: none;
   }
+}
+
+.loadingState {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.loadingText {
+  color: #e97203;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .muted {

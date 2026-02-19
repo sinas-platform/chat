@@ -293,6 +293,19 @@
   line-height: 1.35;
 }
 
+.loadingState {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.loadingText {
+  color: #e97203;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .muted {
   margin-top: 10px;
   color: #7b7b7b;

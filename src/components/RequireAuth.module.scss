@@ -1,0 +1,14 @@
+.loadingState {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+}
+
+.loadingText {
+  color: #e97203;
+  font-size: 14px;
+  font-weight: 500;
+}

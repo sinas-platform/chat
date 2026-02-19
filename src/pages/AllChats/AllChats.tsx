@@ -7,6 +7,7 @@ import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { Button } from "../../components/Button/Button";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { Input } from "../../components/Input/Input";
+import SinasLoader from "../../components/Loader/Loader";
 import { apiClient } from "../../lib/api";
 import { getAgentByNamespaceAndName } from "../../lib/agents";
 import { getWorkspaceUrl } from "../../lib/workspace";
@@ -448,7 +449,10 @@ export function AllChatsPage() {
             {actionError ? <div className={styles.error}>{actionError}</div> : null}
 
             {chatsQ.isLoading ? (
-              <div className={styles.muted}>Loading…</div>
+              <div className={styles.loadingState} role="status" aria-live="polite">
+                <SinasLoader size={26} />
+                <span className={styles.loadingText}>Loading chats...</span>
+              </div>
             ) : filteredChats.length === 0 ? (
               <div className={styles.muted}>No chats yet</div>
             ) : (

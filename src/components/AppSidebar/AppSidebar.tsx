@@ -19,6 +19,7 @@ import { getAgentByNamespaceAndName } from "../../lib/agents";
 import { useAuth } from "../../lib/authContext";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import { Button } from "../Button/Button";
+import SinasLoader from "../Loader/Loader";
 import type { Chat } from "../../types";
 import styles from "./AppSidebar.module.scss";
 
@@ -167,7 +168,10 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
 
         <div className={styles.chatList}>
           {chatsQ.isLoading ? (
-            <div className={styles.muted}>Loading…</div>
+            <div className={styles.loadingState} role="status" aria-live="polite">
+              <SinasLoader size={22} />
+              <span className={styles.loadingText}>Loading chats...</span>
+            </div>
           ) : chats.length === 0 ? (
             <div className={styles.muted}>No chats yet</div>
           ) : (

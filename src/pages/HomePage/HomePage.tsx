@@ -7,6 +7,7 @@ import styles from "./HomePage.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
+import SinasLoader from "../../components/Loader/Loader";
 import { apiClient } from "../../lib/api";
 import {
   AGENT_OPTIONS,
@@ -224,7 +225,10 @@ export default function HomePage() {
           <section className={styles.agentPicker}>
             <div className={styles.agentPickerTitle}>Recent agents</div>
             {chatsQ.isLoading ? (
-              <div className={styles.muted}>Loading recent agents…</div>
+              <div className={styles.loadingState} role="status" aria-live="polite">
+                <SinasLoader size={26} />
+                <span className={styles.loadingText}>Loading recent agents...</span>
+              </div>
             ) : recentAgents.length === 0 ? (
               <div className={styles.muted}>No recently used agents yet.</div>
             ) : (
