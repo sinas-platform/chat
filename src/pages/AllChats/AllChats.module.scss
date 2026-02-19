@@ -68,6 +68,36 @@
   line-height: 1;
 }
 
+.selectIconAction {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  color: #4f4f4f;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+
+  &:hover:not(:disabled) {
+    background: #f3f3f3;
+    color: #111;
+  }
+}
+
+.selectIconActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.selectIconDanger {
+  color: #b42318;
+
+  &:hover:not(:disabled) {
+    background: #fff1f0;
+    color: #931c13;
+  }
+}
+
 .selectCount {
   font-size: 12px;
   color: #4d4d4d;
@@ -76,6 +106,19 @@
   border-radius: 999px;
   padding: 6px 10px;
   line-height: 1;
+}
+
+.selectAllToggle {
+  margin-left: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.selectAllToggleDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .filterActions {
@@ -141,10 +184,86 @@
 }
 
 .selectCheckbox {
-  width: 16px;
-  height: 16px;
-  accent-color: #111;
+  width: 18px;
+  height: 18px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+}
+
+.selectCheckboxInput {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.selectCheckboxControl {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #b9b9b9;
+  border-radius: 5px;
+  background: #fff;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease,
+    opacity 120ms ease;
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 12px 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2 6.3L4.7 9L10 3.7' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    transition:
+      opacity 120ms ease,
+      transform 120ms ease;
+  }
+}
+
+.selectCheckboxInput:hover + .selectCheckboxControl {
+  border-color: #8f8f8f;
+}
+
+.selectCheckboxInput:focus-visible + .selectCheckboxControl {
+  border-color: #111;
+  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.18);
+}
+
+.selectCheckboxInput:checked + .selectCheckboxControl {
+  border-color: #e97203;
+  background: #e97203;
+  transform: translateY(-0.5px);
+}
+
+.selectCheckboxInput:indeterminate + .selectCheckboxControl {
+  border-color: #e97203;
+  background: #e97203;
+}
+
+.selectCheckboxInput:checked + .selectCheckboxControl::after {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.selectCheckboxInput:indeterminate + .selectCheckboxControl::after {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  background-size: 10px 10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 6h7' stroke='white' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 
 .chatMain {

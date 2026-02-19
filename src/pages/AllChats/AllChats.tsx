@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Clock3, MoreHorizontal, Pencil, Search, Trash } from "lucide-react";
+import { ChevronDown, Clock3, MoreHorizontal, Pencil, Search, Trash2, X } from "lucide-react";
 
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { Button } from "../../components/Button/Button";
@@ -117,6 +117,7 @@ export function AllChatsPage() {
     currentTitle: string;
     nextTitle: string;
   } | null>(null);
+  const selectAllCheckboxRef = useRef<HTMLInputElement | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
     chatIds: string[];
     title?: string;
@@ -250,6 +251,22 @@ export function AllChatsPage() {
     setRenameDialog(null);
   }
 
+  function toggleSelectAllVisible() {
+    setSelectedChatIds((prev) => {
+      const next = new Set(prev);
+      const allVisibleSelected =
+        filteredChats.length > 0 && filteredChats.every((chat) => next.has(chat.id));
+
+      if (allVisibleSelected) {
+        filteredChats.forEach((chat) => next.delete(chat.id));
+      } else {
+        filteredChats.forEach((chat) => next.add(chat.id));
+      }
+
+      return next;
+    });
+  }
+
   async function onConfirmRenameChat() {
     if (!renameDialog) return;
     const title = renameDialog.nextTitle.trim();
@@ -302,6 +319,19 @@ export function AllChatsPage() {
     !deleteChatsM.isPending;
   const canDelete = Boolean(deleteDialog) && !renameChatM.isPending && !deleteChatsM.isPending;
   const selectedCount = selectedChatIds.size;
+  const visibleSelectedCount = filteredChats.reduce(
+    (count, chat) => count + (selectedChatIds.has(chat.id) ? 1 : 0),
+    0,
+  );
+  const hasVisibleChats = filteredChats.length > 0;
+  const allVisibleSelected = hasVisibleChats && visibleSelectedCount === filteredChats.length;
+  const someVisibleSelected = visibleSelectedCount > 0 && !allVisibleSelected;
+  const selectAllDisabled = !hasVisibleChats || renameChatM.isPending || deleteChatsM.isPending;
+
+  useEffect(() => {
+    if (!selectAllCheckboxRef.current) return;
+    selectAllCheckboxRef.current.indeterminate = someVisibleSelected;
+  }, [someVisibleSelected]);
 
   return (
     <div className={styles.layout}>
@@ -324,21 +354,47 @@ export function AllChatsPage() {
               <div className={styles.selectActions}>
                 {isSelectMode ? (
                   <>
+                    <label
+                      className={joinClasses(
+                        styles.selectAllToggle,
+                        selectAllDisabled && styles.selectAllToggleDisabled,
+                      )}
+                    >
+                      <span className={styles.selectCheckbox}>
+                        <input
+                          ref={selectAllCheckboxRef}
+                          type="checkbox"
+                          className={styles.selectCheckboxInput}
+                          checked={allVisibleSelected}
+                          onChange={toggleSelectAllVisible}
+                          disabled={selectAllDisabled}
+                          aria-label="Select all visible chats"
+                          aria-checked={someVisibleSelected ? "mixed" : allVisibleSelected}
+                        />
+                        <span className={styles.selectCheckboxControl} aria-hidden />
+                      </span>
+                    </label>
                     <span className={styles.selectCount}>{selectedCount} selected</span>
-                    <Button
-                      className={styles.selectActionButton}
-                      onClick={toggleSelectMode}
-                      disabled={renameChatM.isPending || deleteChatsM.isPending}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      className={joinClasses(styles.selectActionButton, styles.dangerButton)}
-                      onClick={onStartBulkDelete}
-                      disabled={!selectedCount || renameChatM.isPending || deleteChatsM.isPending}
-                    >
-                      Delete <Trash size={14} aria-hidden />
-                    </Button>
+                    <span className={styles.selectIconActions}>
+                      <Button
+                        variant="minimal"
+                        className={joinClasses(styles.selectIconAction, styles.selectIconDanger)}
+                        onClick={onStartBulkDelete}
+                        disabled={!selectedCount || renameChatM.isPending || deleteChatsM.isPending}
+                        aria-label="Delete selected chats"
+                      >
+                        <Trash2 size={15} aria-hidden />
+                      </Button>
+                      <Button
+                        variant="minimal"
+                        className={styles.selectIconAction}
+                        onClick={toggleSelectMode}
+                        disabled={renameChatM.isPending || deleteChatsM.isPending}
+                        aria-label="Exit selection mode"
+                      >
+                        <X size={15} aria-hidden />
+                      </Button>
+                    </span>
                   </>
                 ) : (
                   <Button
@@ -400,13 +456,16 @@ export function AllChatsPage() {
                 <div key={chat.id} className={styles.chatRow}>
                   {isSelectMode ? (
                     <div className={styles.selectCell}>
-                      <input
-                        type="checkbox"
-                        className={styles.selectCheckbox}
-                        checked={selectedChatIds.has(chat.id)}
-                        onChange={() => toggleChatSelection(chat.id)}
-                        aria-label={`Select ${chat.title ?? "Untitled chat"}`}
-                      />
+                      <label className={styles.selectCheckbox}>
+                        <input
+                          type="checkbox"
+                          className={styles.selectCheckboxInput}
+                          checked={selectedChatIds.has(chat.id)}
+                          onChange={() => toggleChatSelection(chat.id)}
+                          aria-label={`Select ${chat.title ?? "Untitled chat"}`}
+                        />
+                        <span className={styles.selectCheckboxControl} aria-hidden />
+                      </label>
                     </div>
                   ) : null}
 
@@ -454,7 +513,7 @@ export function AllChatsPage() {
                               label: (
                                 <span className={styles.actionMenuLabel}>
                                   <span>Delete</span>
-                                  <Trash size={14} className={styles.actionMenuIcon} aria-hidden />
+                                  <Trash2 size={14} className={styles.actionMenuIcon} aria-hidden />
                                 </span>
                               ),
                               onSelect: () => onStartDelete(chat),
@@ -547,7 +606,7 @@ export function AllChatsPage() {
                 onClick={onConfirmDeleteChat}
                 disabled={!canDelete}
               >
-                Delete <Trash size={14} aria-hidden />
+                Delete <Trash2 size={14} aria-hidden />
               </Button>
             </div>
           </div>

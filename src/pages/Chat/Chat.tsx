@@ -158,11 +158,6 @@ export function ChatPage() {
       <AppSidebar activeChatId={chatId} />
       <main className={styles.main}>
         <div className={styles.chatShell}>
-          <div className={styles.header}>
-            <h1 className={styles.title}>{chatTitle}</h1>
-            {chatQ.isLoading ? <span className={styles.muted}>Loading…</span> : null}
-          </div>
-
           <div className={styles.messages}>
             {chatQ.isError ? <div className={styles.error}>Could not load chat</div> : null}
 

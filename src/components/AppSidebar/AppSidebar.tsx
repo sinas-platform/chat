@@ -1,7 +1,17 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CirclePlus, LogOut, Settings } from "lucide-react";
+import {
+  FloatingPortal,
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  useFloating,
+  useHover,
+  useInteractions,
+} from "@floating-ui/react";
 
 import sinasLogo from "../../icons/sinas-logo.svg";
 import { apiClient } from "../../lib/api";
@@ -34,6 +44,71 @@ function getBadgeLabel(chat: Chat): string {
   if (agent) return agent.displayName;
   if (chat.agent_name) return chat.agent_name;
   return "Unknown";
+}
+
+function SidebarChatTitle({ title }: { title: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const [referenceEl, setReferenceEl] = useState<HTMLSpanElement | null>(null);
+  const { refs, floatingStyles, context } = useFloating({
+    open: isOpen,
+    onOpenChange: setIsOpen,
+    whileElementsMounted: autoUpdate,
+    placement: "right",
+    middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 })],
+  });
+  const hover = useHover(context, { move: false, enabled: isTruncated });
+  const { getReferenceProps, getFloatingProps } = useInteractions([hover]);
+  const setTitleRef = useCallback(
+    (node: HTMLSpanElement | null) => {
+      refs.setReference(node);
+      setReferenceEl(node);
+    },
+    [refs],
+  );
+
+  useEffect(() => {
+    if (!referenceEl) {
+      setIsTruncated(false);
+      return;
+    }
+
+    const checkTruncation = () => {
+      setIsTruncated(referenceEl.scrollWidth > referenceEl.clientWidth);
+    };
+
+    checkTruncation();
+
+    const resizeObserver = new ResizeObserver(checkTruncation);
+    resizeObserver.observe(referenceEl);
+    window.addEventListener("resize", checkTruncation);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", checkTruncation);
+    };
+  }, [referenceEl, title]);
+
+  useEffect(() => {
+    if (!isTruncated && isOpen) {
+      setIsOpen(false);
+    }
+  }, [isTruncated, isOpen]);
+
+  return (
+    <>
+      <span ref={setTitleRef} className={styles.chatTitle} {...getReferenceProps()}>
+        {title}
+      </span>
+      {isTruncated && isOpen ? (
+        <FloatingPortal>
+          <div ref={refs.setFloating} style={floatingStyles} className={styles.chatTitleTooltip} {...getFloatingProps()}>
+            {title}
+          </div>
+        </FloatingPortal>
+      ) : null}
+    </>
+  );
 }
 
 export function AppSidebar({ activeChatId }: AppSidebarProps) {
@@ -96,17 +171,20 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
           ) : chats.length === 0 ? (
             <div className={styles.muted}>No chats yet</div>
           ) : (
-            chats.map((chat: Chat) => (
-              <Button
-                variant="minimal"
-                key={chat.id}
-                className={joinClasses(styles.chatRow, chat.id === activeChatId && styles.chatRowActive)}
-                onClick={() => navigate(`/chats/${chat.id}`)}
-              >
-                <span className={styles.chatTitle}>{chat.title ?? "Untitled chat"}</span>
-                <span className={joinClasses(styles.chatBadge, getBadgeToneClass(chat))}>{getBadgeLabel(chat)}</span>
-              </Button>
-            ))
+            chats.map((chat: Chat) => {
+              const chatTitle = chat.title?.trim() || "Untitled chat";
+              return (
+                <Button
+                  variant="minimal"
+                  key={chat.id}
+                  className={joinClasses(styles.chatRow, chat.id === activeChatId && styles.chatRowActive)}
+                  onClick={() => navigate(`/chats/${chat.id}`)}
+                >
+                  <SidebarChatTitle title={chatTitle} />
+                  <span className={joinClasses(styles.chatBadge, getBadgeToneClass(chat))}>{getBadgeLabel(chat)}</span>
+                </Button>
+              );
+            })
           )}
         </div>
 

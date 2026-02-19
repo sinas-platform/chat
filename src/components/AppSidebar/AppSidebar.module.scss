@@ -101,6 +101,22 @@
   text-align: left;
 }
 
+.chatTitleTooltip {
+  z-index: 9999;
+  max-width: min(420px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d8d8d8;
+  background: #fff;
+  color: #111;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  box-shadow: 0 6px 20px rgba(17, 17, 17, 0.14);
+  pointer-events: none;
+}
+
 .chatBadge {
   flex: 0 0 auto;
   max-width: 44%;
