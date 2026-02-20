@@ -1,0 +1,53 @@
+name: Build & Deploy to Scaleway
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to build and deploy'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - prod
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'test' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Scaleway Container Registry
+        uses: docker/login-action@v3
+        with:
+          username: nologin
+          password: ${{ secrets.SCALEWAY_API_KEY }}
+          registry: ${{ secrets.CONTAINER_REGISTRY_ENDPOINT }}
+
+      - name: Build and push the Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
+          tags: ${{ secrets.CONTAINER_REGISTRY_ENDPOINT }}/sinas-ai:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'test' }}
+    steps:
+      - name: Deploy to Scaleway Container
+        run: |
+          curl -X POST "https://api.scaleway.com/containers/v1beta1/regions/${{ secrets.SCW_REGION }}/containers/${{ secrets.SCW_CONTAINER_ID }}/deploy" \
+          -H "X-Auth-Token: ${{ secrets.SCALEWAY_API_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d "{}"
