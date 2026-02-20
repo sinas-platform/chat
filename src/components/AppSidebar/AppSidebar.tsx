@@ -132,6 +132,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
 
   const chats = chatsQ.data ?? [];
   const isAllChatsPage = location.pathname === "/chats";
+  const isSettingsPage = location.pathname === "/settings";
 
   function onCreateNewChat() {
     navigate("/");
@@ -202,7 +203,11 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
       </div>
 
       <div className={styles.sidebarBottom}>
-        <Button variant="minimal" className={styles.settingsBtn} onClick={() => navigate("/settings")}>
+        <Button
+          variant="minimal"
+          className={joinClasses(styles.settingsBtn, isSettingsPage && styles.settingsBtnActive)}
+          onClick={() => navigate("/settings")}
+        >
           <Settings size={16} aria-hidden />
           <span>Settings</span>
         </Button>

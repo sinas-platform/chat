@@ -3,6 +3,7 @@ import { RootLayout } from "./root-layout.tsx";
 import { ChatPage } from "../pages/Chat/Chat.tsx";
 import { AllChatsPage } from "../pages/AllChats/AllChats.tsx";
 import HomePage from "../pages/HomePage/HomePage.tsx";
+import { SettingsPage } from "../pages/Settings/Settings.tsx";
 import { RequireAuth } from "../components/RequireAuth.tsx";
 import { LoginPage } from "../pages/LoginPage/LoginPage.tsx";
 
@@ -32,6 +33,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireAuth>
             <ChatPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "/settings",
+        element: (
+          <RequireAuth>
+            <SettingsPage />
           </RequireAuth>
         ),
       },
