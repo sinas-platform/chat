@@ -61,6 +61,7 @@ const AUDIO_ATTACHMENTS_ENABLED = false;
 const AUDIO_ATTACHMENTS_DISABLED_ERROR = "Audio attachments are not supported yet.";
 const UNSUPPORTED_AUDIO_ERROR = "Unsupported audio format. Please use WAV, MP3, M4A, or OGG.";
 const SUPPORTED_AUDIO_FORMATS = new Set<AudioAttachmentFormat>(["wav", "mp3", "m4a", "ogg"]);
+const CHAT_ATTACHMENT_ACCEPT = "image/*,.pdf,.doc,.docx,.txt";
 
 type PendingChatAttachment =
   | {
@@ -506,6 +507,7 @@ export function ChatPage() {
   const [pendingAttachments, setPendingAttachments] = useState<PendingChatAttachment[]>([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [uploadingAttachmentName, setUploadingAttachmentName] = useState<string | null>(null);
+  const [uploadingAttachmentThumbnailUrl, setUploadingAttachmentThumbnailUrl] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const sentInitialDraftRef = useRef<Record<string, boolean>>({});
   const composerAttachments = useMemo<ChatAttachment[]>(
@@ -547,6 +549,21 @@ export function ChatPage() {
   useEffect(() => {
     document.title = `${chatTitle}`;
   }, [chatTitle]);
+
+  useEffect(() => {
+    return () => {
+      if (uploadingAttachmentThumbnailUrl) {
+        URL.revokeObjectURL(uploadingAttachmentThumbnailUrl);
+      }
+    };
+  }, [uploadingAttachmentThumbnailUrl]);
+
+  function replaceUploadingThumbnail(nextUrl: string | null) {
+    setUploadingAttachmentThumbnailUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return nextUrl;
+    });
+  }
 
   const sendMsgM = useMutation({
     mutationFn: async (vars: SendMessageVariables) => {
@@ -654,6 +671,7 @@ export function ChatPage() {
     setAttachmentError(null);
     setIsUploadingAttachment(true);
     setUploadingAttachmentName(file.name);
+    replaceUploadingThumbnail(file.type.toLowerCase().startsWith("image/") ? URL.createObjectURL(file) : null);
 
     try {
       if (isAudioCandidate(file)) {
@@ -696,6 +714,7 @@ export function ChatPage() {
     } finally {
       setIsUploadingAttachment(false);
       setUploadingAttachmentName(null);
+      replaceUploadingThumbnail(null);
     }
   }
 
@@ -778,9 +797,11 @@ export function ChatPage() {
             attachments={composerAttachments}
             isUploadingAttachment={isUploadingAttachment}
             uploadingAttachmentName={uploadingAttachmentName}
+            uploadingAttachmentThumbnailUrl={uploadingAttachmentThumbnailUrl}
             attachmentError={attachmentError}
             onAddAttachment={addAttachment}
             onRemoveAttachment={removeAttachment}
+            attachmentAccept={CHAT_ATTACHMENT_ACCEPT}
           />
         </div>
       </main>

@@ -2,6 +2,35 @@
   position: relative;
 }
 
+.dropActive {
+  outline: 2px dashed #9cb6d8;
+  outline-offset: 6px;
+  border-radius: 16px;
+}
+
+.dropOverlay {
+  position: absolute;
+  inset: -4px;
+  border-radius: 16px;
+  background: rgba(245, 249, 255, 0.92);
+  border: 1px solid #cfe0f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.dropOverlayText {
+  font-size: 13px;
+  font-weight: 600;
+  color: #35557d;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #d9e7f7;
+}
+
 .attachmentArea {
   margin-bottom: 8px;
   display: flex;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type ChangeEvent, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent } from "react";
 import { Mic, MicOff, Paperclip } from "lucide-react";
 
 import type { ChatAttachment } from "../../lib/files/types";
@@ -23,6 +23,8 @@ type ChatComposerProps = {
   attachmentError?: string | null;
   onAddAttachment?: (file: File) => void | Promise<void>;
   onRemoveAttachment?: (index: number) => void;
+  attachmentAccept?: string;
+  uploadingAttachmentThumbnailUrl?: string | null;
 };
 
 function joinClasses(...classNames: Array<string | undefined | false>) {
@@ -32,6 +34,12 @@ function joinClasses(...classNames: Array<string | undefined | false>) {
 function appendTranscript(currentValue: string, transcript: string): string {
   if (!currentValue.trim()) return transcript;
   return /\s$/.test(currentValue) ? `${currentValue}${transcript}` : `${currentValue} ${transcript}`;
+}
+
+function hasFileDragData(event: DragEvent<HTMLElement>): boolean {
+  const types = event.dataTransfer?.types;
+  if (!types) return false;
+  return Array.from(types).includes("Files");
 }
 
 export function ChatComposer({
@@ -51,9 +59,13 @@ export function ChatComposer({
   attachmentError,
   onAddAttachment,
   onRemoveAttachment,
+  attachmentAccept,
+  uploadingAttachmentThumbnailUrl,
 }: ChatComposerProps) {
   const latestValueRef = useRef(value);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const dragDepthRef = useRef(0);
+  const [isDropActive, setIsDropActive] = useState(false);
 
   useEffect(() => {
     latestValueRef.current = value;
@@ -127,8 +139,57 @@ export function ChatComposer({
     }
   }
 
+  function handleDragEnter(e: DragEvent<HTMLFormElement>) {
+    if (!isAttachmentEnabled || disabled || isUploadingAttachment || !hasFileDragData(e)) return;
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDropActive(true);
+  }
+
+  function handleDragOver(e: DragEvent<HTMLFormElement>) {
+    if (!isAttachmentEnabled || disabled || isUploadingAttachment || !hasFileDragData(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleDragLeave(e: DragEvent<HTMLFormElement>) {
+    if (!isAttachmentEnabled || !hasFileDragData(e)) return;
+    e.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) {
+      setIsDropActive(false);
+    }
+  }
+
+  async function handleDrop(e: DragEvent<HTMLFormElement>) {
+    if (!isAttachmentEnabled || disabled || isUploadingAttachment || !onAddAttachment || !hasFileDragData(e)) return;
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDropActive(false);
+
+    const droppedFiles = Array.from(e.dataTransfer.files ?? []);
+    if (droppedFiles.length === 0) return;
+
+    for (const file of droppedFiles) {
+      await onAddAttachment(file);
+    }
+  }
+
   return (
-    <form className={joinClasses(styles.root, className)} onSubmit={handleSubmit}>
+    <form
+      className={joinClasses(styles.root, className, isDropActive && styles.dropActive)}
+      onSubmit={handleSubmit}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDropActive ? (
+        <div className={styles.dropOverlay} aria-hidden="true">
+          <span className={styles.dropOverlayText}>Drop files to attach</span>
+        </div>
+      ) : null}
+
       {isAttachmentEnabled || attachments.length > 0 || isUploadingAttachment || attachmentError ? (
         <div className={styles.attachmentArea}>
           {attachments.length > 0 || isUploadingAttachment ? (
@@ -148,6 +209,7 @@ export function ChatComposer({
                 <AttachmentChip
                   name={uploadingAttachmentName || "Uploading file..."}
                   isUploading
+                  thumbnailUrl={uploadingAttachmentThumbnailUrl || undefined}
                   disabled
                 />
               ) : null}
@@ -182,6 +244,7 @@ export function ChatComposer({
             multiple
             className={styles.attachmentInput}
             onChange={handleAttachmentSelection}
+            accept={attachmentAccept}
             tabIndex={-1}
             aria-hidden="true"
           />

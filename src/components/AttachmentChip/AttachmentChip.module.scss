@@ -29,6 +29,15 @@
   object-fit: cover;
 }
 
+.imageUploadOverlay {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.42);
+}
+
 .spinner {
   width: 12px;
   height: 12px;

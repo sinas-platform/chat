@@ -32,10 +32,17 @@ export function AttachmentChip({
 
   return (
     <div className={`${styles.chip} ${isImageChip ? styles.imageChip : ""}`} title={name}>
-      {isUploading ? <span className={styles.spinner} aria-hidden /> : null}
+      {isUploading && !isImageChip ? <span className={styles.spinner} aria-hidden /> : null}
 
       {isImageChip ? (
-        <img className={styles.thumbnail} src={thumbnailUrl} alt="" aria-hidden="true" />
+        <>
+          <img className={styles.thumbnail} src={thumbnailUrl} alt="" aria-hidden="true" />
+          {isUploading ? (
+            <span className={styles.imageUploadOverlay} aria-hidden="true">
+              <span className={styles.spinner} />
+            </span>
+          ) : null}
+        </>
       ) : (
         <div className={styles.content}>
           <span className={styles.name} title={name}>

@@ -262,24 +262,26 @@
 }
 
 .composer {
-  display: flex;
-  gap: 10px;
+  margin-top: 8px;
+  border: 1px solid #111;
+  border-radius: 18px;
+  padding: 12px 14px;
   align-items: flex-end;
   background: #fff;
 }
 
 .input {
-  flex: 1;
-  border: 1px solid #ddd;
-  border-radius: 14px;
-  min-height: 112px;
-  padding: 12px 14px;
+  width: 100%;
+  border: 0;
+  outline: none;
+  font-size: 14px;
+  min-height: 96px;
+  padding: 8px 0;
   resize: none;
 
   &:focus,
   &:focus-visible {
     outline: none;
-    border-color: #ddd;
     box-shadow: none;
   }
 }
