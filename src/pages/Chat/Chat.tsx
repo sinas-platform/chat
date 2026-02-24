@@ -13,14 +13,15 @@ import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files
 import type { ChatAttachment } from "../../lib/files/types";
 import sinasLogoSmall from "../../icons/sinas-logo-small.svg";
 
+type AudioAttachmentFormat = "wav" | "mp3" | "m4a" | "ogg";
+
 type LocationState = {
   initialDraft?: string;
   initialAttachments?: ChatAttachment[];
 };
 
 type SendMessageVariables = {
-  content: string;
-  attachments: ChatAttachment[];
+  content: string | Array<Record<string, unknown>>;
   userTempId: string;
   assistantTempId: string;
 };
@@ -40,10 +41,11 @@ type ChatMessagesProps = {
 };
 
 type RenderedMessageAttachment = {
-  kind: "image" | "file";
-  url: string;
+  kind: "image" | "file" | "audio";
+  url?: string;
   name?: string;
   mime?: string;
+  format?: AudioAttachmentFormat;
 };
 
 type ParsedMessageContent = {
@@ -54,6 +56,79 @@ type ParsedMessageContent = {
 const MARKDOWN_PLUGINS = [remarkGfm];
 const MemoizedAppSidebar = memo(AppSidebar);
 const DEFAULT_ATTACHMENT_ERROR = "File uploads aren’t configured on this Sinas instance. Ask admin to configure it.";
+// Keep audio attachment plumbing in place; flip to `true` once agents support audio parts.
+const AUDIO_ATTACHMENTS_ENABLED = false;
+const AUDIO_ATTACHMENTS_DISABLED_ERROR = "Audio attachments are not supported yet.";
+const UNSUPPORTED_AUDIO_ERROR = "Unsupported audio format. Please use WAV, MP3, M4A, or OGG.";
+const SUPPORTED_AUDIO_FORMATS = new Set<AudioAttachmentFormat>(["wav", "mp3", "m4a", "ogg"]);
+
+type PendingChatAttachment =
+  | {
+      kind: "uploaded";
+      attachment: ChatAttachment;
+    }
+  | {
+      kind: "audio";
+      audio: {
+        name: string;
+        mime: string;
+        size: number;
+        format: AudioAttachmentFormat;
+        base64: string;
+        added_at: string;
+      };
+    };
+
+function getFileExtension(filename: string): string {
+  const dotIndex = filename.lastIndexOf(".");
+  if (dotIndex === -1 || dotIndex === filename.length - 1) return "";
+  return filename.slice(dotIndex + 1).toLowerCase();
+}
+
+function isAudioCandidate(file: File): boolean {
+  if (file.type.toLowerCase().startsWith("audio/")) return true;
+  return SUPPORTED_AUDIO_FORMATS.has(getFileExtension(file.name) as AudioAttachmentFormat);
+}
+
+function normalizeAudioFormat(file: File): AudioAttachmentFormat | null {
+  const mime = file.type.toLowerCase();
+  const ext = getFileExtension(file.name);
+
+  if (mime === "audio/mpeg" || mime === "audio/mp3") return "mp3";
+  if (mime === "audio/mp4" || mime === "audio/m4a" || mime === "audio/x-m4a") return "m4a";
+  if (mime === "audio/wav" || mime === "audio/wave" || mime === "audio/x-wav" || mime === "audio/vnd.wave") return "wav";
+  if (mime === "audio/ogg" || mime === "application/ogg") return "ogg";
+
+  if (ext === "mp3") return "mp3";
+  if (ext === "m4a") return "m4a";
+  if (ext === "wav") return "wav";
+  if (ext === "ogg") return "ogg";
+
+  return null;
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("Could not read file data"));
+    };
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function stripDataUrlPrefix(dataUrl: string): string {
+  const commaIndex = dataUrl.indexOf(",");
+  if (commaIndex === -1 || commaIndex === dataUrl.length - 1) {
+    throw new Error("Invalid file data");
+  }
+  return dataUrl.slice(commaIndex + 1);
+}
 
 function getAttachmentErrorMessage(error: unknown): string {
   if (error instanceof UploadChatAttachmentError) {
@@ -63,6 +138,13 @@ function getAttachmentErrorMessage(error: unknown): string {
   }
 
   return DEFAULT_ATTACHMENT_ERROR;
+}
+
+function getAudioAttachmentErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return "Could not process audio file.";
 }
 
 function tryParseStructuredContentString(value: string): unknown | null {
@@ -76,7 +158,7 @@ function tryParseStructuredContentString(value: string): unknown | null {
     const hasStructuredParts = parsed.some((item) => {
       if (!item || typeof item !== "object") return false;
       const type = (item as { type?: unknown }).type;
-      return type === "text" || type === "image" || type === "file";
+      return type === "text" || type === "image" || type === "file" || type === "audio";
     });
 
     return hasStructuredParts ? parsed : null;
@@ -191,6 +273,23 @@ function parseMessageContent(content: unknown): ParsedMessageContent {
       continue;
     }
 
+    if (type === "audio") {
+      const format = typeof part.format === "string" ? part.format.toLowerCase() : "";
+      if (SUPPORTED_AUDIO_FORMATS.has(format as AudioAttachmentFormat)) {
+        attachments.push({
+          kind: "audio",
+          name: typeof part.name === "string" ? part.name : "Audio attachment",
+          format: format as AudioAttachmentFormat,
+        });
+      } else {
+        attachments.push({
+          kind: "audio",
+          name: "Audio attachment",
+        });
+      }
+      continue;
+    }
+
     const text = part.text;
     if (typeof text === "string" && text.length > 0) {
       textParts.push(text);
@@ -256,6 +355,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const { text: messageText, attachments } = parseMessageContent(message.content);
   const imageAttachments = attachments.filter((attachment) => attachment.kind === "image");
   const fileAttachments = attachments.filter((attachment) => attachment.kind === "file");
+  const audioAttachments = attachments.filter((attachment) => attachment.kind === "audio");
   const useCompactImageAttachments = imageAttachments.length > 1;
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
@@ -319,6 +419,19 @@ const ChatMessageRow = memo(function ChatMessageRow({
                           <span className={styles.messageAttachmentFileMeta}>{attachment.mime}</span>
                         ) : null}
                       </a>
+                    ))}
+                  </div>
+                ) : null}
+
+                {audioAttachments.length > 0 ? (
+                  <div className={styles.messageFileAttachments}>
+                    {audioAttachments.map((attachment, index) => (
+                      <div key={`${attachment.name ?? "audio"}-${attachment.format ?? "unknown"}-${index}`} className={styles.messageAttachmentFile}>
+                        <span className={styles.messageAttachmentFileName}>{attachment.name || "Audio attachment"}</span>
+                        <span className={styles.messageAttachmentFileMeta}>
+                          {attachment.format ? `audio/${attachment.format}` : "audio"}
+                        </span>
+                      </div>
                     ))}
                   </div>
                 ) : null}
@@ -390,11 +503,26 @@ export function ChatPage() {
   }, [location.state]);
 
   const [input, setInput] = useState("");
-  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingChatAttachment[]>([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [uploadingAttachmentName, setUploadingAttachmentName] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const sentInitialDraftRef = useRef<Record<string, boolean>>({});
+  const composerAttachments = useMemo<ChatAttachment[]>(
+    () =>
+      pendingAttachments.map((item) => {
+        if (item.kind === "uploaded") return item.attachment;
+
+        return {
+          name: item.audio.name,
+          mime: item.audio.mime || `audio/${item.audio.format}`,
+          size: item.audio.size,
+          url: "",
+          uploaded_at: item.audio.added_at,
+        };
+      }),
+    [pendingAttachments]
+  );
 
   const chatQ = useQuery({
     queryKey: ["chat", chatId],
@@ -427,7 +555,6 @@ export function ChatPage() {
         chatId,
         {
           content: vars.content,
-          ...(vars.attachments.length > 0 ? { attachments: vars.attachments } : {}),
         },
         {
           onChunk: (chunk) => {
@@ -463,22 +590,10 @@ export function ChatPage() {
       // Optimistically add the user message
       queryClient.setQueryData(["chat", chatId], (old: any) => {
         if (!old) return old;
-        const optimisticUserContent =
-          vars.attachments.length > 0
-            ? [
-                ...(vars.content ? [{ type: "text", text: vars.content }] : []),
-                ...vars.attachments.map((attachment) => ({
-                  type: attachment.mime.toLowerCase().startsWith("image/") ? "image" : "file",
-                  ...(attachment.mime.toLowerCase().startsWith("image/")
-                    ? { image: attachment.url }
-                    : { file: attachment.url, name: attachment.name, mime: attachment.mime }),
-                })),
-              ]
-            : vars.content;
         const nextUserMsg: any = {
           id: vars.userTempId,
           role: "user",
-          content: optimisticUserContent,
+          content: vars.content,
           created_at: new Date().toISOString(),
         };
         const nextAssistantMsg: any = {
@@ -507,17 +622,27 @@ export function ChatPage() {
 
   // Auto-send initial draft once
   useEffect(() => {
-    if (!chatId) return;
-    if (!initialDraft && initialAttachments.length === 0) return;
-    if (chatQ.isLoading || chatQ.isError) return;
+      if (!chatId) return;
+      if (!initialDraft && initialAttachments.length === 0) return;
+      if (chatQ.isLoading || chatQ.isError) return;
 
     if (sentInitialDraftRef.current[chatId]) return;
     sentInitialDraftRef.current[chatId] = true;
 
     const ts = Date.now();
     sendMsgM.mutate({
-      content: initialDraft,
-      attachments: initialAttachments,
+      content:
+        initialAttachments.length > 0
+          ? [
+              ...(initialDraft ? [{ type: "text", text: initialDraft }] : []),
+              ...initialAttachments.map((attachment) => ({
+                type: attachment.mime.toLowerCase().startsWith("image/") ? "image" : "file",
+                ...(attachment.mime.toLowerCase().startsWith("image/")
+                  ? { image: attachment.url }
+                  : { file: attachment.url, name: attachment.name, mime: attachment.mime }),
+              })),
+            ]
+          : initialDraft,
       userTempId: `tmp-user-${ts}`,
       assistantTempId: `tmp-assistant-${ts}`,
     });
@@ -531,10 +656,43 @@ export function ChatPage() {
     setUploadingAttachmentName(file.name);
 
     try {
+      if (isAudioCandidate(file)) {
+        if (!AUDIO_ATTACHMENTS_ENABLED) {
+          setAttachmentError(AUDIO_ATTACHMENTS_DISABLED_ERROR);
+          return;
+        }
+
+        const format = normalizeAudioFormat(file);
+        if (!format) {
+          setAttachmentError(UNSUPPORTED_AUDIO_ERROR);
+          return;
+        }
+
+        const dataUrl = await fileToDataUrl(file);
+        const base64 = stripDataUrlPrefix(dataUrl);
+
+        setPendingAttachments((prev) => [
+          ...prev,
+          {
+            kind: "audio",
+            audio: {
+              name: file.name,
+              mime: file.type || `audio/${format}`,
+              size: file.size,
+              format,
+              base64,
+              added_at: new Date().toISOString(),
+            },
+          },
+        ]);
+        return;
+      }
+
       const uploadedAttachment = await uploadChatAttachment(file, chatId);
-      setAttachments((prev) => [...prev, uploadedAttachment]);
+      setPendingAttachments((prev) => [...prev, { kind: "uploaded", attachment: uploadedAttachment }]);
     } catch (error) {
-      setAttachmentError(getAttachmentErrorMessage(error));
+      const isAudioFile = isAudioCandidate(file);
+      setAttachmentError(isAudioFile ? getAudioAttachmentErrorMessage(error) : getAttachmentErrorMessage(error));
     } finally {
       setIsUploadingAttachment(false);
       setUploadingAttachmentName(null);
@@ -543,24 +701,43 @@ export function ChatPage() {
 
   function removeAttachment(indexToRemove: number) {
     setAttachmentError(null);
-    setAttachments((prev) => prev.filter((_, index) => index !== indexToRemove));
+    setPendingAttachments((prev) => prev.filter((_, index) => index !== indexToRemove));
   }
 
   function submitInput() {
     const trimmed = input.trim();
     if (sendMsgM.isPending || isUploadingAttachment) return;
-    if (!trimmed && attachments.length === 0) return;
+    if (!trimmed && pendingAttachments.length === 0) return;
+
+    const content =
+      pendingAttachments.length === 0
+        ? trimmed
+        : [
+            ...(trimmed ? [{ type: "text", text: trimmed }] : []),
+            ...pendingAttachments.map((item) => {
+              if (item.kind === "audio") {
+                return {
+                  type: "audio",
+                  data: item.audio.base64,
+                  format: item.audio.format,
+                };
+              }
+
+              const attachment = item.attachment;
+              return attachment.mime.toLowerCase().startsWith("image/")
+                ? ({ type: "image", image: attachment.url } as const)
+                : ({ type: "file", file: attachment.url, name: attachment.name, mime: attachment.mime } as const);
+            }),
+          ];
 
     const ts = Date.now();
-    const attachmentsToSend = [...attachments];
     sendMsgM.mutate({
-      content: trimmed,
-      attachments: attachmentsToSend,
+      content,
       userTempId: `tmp-user-${ts}`,
       assistantTempId: `tmp-assistant-${ts}`,
     });
     setInput("");
-    setAttachments([]);
+    setPendingAttachments([]);
     setAttachmentError(null);
   }
 
@@ -598,7 +775,7 @@ export function ChatPage() {
             onSubmit={submitInput}
             rows={4}
             disabled={sendMsgM.isPending}
-            attachments={attachments}
+            attachments={composerAttachments}
             isUploadingAttachment={isUploadingAttachment}
             uploadingAttachmentName={uploadingAttachmentName}
             attachmentError={attachmentError}
