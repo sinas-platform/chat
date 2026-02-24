@@ -1,3 +1,5 @@
+import type { ChatAttachment } from "../lib/files/types";
+
 // Authentication
 export interface User {
     id: string;
@@ -66,8 +68,9 @@ export interface Chat {
     created_at: string;
   }
   
-  export interface MessageSendRequest {
+export interface MessageSendRequest {
     content: MessageContent;
+    attachments?: ChatAttachment[];
   }
   
   // Agents (minimal for now)

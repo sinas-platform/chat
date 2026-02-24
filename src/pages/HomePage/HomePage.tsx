@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Bot, ChevronDown, LayoutGrid, Lightbulb, List, Newspaper, Search, type LucideIcon } from "lucide-react";
@@ -9,6 +9,8 @@ import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import SinasLoader from "../../components/Loader/Loader";
 import { apiClient } from "../../lib/api";
+import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
+import type { ChatAttachment } from "../../lib/files/types";
 import {
   AGENT_OPTIONS,
   getAgentById,
@@ -42,6 +44,36 @@ const AGENT_BY_ENDPOINT_KEY = new Map(
 
 type AgentSortMode = "alphabetical" | "recent";
 type AgentViewMode = "grid" | "list";
+type PendingAttachment = {
+  file: File;
+  preview: ChatAttachment;
+};
+const DEFAULT_ATTACHMENT_ERROR = "File uploads aren’t configured on this Sinas instance. Ask admin to configure it.";
+
+function getAttachmentErrorMessage(error: unknown): string {
+  if (error instanceof UploadChatAttachmentError) {
+    if (error.code === "file_too_large") return "File is too large. Max size is 20 MB.";
+    if (error.code === "no_permission") return "No permission to upload files";
+    return DEFAULT_ATTACHMENT_ERROR;
+  }
+
+  return DEFAULT_ATTACHMENT_ERROR;
+}
+
+function createLocalAttachment(file: File): ChatAttachment {
+  return {
+    name: file.name,
+    mime: file.type || "application/octet-stream",
+    size: file.size,
+    url: URL.createObjectURL(file),
+    uploaded_at: new Date().toISOString(),
+  };
+}
+
+function toUploadAttachmentError(error: unknown): UploadChatAttachmentError {
+  if (error instanceof UploadChatAttachmentError) return error;
+  return new UploadChatAttachmentError("not_configured", DEFAULT_ATTACHMENT_ERROR);
+}
 
 function getLatestChatTimestamp(chat: Chat): number {
   const timestamp = Date.parse(chat.last_message_at ?? chat.updated_at ?? chat.created_at);
@@ -89,13 +121,26 @@ export default function HomePage() {
 
   const [selectedAgentId, setSelectedAgentId] = useState(() => getSelectedAgent().id);
   const [messageDraft, setMessageDraft] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [uploadingAttachmentName, setUploadingAttachmentName] = useState<string | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [agentSearch, setAgentSearch] = useState("");
   const [agentSort, setAgentSort] = useState<AgentSortMode>("alphabetical");
   const [agentView, setAgentView] = useState<AgentViewMode>("grid");
+  const pendingAttachmentsRef = useRef<PendingAttachment[]>([]);
 
   useEffect(() => {
     document.title = "Sinas - Chat";
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      pendingAttachmentsRef.current.forEach((attachment) => {
+        URL.revokeObjectURL(attachment.preview.url);
+      });
+    };
   }, []);
 
   const chatsQ = useQuery({
@@ -136,6 +181,8 @@ export default function HomePage() {
 
   const normalizedAgentSearch = agentSearch.trim().toLowerCase();
   const agentSortLabel = agentSort === "recent" ? "Recently used" : "Alphabetical";
+  const composerAttachments: ChatAttachment[] = useMemo(() => pendingAttachments.map((item) => item.preview), [pendingAttachments]);
+
   const allAgents = useMemo(() => {
     const filteredAgents = AGENT_OPTIONS.filter((agent) => {
       if (!normalizedAgentSearch) return true;
@@ -158,7 +205,7 @@ export default function HomePage() {
     });
   }, [agentSort, normalizedAgentSearch, recentAgentRank]);
 
-  async function createNewChat(initialDraft?: string) {
+  async function createNewChat(initialDraft?: string, filesToAttach: PendingAttachment[] = []) {
     if (isCreating) return;
     setIsCreating(true);
 
@@ -170,17 +217,78 @@ export default function HomePage() {
         input: {},
       });
 
-      navigate(`/chats/${chat.id}`, { state: { initialDraft: draft } });
+      const uploadedAttachments: ChatAttachment[] = [];
+      if (filesToAttach.length > 0) {
+        setAttachmentError(null);
+        setIsUploadingAttachment(true);
+        try {
+          for (const attachment of filesToAttach) {
+            setUploadingAttachmentName(attachment.file.name);
+            const uploaded = await uploadChatAttachment(attachment.file, chat.id);
+            uploadedAttachments.push(uploaded);
+          }
+        } catch (error) {
+          const uploadError = toUploadAttachmentError(error);
+          throw uploadError;
+        }
+      }
+
+      navigate(`/chats/${chat.id}`, { state: { initialDraft: draft, initialAttachments: uploadedAttachments } });
     } finally {
+      setIsUploadingAttachment(false);
+      setUploadingAttachmentName(null);
       setIsCreating(false);
     }
   }
 
-  function submitDraft() {
+  function clearPendingAttachments() {
+    setPendingAttachments((prev) => {
+      prev.forEach((attachment) => {
+        URL.revokeObjectURL(attachment.preview.url);
+      });
+      const next: PendingAttachment[] = [];
+      pendingAttachmentsRef.current = next;
+      return next;
+    });
+  }
+
+  async function submitDraft() {
     const draft = messageDraft.trim();
-    if (!draft || isCreating) return;
-    createNewChat(draft);
+    if ((!draft && pendingAttachments.length === 0) || isCreating || isUploadingAttachment) return;
+
+    try {
+      await createNewChat(draft, pendingAttachments);
+    } catch (error) {
+      setAttachmentError(getAttachmentErrorMessage(error));
+      return;
+    }
+
     setMessageDraft("");
+    clearPendingAttachments();
+    setAttachmentError(null);
+  }
+
+  function addPendingAttachment(file: File) {
+    setAttachmentError(null);
+    const preview = createLocalAttachment(file);
+    setPendingAttachments((prev) => {
+      const next = [...prev, { file, preview }];
+      pendingAttachmentsRef.current = next;
+      return next;
+    });
+  }
+
+  function removePendingAttachment(indexToRemove: number) {
+    setAttachmentError(null);
+    setPendingAttachments((prev) => {
+      const target = prev[indexToRemove];
+      if (target) {
+        URL.revokeObjectURL(target.preview.url);
+      }
+      const next = prev.filter((_, index) => index !== indexToRemove);
+      pendingAttachmentsRef.current = next;
+      return next;
+    });
   }
 
   function onSelectAgent(agentId: string) {
@@ -219,7 +327,13 @@ export default function HomePage() {
             onChange={setMessageDraft}
             onSubmit={submitDraft}
             rows={3}
-            disabled={isCreating}
+            disabled={isCreating || isUploadingAttachment}
+            attachments={composerAttachments}
+            isUploadingAttachment={isUploadingAttachment}
+            uploadingAttachmentName={uploadingAttachmentName}
+            attachmentError={attachmentError}
+            onAddAttachment={addPendingAttachment}
+            onRemoveAttachment={removePendingAttachment}
           />
 
           <section className={styles.agentPicker}>

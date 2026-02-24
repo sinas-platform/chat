@@ -2,13 +2,35 @@
   position: relative;
 }
 
+.attachmentArea {
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.attachmentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.attachmentError {
+  color: #b00020;
+  font-size: 12px;
+}
+
 .textarea {
   width: 100%;
 }
 
+.attachmentInput {
+  display: none;
+}
+
+.attachmentButton,
 .micButton {
   position: absolute;
-  right: 12px;
   bottom: 12px;
   width: 32px;
   height: 32px;
@@ -30,6 +52,14 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+}
+
+.attachmentButton {
+  right: 50px;
+}
+
+.micButton {
+  right: 12px;
 }
 
 .micButtonActive {

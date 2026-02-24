@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type AxiosInstance } from "axios";
 import { getWorkspaceUrl } from "./workspace";
 import { clearAuth, getAuthToken, getRefreshToken, setAuthToken } from "./authStorage";
+import type { ChatAttachment, FileResponse, FileUpload, TempUrlResponse } from "./files/types";
 
 import type {
   Agent,
@@ -121,6 +122,43 @@ class APIClient {
       else p.resolve();
     });
     this.failedQueue = [];
+  }
+
+  private attachmentToContentPart(attachment: ChatAttachment): Record<string, unknown> {
+    const isImage = attachment.mime.toLowerCase().startsWith("image/");
+    if (isImage) {
+      return { type: "image", image: attachment.url };
+    }
+
+    return {
+      type: "file",
+      file: attachment.url,
+      name: attachment.name,
+      mime: attachment.mime,
+    };
+  }
+
+  private normalizeStreamMessagePayload(data: MessageSendRequest): Omit<MessageSendRequest, "attachments"> {
+    const attachments = Array.isArray(data.attachments) ? data.attachments : [];
+    if (attachments.length === 0) {
+      return { content: data.content };
+    }
+
+    const contentParts: Array<string | Record<string, unknown>> = [];
+
+    if (Array.isArray(data.content)) {
+      contentParts.push(...data.content);
+    } else if (typeof data.content === "string") {
+      if (data.content.length > 0) {
+        contentParts.push({ type: "text", text: data.content });
+      }
+    } else if (data.content != null) {
+      contentParts.push({ type: "text", text: this.extractText(data.content) });
+    }
+
+    contentParts.push(...attachments.map((attachment) => this.attachmentToContentPart(attachment)));
+
+    return { content: contentParts };
   }
 
   private extractText(value: unknown): string {
@@ -333,10 +371,12 @@ class APIClient {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
+    const payload = this.normalizeStreamMessagePayload(data);
+
     return fetch(url, {
       method: "POST",
       headers,
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
       signal,
     });
   }
@@ -461,6 +501,40 @@ class APIClient {
   async listMessages(chatId: string): Promise<Message[]> {
     const res = await this.client.get(`/chats/${chatId}/messages`);
     return res.data as Message[];
+  }
+
+  // --------------------
+  // Files
+  // --------------------
+  async uploadFile(namespace: string, collection: string, data: FileUpload): Promise<FileResponse> {
+    const encodedNamespace = encodeURIComponent(namespace);
+    const encodedCollection = encodeURIComponent(collection);
+    const res = await this.client.post(`/files/${encodedNamespace}/${encodedCollection}`, data);
+    return res.data as FileResponse;
+  }
+
+  async generateFileTempUrl(
+    namespace: string,
+    collection: string,
+    filename: string,
+    options: { expiresIn?: number; version?: number } = {}
+  ): Promise<TempUrlResponse | string> {
+    const encodedNamespace = encodeURIComponent(namespace);
+    const encodedCollection = encodeURIComponent(collection);
+    const encodedFilename = encodeURIComponent(filename);
+    const params: Record<string, number> = {
+      expires_in: options.expiresIn ?? 3600,
+    };
+    if (typeof options.version === "number") {
+      params.version = options.version;
+    }
+
+    const res = await this.client.post(
+      `/files/${encodedNamespace}/${encodedCollection}/${encodedFilename}/url`,
+      null,
+      { params }
+    );
+    return res.data as TempUrlResponse | string;
   }
 
   // --------------------

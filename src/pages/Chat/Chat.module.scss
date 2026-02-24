@@ -109,6 +109,10 @@
   white-space: pre-wrap;
 }
 
+.messageText:empty {
+  display: none;
+}
+
 .messageMarkdown {
   line-height: 1.45;
 }
@@ -139,6 +143,88 @@
 .messageMarkdown :global(h3:last-child),
 .messageMarkdown :global(h4:last-child) {
   margin-bottom: 0;
+}
+
+.messageAttachments {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.messageImageAttachments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.messageImageAttachmentsCompact {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.messageAttachmentImageLink {
+  display: block;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #d7dee8;
+  background: #fff;
+  max-width: min(360px, 100%);
+}
+
+.messageAttachmentImageLinkCompact {
+  width: 128px;
+  height: 128px;
+  max-width: none;
+}
+
+.messageAttachmentImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 280px;
+  object-fit: cover;
+}
+
+.messageAttachmentImageLinkCompact .messageAttachmentImage {
+  height: 100%;
+  max-height: none;
+}
+
+.messageFileAttachments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.messageAttachmentFile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-decoration: none;
+  border: 1px solid #d7dee8;
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #1c2430;
+}
+
+.messageAttachmentFile:hover {
+  border-color: #c8d2e0;
+  background: #fafcff;
+}
+
+.messageAttachmentFileName {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.messageAttachmentFileMeta {
+  font-size: 11px;
+  color: #677488;
 }
 
 .composer {
