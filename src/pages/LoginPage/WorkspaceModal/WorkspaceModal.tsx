@@ -52,7 +52,7 @@ export function WorkspaceModal({ open, initialValue, onClose, onSave }: Props) {
               setValue(e.target.value);
               setTouched(true);
             }}
-            placeholder="https://pulsr.sinas.cloud"
+            placeholder="https://workspace.example.com"
             autoFocus
           />
         </label>

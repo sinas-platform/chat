@@ -1,10 +1,10 @@
 import axios, { type AxiosError, type AxiosInstance } from "axios";
-import { getWorkspaceUrl } from "./workspace";
+import { getWorkspaceUrl, requireWorkspaceUrl } from "./workspace";
 import { clearAuth, getAuthToken, getRefreshToken, setAuthToken } from "./authStorage";
 import type { ChatAttachment, FileResponse, FileUpload, TempUrlResponse } from "./files/types";
 
 import type {
-  Agent,
+  AgentResponse,
   Chat,
   ChatCreate,
   ChatWithMessages,
@@ -19,6 +19,11 @@ import type {
 
 type RefreshResponse = { access_token: string; expires_in: number };
 type StreamChunkMode = "append" | "replace";
+
+function getRuntimeApiKey(): string | null {
+  const apiKey = (import.meta.env.VITE_X_API_KEY as string | undefined)?.trim();
+  return apiKey || null;
+}
 
 export type MessageStreamChunk = {
   text: string;
@@ -43,7 +48,7 @@ class APIClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: getWorkspaceUrl(),
+      baseURL: getWorkspaceUrl() || undefined,
       headers: { "Content-Type": "application/json" },
     });
 
@@ -51,17 +56,27 @@ class APIClient {
   }
 
   setWorkspaceBaseUrl(baseUrl: string) {
-    this.client.defaults.baseURL = baseUrl.replace(/\/+$/, "");
+    this.client.defaults.baseURL = baseUrl.trim().replace(/\/+$/, "") || undefined;
   }
 
   private setupInterceptors() {
     this.client.interceptors.request.use((config) => {
       const ws = getWorkspaceUrl();
+      if (!ws) {
+        throw new Error("Workspace URL is not configured. Please select a workspace first.");
+      }
+
       const token = getAuthToken(ws);
+      const runtimeApiKey = getRuntimeApiKey();
 
       if (token) {
         config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      if (runtimeApiKey) {
+        config.headers = config.headers ?? {};
+        (config.headers as Record<string, string>)["X-API-Key"] = runtimeApiKey;
       }
 
       return config;
@@ -364,12 +379,14 @@ class APIClient {
     accessToken: string | null,
     signal?: AbortSignal
   ) {
-    const base = (this.client.defaults.baseURL || getWorkspaceUrl()).replace(/\/+$/, "");
+    const base = String(this.client.defaults.baseURL || requireWorkspaceUrl()).replace(/\/+$/, "");
     const encodedChatId = encodeURIComponent(chatId);
     const url = `${base}/chats/${encodedChatId}/messages/stream`;
 
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    const runtimeApiKey = getRuntimeApiKey();
+    if (runtimeApiKey) headers["X-API-Key"] = runtimeApiKey;
 
     const payload = this.normalizeStreamMessagePayload(data);
 
@@ -540,9 +557,12 @@ class APIClient {
   // --------------------
   // Agents (runtime)
   // --------------------
-  async listAgents(): Promise<Agent[]> {
-    const res = await this.client.get("/agents");
-    return res.data as Agent[];
+  async listAgents(appId?: string): Promise<AgentResponse[]> {
+    const normalizedAppId = appId?.trim();
+    const res = await this.client.get("/agents", {
+      headers: normalizedAppId ? { "X-Application": normalizedAppId } : undefined,
+    });
+    return res.data as AgentResponse[];
   }
 }
 

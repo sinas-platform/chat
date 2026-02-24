@@ -73,14 +73,33 @@ export interface MessageSendRequest {
     attachments?: ChatAttachment[];
   }
   
-  // Agents (minimal for now)
-  export interface Agent {
+  export interface AgentResponse {
     id: string;
+    user_id: string;
     namespace: string;
     name: string;
     description: string | null;
+    llm_provider_id: string | null;
+    model: string | null;
+    temperature: number;
+    max_tokens: number | null;
+    system_prompt: string;
+    input_schema: Record<string, unknown> | null;
+    output_schema: Record<string, unknown> | null;
+    initial_messages: unknown[] | null;
+    enabled_functions: unknown[];
+    enabled_agents: unknown[];
+    enabled_skills: unknown[];
+    function_parameters: Record<string, unknown> | null;
+    state_namespaces_readonly: string[];
+    state_namespaces_readwrite: string[];
+    enabled_collections: unknown[];
     is_active: boolean;
+    is_default: boolean;
     created_at: string;
     updated_at: string;
   }
+
+  // Backwards-compatible alias for existing imports in the codebase.
+  export type Agent = AgentResponse;
   
