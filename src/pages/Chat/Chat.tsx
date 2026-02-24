@@ -173,7 +173,6 @@ function parseMessageContent(content: unknown): ParsedMessageContent {
         attachments.push({
           kind: "image",
           url: imageUrl,
-          name: getFilenameFromUrl(imageUrl),
         });
       }
       continue;
@@ -208,6 +207,47 @@ type ChatMessageRowProps = {
   message: ChatMessageViewModel;
   showAssistantAvatarLoading?: boolean;
 };
+
+type MessageAttachmentImageProps = {
+  attachment: RenderedMessageAttachment;
+  compact: boolean;
+};
+
+function MessageAttachmentImage({ attachment, compact }: MessageAttachmentImageProps) {
+  const [hasLoadError, setHasLoadError] = useState(false);
+
+  if (hasLoadError) {
+    return (
+      <div
+        className={`${styles.messageAttachmentImageFallback} ${
+          compact ? styles.messageAttachmentImageFallbackCompact : ""
+        }`}
+        role="status"
+        aria-label="Attached image preview unavailable"
+      >
+        <span className={styles.messageAttachmentImageFallbackTitle}>Image unavailable</span>
+        <span className={styles.messageAttachmentImageFallbackText}>This preview link may have expired.</span>
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={attachment.url}
+      target="_blank"
+      rel="noreferrer"
+      className={`${styles.messageAttachmentImageLink} ${compact ? styles.messageAttachmentImageLinkCompact : ""}`}
+    >
+      <img
+        className={styles.messageAttachmentImage}
+        src={attachment.url}
+        alt="Attached image"
+        loading="lazy"
+        onError={() => setHasLoadError(true)}
+      />
+    </a>
+  );
+}
 
 const ChatMessageRow = memo(function ChatMessageRow({
   message,
@@ -255,22 +295,11 @@ const ChatMessageRow = memo(function ChatMessageRow({
                     }`}
                   >
                     {imageAttachments.map((attachment, index) => (
-                      <a
+                      <MessageAttachmentImage
                         key={`${attachment.url}-${index}`}
-                        href={attachment.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={`${styles.messageAttachmentImageLink} ${
-                          useCompactImageAttachments ? styles.messageAttachmentImageLinkCompact : ""
-                        }`}
-                      >
-                        <img
-                          className={styles.messageAttachmentImage}
-                          src={attachment.url}
-                          alt={attachment.name || "Attached image"}
-                          loading="lazy"
-                        />
-                      </a>
+                        attachment={attachment}
+                        compact={useCompactImageAttachments}
+                      />
                     ))}
                   </div>
                 ) : null}

@@ -191,6 +191,40 @@
   max-height: none;
 }
 
+.messageAttachmentImageFallback {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 12px;
+  border: 1px solid #d7dee8;
+  background: #f7f9fc;
+  padding: 12px;
+  max-width: min(360px, 100%);
+  min-height: 88px;
+}
+
+.messageAttachmentImageFallbackCompact {
+  width: 128px;
+  height: 128px;
+  max-width: none;
+  min-height: 128px;
+  padding: 10px;
+}
+
+.messageAttachmentImageFallbackTitle {
+  color: #1c2430;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.messageAttachmentImageFallbackText {
+  color: #677488;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
 .messageFileAttachments {
   display: flex;
   flex-direction: column;
