@@ -9,14 +9,18 @@ import type {
   Chat,
   ChatCreate,
   ChatWithMessages,
+  CreateStateRequest,
+  ListStatesParams,
   LoginRequest,
   LoginResponse,
   Message,
   MessageSendRequest,
   OTPVerifyRequest,
   OTPVerifyResponse,
+  RuntimeStateRecord,
   ToolApprovalRequest,
   ToolApprovalResponse,
+  UpdateStateRequest,
   User,
 } from "../types";
 
@@ -766,6 +770,35 @@ class APIClient {
   async listMessages(chatId: string): Promise<Message[]> {
     const res = await this.client.get(`/chats/${chatId}/messages`);
     return res.data as Message[];
+  }
+
+  // --------------------
+  // States (runtime)
+  // --------------------
+  async listStates<TValue = unknown>(params: ListStatesParams = {}): Promise<Array<RuntimeStateRecord<TValue>>> {
+    const res = await this.client.get("/states", {
+      params: params.namespace ? { namespace: params.namespace } : undefined,
+    });
+    return res.data as Array<RuntimeStateRecord<TValue>>;
+  }
+
+  async createState<TValue = unknown>(payload: CreateStateRequest<TValue>): Promise<RuntimeStateRecord<TValue>> {
+    const res = await this.client.post("/states", payload);
+    return res.data as RuntimeStateRecord<TValue>;
+  }
+
+  async updateState<TValue = unknown>(
+    stateId: string,
+    payload: UpdateStateRequest<TValue>
+  ): Promise<RuntimeStateRecord<TValue>> {
+    const encodedStateId = encodeURIComponent(stateId);
+    const res = await this.client.put(`/states/${encodedStateId}`, payload);
+    return res.data as RuntimeStateRecord<TValue>;
+  }
+
+  async deleteState(stateId: string): Promise<void> {
+    const encodedStateId = encodeURIComponent(stateId);
+    await this.client.delete(`/states/${encodedStateId}`);
   }
 
   // --------------------

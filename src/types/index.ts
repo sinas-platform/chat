@@ -91,8 +91,46 @@ export interface ToolApprovalResponse {
   channel_id: string;
   message?: string;
 }
+
+export interface RuntimeStateRecord<TValue = unknown> {
+  id: string;
+  namespace: string;
+  key: string;
+  value: TValue;
+  visibility: string;
+  description?: string | null;
+  tags?: string[] | null;
+  relevance_score?: number | null;
+  expires_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ListStatesParams {
+  namespace?: string;
+}
+
+export interface CreateStateRequest<TValue = unknown> {
+  namespace: string;
+  key: string;
+  value: TValue;
+  visibility: string;
+  description?: string | null;
+  tags?: string[] | null;
+  relevance_score?: number | null;
+  expires_at?: string | null;
+}
+
+export interface UpdateStateRequest<TValue = unknown> {
+  value?: TValue;
+  visibility?: string;
+  description?: string | null;
+  tags?: string[] | null;
+  relevance_score?: number | null;
+  expires_at?: string | null;
+}
   
-  export interface AgentResponse {
+export interface AgentResponse {
     id: string;
     user_id: string;
     namespace: string;

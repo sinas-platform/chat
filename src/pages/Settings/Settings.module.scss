@@ -7,56 +7,221 @@
 
 .main {
   overflow: auto;
-  padding: 62px 50px;
+  padding: 42px 44px 56px;
 }
 
 .shell {
-  width: min(740px, 100%);
+  width: min(980px, 100%);
   display: grid;
-  gap: 14px;
+  gap: 18px;
 }
 
-.statusPill {
-  width: fit-content;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid #f4d5bc;
-  background: #fff5ed;
-  color: #9e4b11;
-  border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 600;
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
 }
 
 .title {
   margin: 0;
-  font-size: 34px;
-  line-height: 1.15;
+  font-size: 32px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
-  margin: 0;
-  color: #616161;
-  max-width: 52ch;
+  margin: 8px 0 0;
+  color: #585858;
 }
 
-.previewCard {
-  margin-top: 8px;
-  border: 1px solid #e6e6e6;
-  border-radius: 16px;
+.card {
+  border: 1px solid #e5e5e5;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  box-shadow: 0 16px 40px rgba(15, 15, 15, 0.04);
+}
+
+.cardHeader {
+  display: grid;
+  gap: 8px;
+}
+
+.cardTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cardIcon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #111;
+  color: #fff;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.cardDescription {
+  margin: 0;
+  color: #555;
+  max-width: 70ch;
+}
+
+.errorBox,
+.successBox {
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.errorBox {
+  border: 1px solid #f1c9c2;
+  background: #fff4f2;
+  color: #8f2f20;
+}
+
+.successBox {
+  border: 1px solid #cce8d4;
+  background: #f4fff7;
+  color: #216535;
+}
+
+.inlineAction {
+  color: inherit;
+  text-decoration: underline;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.summaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.summaryPill {
+  border-radius: 999px;
+  background: #f2f2f2;
+  color: #1d1d1d;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.summaryText {
+  color: #666;
+  font-size: 13px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.actionGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.listShell {
+  border: 1px solid #ececec;
+  border-radius: 14px;
+  background: #fff;
+  min-height: 180px;
+  overflow: hidden;
+}
+
+.emptyState {
+  padding: 18px;
+  color: #666;
+}
+
+.agentList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.agentRow {
+  border-top: 1px solid #efefef;
+}
+
+.agentRow:first-child {
+  border-top: none;
+}
+
+.agentLabel {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.agentLabel:hover {
   background: #fafafa;
-  padding: 16px;
 }
 
-.previewText {
-  margin: 0;
-  color: #242424;
+.checkbox {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: #111;
 }
 
-.actions {
-  margin-top: 8px;
+.agentMeta {
+  display: grid;
+  gap: 3px;
+}
+
+.agentName {
+  font-weight: 600;
+  color: #111;
+}
+
+.agentRef {
+  color: #6a6a6a;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.agentDescription {
+  color: #555;
+  font-size: 13px;
+}
+
+.footerActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.footerHint {
+  font-size: 13px;
+  color: #666;
 }
 
 @media (max-width: 920px) {
@@ -65,6 +230,30 @@
   }
 
   .main {
-    padding: 28px 16px;
+    padding: 20px 14px 28px;
+  }
+
+  .headerRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actionGroup {
+    width: 100%;
+  }
+
+  .actionGroup > * {
+    flex: 1 1 auto;
+  }
+
+  .footerActions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
+

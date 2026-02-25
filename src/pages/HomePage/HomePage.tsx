@@ -8,10 +8,11 @@ import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import SinasLoader from "../../components/Loader/Loader";
+import { useVisibleAgentsPreference } from "../../hooks/useVisibleAgentsPreference";
 import { apiClient } from "../../lib/api";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
-import { getApplicationId, getWorkspaceUrl } from "../../lib/workspace";
+import { getWorkspaceUrl } from "../../lib/workspace";
 import type { AgentResponse, Chat } from "../../types";
 
 function getChatTitleFromDraft(draft: string) {
@@ -145,8 +146,9 @@ function AgentCard({ agent, isActive, onSelect, className }: AgentCardProps) {
 export default function HomePage() {
   const navigate = useNavigate();
   const ws = getWorkspaceUrl();
-  const appId = getApplicationId();
   const hasWorkspaceUrl = ws.length > 0;
+  const visibleAgentsPreference = useVisibleAgentsPreference();
+  const agentsQ = visibleAgentsPreference.agentsQuery;
 
   const [selectedAgentKey, setSelectedAgentKey] = useState<string | null>(() => readSelectedAgentKey());
   const [messageDraft, setMessageDraft] = useState("");
@@ -178,16 +180,8 @@ export default function HomePage() {
     enabled: hasWorkspaceUrl,
   });
 
-  const agentsQ = useQuery({
-    queryKey: ["runtime-agents", ws, appId ?? ""],
-    queryFn: () => apiClient.listAgents(appId),
-    enabled: hasWorkspaceUrl,
-  });
-
-  const activeAgents = useMemo(
-    () => (agentsQ.data ?? []).filter((agent) => agent.is_active),
-    [agentsQ.data],
-  );
+  const allActiveAgents = visibleAgentsPreference.activeAgents;
+  const activeAgents = visibleAgentsPreference.visibleActiveAgents;
 
   const agentsByKey = useMemo(
     () => new Map(activeAgents.map((agent) => [getAgentKey(agent), agent] as const)),
@@ -374,8 +368,10 @@ export default function HomePage() {
 
   const selectedAgentDescription = selectedAgent?.description?.trim() || "Select an agent to start a new chat.";
   const hasAgents = activeAgents.length > 0;
+  const hasAnyActiveAgents = allActiveAgents.length > 0;
   const isAgentsLoading = agentsQ.isLoading;
   const isAgentsError = agentsQ.isError;
+  const isPreferencesError = Boolean(visibleAgentsPreference.preferenceReadErrorMessage);
   const agentLoadErrorMessage =
     agentsQ.error instanceof Error ? agentsQ.error.message : "Could not load agents. Please try again.";
 
@@ -432,6 +428,22 @@ export default function HomePage() {
           />
 
           <section className={styles.agentPicker}>
+            {isPreferencesError ? (
+              <div className={styles.errorState} role="alert" style={{ marginBottom: 12 }}>
+                <span>{visibleAgentsPreference.preferenceReadErrorMessage}</span>
+                {!visibleAgentsPreference.statesQuery.isError ||
+                visibleAgentsPreference.preferenceReadErrorMessage ===
+                  "Missing permissions to read/write preferences state" ? null : (
+                  <button
+                    type="button"
+                    className={styles.retryButton}
+                    onClick={() => void visibleAgentsPreference.statesQuery.refetch()}
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            ) : null}
             <div className={styles.agentPickerTitle}>Recent agents</div>
             {isAgentsLoading ? (
               <div className={styles.loadingState} role="status" aria-live="polite">
@@ -451,7 +463,9 @@ export default function HomePage() {
                 <span className={styles.loadingText}>Loading recent agents...</span>
               </div>
             ) : !hasAgents ? (
-              <div className={styles.muted}>No agents available</div>
+              <div className={styles.muted}>
+                {hasAnyActiveAgents ? "All agents are hidden in Homepage Agents settings." : "No agents available"}
+              </div>
             ) : recentAgents.length === 0 ? (
               <div className={styles.muted}>No recently used agents yet.</div>
             ) : (
@@ -542,7 +556,9 @@ export default function HomePage() {
                   </button>
                 </div>
               ) : !hasAgents ? (
-                <div className={styles.muted}>No agents available</div>
+                <div className={styles.muted}>
+                  {hasAnyActiveAgents ? "All agents are hidden in Homepage Agents settings." : "No agents available"}
+                </div>
               ) : allAgents.length === 0 ? (
                 <div className={styles.muted}>No agents match your search.</div>
               ) : (
