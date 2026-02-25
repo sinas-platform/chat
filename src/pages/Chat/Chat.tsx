@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -8,9 +9,10 @@ import styles from "./Chat.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import SinasLoader from "../../components/Loader/Loader";
-import { apiClient } from "../../lib/api";
+import { apiClient, type ChatStreamHandle } from "../../lib/api";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
+import type { ApprovalRequiredEvent } from "../../types";
 import sinasLogoSmall from "../../icons/sinas-logo-small.svg";
 
 type AudioAttachmentFormat = "wav" | "mp3" | "m4a" | "ogg";
@@ -23,7 +25,6 @@ type LocationState = {
 type SendMessageVariables = {
   content: string | Array<Record<string, unknown>>;
   userTempId: string;
-  assistantTempId: string;
 };
 
 type ChatMessageViewModel = {
@@ -38,6 +39,8 @@ type ChatMessagesProps = {
   isLoading: boolean;
   isError: boolean;
   isPending: boolean;
+  isStreaming: boolean;
+  streamingContent: string;
 };
 
 type RenderedMessageAttachment = {
@@ -303,6 +306,22 @@ function parseMessageContent(content: unknown): ParsedMessageContent {
   };
 }
 
+function hasRenderableMessageContent(content: unknown): boolean {
+  const parsed = parseMessageContent(content);
+  return parsed.text.trim().length > 0 || parsed.attachments.length > 0;
+}
+
+function shouldRenderMessage(message: ChatMessageViewModel): boolean {
+  if (message.role === "tool") return false;
+
+  // Hide assistant tool-call scaffolding messages that have no visible text/attachments.
+  if (message.role === "assistant" && !hasRenderableMessageContent(message.content)) {
+    return false;
+  }
+
+  return true;
+}
+
 type ChatMessageRowProps = {
   message: ChatMessageViewModel;
   showAssistantAvatarLoading?: boolean;
@@ -447,12 +466,20 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
 ChatMessageRow.displayName = "ChatMessageRow";
 
-const ChatMessages = memo(function ChatMessages({ messages, isLoading, isError, isPending }: ChatMessagesProps) {
+const ChatMessages = memo(function ChatMessages({
+  messages,
+  isLoading,
+  isError,
+  isPending,
+  isStreaming,
+  streamingContent,
+}: ChatMessagesProps) {
   const lastMessage = messages[messages.length - 1];
   const isWaitingForFirstChunk =
     isPending &&
     lastMessage?.role === "assistant" &&
     getMessageText(lastMessage.content).length === 0;
+  const showStreamingRow = isStreaming || streamingContent.length > 0;
 
   return (
     <div className={styles.messages}>
@@ -483,6 +510,19 @@ const ChatMessages = memo(function ChatMessages({ messages, isLoading, isError, 
           );
         })
       )}
+
+      {showStreamingRow ? (
+        <ChatMessageRow
+          key="streaming-assistant"
+          message={{
+            id: "streaming-assistant",
+            role: "assistant",
+            content: streamingContent,
+            created_at: new Date().toISOString(),
+          }}
+          showAssistantAvatarLoading={isStreaming && streamingContent.length === 0}
+        />
+      ) : null}
     </div>
   );
 });
@@ -509,7 +549,12 @@ export function ChatPage() {
   const [uploadingAttachmentName, setUploadingAttachmentName] = useState<string | null>(null);
   const [uploadingAttachmentThumbnailUrl, setUploadingAttachmentThumbnailUrl] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingContent, setStreamingContent] = useState("");
+  const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequiredEvent[]>([]);
+  const [processingApproval, setProcessingApproval] = useState<string | null>(null);
   const sentInitialDraftRef = useRef<Record<string, boolean>>({});
+  const streamHandleRef = useRef<ChatStreamHandle | null>(null);
   const composerAttachments = useMemo<ChatAttachment[]>(
     () =>
       pendingAttachments.map((item) => {
@@ -535,7 +580,8 @@ export function ChatPage() {
   const messages: ChatMessageViewModel[] = useMemo(() => {
     const data: any = chatQ.data;
     if (!data) return [];
-    return Array.isArray(data.messages) ? (data.messages as ChatMessageViewModel[]) : [];
+    const rawMessages = Array.isArray(data.messages) ? (data.messages as ChatMessageViewModel[]) : [];
+    return rawMessages.filter(shouldRenderMessage);
   }, [chatQ.data]);
 
   const chatTitle = useMemo(() => {
@@ -565,46 +611,119 @@ export function ChatPage() {
     });
   }
 
+  function queueApproval(approval: ApprovalRequiredEvent) {
+    setPendingApprovals((prev) => {
+      if (prev.some((item) => item.tool_call_id === approval.tool_call_id)) {
+        return prev;
+      }
+      return [...prev, approval];
+    });
+  }
+
+  async function refreshChat() {
+    if (!chatId) return;
+    await queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
+  }
+
+  async function consumeActiveStream(handle: ChatStreamHandle) {
+    streamHandleRef.current?.abort();
+    streamHandleRef.current = handle;
+    setIsStreaming(true);
+    setStreamingContent("");
+
+    try {
+      await handle.done;
+    } finally {
+      if (streamHandleRef.current === handle) {
+        streamHandleRef.current = null;
+      }
+      try {
+        await refreshChat();
+      } finally {
+        setIsStreaming(false);
+        setStreamingContent("");
+      }
+    }
+  }
+
+  async function sendStreamingMessage(content: SendMessageVariables["content"]) {
+    if (!chatId) return;
+
+    const handle = apiClient.streamChatMessage(chatId, content, {
+      onChunkContent: (text) => {
+        setStreamingContent((prev) => prev + text);
+      },
+      onApprovalRequired: (approval) => {
+        queueApproval(approval);
+      },
+      onDone: () => {
+        // State cleanup and chat refetch are centralized in `consumeActiveStream`.
+      },
+      onError: (error) => {
+        console.error("Streaming error:", error);
+      },
+    });
+
+    await consumeActiveStream(handle);
+  }
+
+  async function resumeApprovalStream(channelId: string) {
+    if (!chatId) return;
+
+    const handle = apiClient.streamChatChannel(chatId, channelId, {
+      onChunkContent: (text) => {
+        setStreamingContent((prev) => prev + text);
+      },
+      onApprovalRequired: (approval) => {
+        queueApproval(approval);
+      },
+      onDone: () => {
+        // State cleanup and chat refetch are centralized in `consumeActiveStream`.
+      },
+      onError: (error) => {
+        console.error("Approval stream error:", error);
+      },
+    });
+
+    await consumeActiveStream(handle);
+  }
+
+  async function handleApproval(approval: ApprovalRequiredEvent, approved: boolean) {
+    if (!chatId || isStreaming || processingApproval) return;
+
+    setProcessingApproval(approval.tool_call_id);
+
+    try {
+      const channelId = await apiClient.approveToolCall(chatId, approval.tool_call_id, approved);
+      setPendingApprovals((prev) => prev.filter((item) => item.tool_call_id !== approval.tool_call_id));
+      await resumeApprovalStream(channelId);
+    } catch (error) {
+      console.error("Approval error:", error);
+      setIsStreaming(false);
+      setStreamingContent("");
+      streamHandleRef.current = null;
+      alert("Failed to process approval. Please try again.");
+      await refreshChat();
+    } finally {
+      setProcessingApproval(null);
+    }
+  }
+
+  function handleStop() {
+    streamHandleRef.current?.abort();
+  }
+
   const sendMsgM = useMutation({
     mutationFn: async (vars: SendMessageVariables) => {
       if (!chatId) throw new Error("Missing chatId");
-      await apiClient.sendMessageStream(
-        chatId,
-        {
-          content: vars.content,
-        },
-        {
-          onChunk: (chunk) => {
-            queryClient.setQueryData(["chat", chatId], (old: any) => {
-              if (!old) return old;
-
-              const oldMsgs = Array.isArray(old.messages) ? old.messages : [];
-              const nextMsgs = oldMsgs.map((msg: any) => {
-                if (msg.id !== vars.assistantTempId) return msg;
-
-                const previousText = getMessageText(msg.content);
-                const nextText =
-                  chunk.mode === "replace" ? chunk.text : `${previousText}${chunk.text}`;
-
-                return { ...msg, content: nextText };
-              });
-
-              return { ...old, messages: nextMsgs };
-            });
-          },
-        }
-      );
+      await sendStreamingMessage(vars.content);
     },
     onMutate: async (vars: SendMessageVariables) => {
       if (!chatId) return;
 
-      // Cancel in-flight chat query so we don't overwrite our optimistic update
       await queryClient.cancelQueries({ queryKey: ["chat", chatId] });
-
-      // Snapshot previous value
       const previous = queryClient.getQueryData<any>(["chat", chatId]);
 
-      // Optimistically add the user message
       queryClient.setQueryData(["chat", chatId], (old: any) => {
         if (!old) return old;
         const nextUserMsg: any = {
@@ -613,29 +732,33 @@ export function ChatPage() {
           content: vars.content,
           created_at: new Date().toISOString(),
         };
-        const nextAssistantMsg: any = {
-          id: vars.assistantTempId,
-          role: "assistant",
-          content: "",
-          created_at: new Date().toISOString(),
-        };
         const oldMsgs = Array.isArray(old.messages) ? old.messages : [];
-        return { ...old, messages: [...oldMsgs, nextUserMsg, nextAssistantMsg] };
+        return { ...old, messages: [...oldMsgs, nextUserMsg] };
       });
 
       return { previous };
     },
     onError: (_err, _vars, ctx) => {
       if (!chatId) return;
-      // Roll back optimistic update
       if (ctx?.previous) queryClient.setQueryData(["chat", chatId], ctx.previous);
     },
-    onSettled: () => {
-      if (!chatId) return;
-      // Refetch chat so temp IDs/partial content are replaced by server data
-      queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
-    },
   });
+
+  useEffect(() => {
+    return () => {
+      streamHandleRef.current?.abort();
+      streamHandleRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    streamHandleRef.current?.abort();
+    streamHandleRef.current = null;
+    setIsStreaming(false);
+    setStreamingContent("");
+    setPendingApprovals([]);
+    setProcessingApproval(null);
+  }, [chatId]);
 
   // Auto-send initial draft once
   useEffect(() => {
@@ -661,12 +784,11 @@ export function ChatPage() {
             ]
           : initialDraft,
       userTempId: `tmp-user-${ts}`,
-      assistantTempId: `tmp-assistant-${ts}`,
     });
   }, [chatId, initialDraft, initialAttachments, chatQ.isLoading, chatQ.isError, sendMsgM]);
 
   async function addAttachment(file: File) {
-    if (!chatId || isUploadingAttachment || sendMsgM.isPending) return;
+    if (!chatId || isUploadingAttachment || sendMsgM.isPending || isStreaming || pendingApprovals.length > 0) return;
 
     setAttachmentError(null);
     setIsUploadingAttachment(true);
@@ -725,7 +847,7 @@ export function ChatPage() {
 
   function submitInput() {
     const trimmed = input.trim();
-    if (sendMsgM.isPending || isUploadingAttachment) return;
+    if (sendMsgM.isPending || isUploadingAttachment || isStreaming || processingApproval || pendingApprovals.length > 0) return;
     if (!trimmed && pendingAttachments.length === 0) return;
 
     const content =
@@ -753,7 +875,6 @@ export function ChatPage() {
     sendMsgM.mutate({
       content,
       userTempId: `tmp-user-${ts}`,
-      assistantTempId: `tmp-assistant-${ts}`,
     });
     setInput("");
     setPendingAttachments([]);
@@ -783,7 +904,69 @@ export function ChatPage() {
             isLoading={chatQ.isLoading}
             isError={chatQ.isError}
             isPending={sendMsgM.isPending}
+            isStreaming={isStreaming}
+            streamingContent={streamingContent}
           />
+
+          {pendingApprovals.length > 0 ? (
+            <div className={styles.approvalList}>
+              {pendingApprovals.map((approval) => {
+                const isProcessing = processingApproval === approval.tool_call_id;
+                const disableActions = Boolean(processingApproval) || isStreaming;
+
+                return (
+                  <div
+                    key={approval.tool_call_id}
+                    className={`${styles.approvalCard} ${isProcessing ? styles.approvalCardProcessing : ""}`}
+                  >
+                    <div className={styles.approvalIconWrap}>
+                      {isProcessing ? (
+                        <Loader2 className={styles.approvalSpinner} aria-hidden="true" />
+                      ) : (
+                        <AlertTriangle className={styles.approvalIcon} aria-hidden="true" />
+                      )}
+                    </div>
+
+                    <div className={styles.approvalContent}>
+                      <h4 className={styles.approvalTitle}>
+                        {isProcessing ? "Processing approval..." : "Function Approval Required"}
+                      </h4>
+                      <p className={styles.approvalText}>
+                        The agent wants to call{" "}
+                        <code className={styles.approvalCode}>
+                          {approval.function_namespace}/{approval.function_name}
+                        </code>
+                      </p>
+
+                      <div className={styles.approvalArgsBlock}>
+                        <p className={styles.approvalArgsLabel}>Arguments</p>
+                        <pre className={styles.approvalArgs}>{JSON.stringify(approval.arguments ?? {}, null, 2)}</pre>
+                      </div>
+
+                      <div className={styles.approvalActions}>
+                        <button
+                          type="button"
+                          className={`${styles.approvalButton} ${styles.approveButton}`}
+                          onClick={() => void handleApproval(approval, true)}
+                          disabled={disableActions}
+                        >
+                          {isProcessing ? "Processing..." : "Approve"}
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.approvalButton} ${styles.rejectButton}`}
+                          onClick={() => void handleApproval(approval, false)}
+                          disabled={disableActions}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
 
           <ChatComposer
             className={styles.composer}
@@ -793,7 +976,7 @@ export function ChatPage() {
             onChange={setInput}
             onSubmit={submitInput}
             rows={4}
-            disabled={sendMsgM.isPending}
+            disabled={sendMsgM.isPending || isStreaming || Boolean(processingApproval) || pendingApprovals.length > 0}
             attachments={composerAttachments}
             isUploadingAttachment={isUploadingAttachment}
             uploadingAttachmentName={uploadingAttachmentName}
@@ -802,6 +985,7 @@ export function ChatPage() {
             onAddAttachment={addAttachment}
             onRemoveAttachment={removeAttachment}
             attachmentAccept={CHAT_ATTACHMENT_ACCEPT}
+            onStop={isStreaming ? handleStop : undefined}
           />
         </div>
       </main>

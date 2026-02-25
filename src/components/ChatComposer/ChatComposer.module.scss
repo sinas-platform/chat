@@ -51,6 +51,14 @@
 
 .textarea {
   width: 100%;
+  background: transparent;
+
+  &:disabled {
+    background: transparent;
+    color: inherit;
+    opacity: 1;
+    -webkit-text-fill-color: currentColor;
+  }
 }
 
 .attachmentInput {
@@ -95,4 +103,23 @@
   color: #0e6a33;
   border-color: #86cca2;
   background: #edf8f1;
+}
+
+.stopButton {
+  border-color: #cfd6e1;
+  background: #eef2f7;
+  color: #445066;
+
+  &:hover:not(:disabled) {
+    border-color: #bcc7d6;
+    background: #e4eaf2;
+  }
+}
+
+.stopGlyph {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: currentColor;
+  display: block;
 }

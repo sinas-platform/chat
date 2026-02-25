@@ -72,6 +72,25 @@ export interface MessageSendRequest {
     content: MessageContent;
     attachments?: ChatAttachment[];
   }
+
+export interface ApprovalRequiredEvent {
+  type: "approval_required";
+  tool_call_id: string;
+  function_namespace: string;
+  function_name: string;
+  arguments: Record<string, any>;
+}
+
+export interface ToolApprovalRequest {
+  approved: boolean;
+}
+
+export interface ToolApprovalResponse {
+  status: "approved" | "rejected";
+  tool_call_id: string;
+  channel_id: string;
+  message?: string;
+}
   
   export interface AgentResponse {
     id: string;

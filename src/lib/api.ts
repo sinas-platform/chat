@@ -4,6 +4,7 @@ import { clearAuth, getAuthToken, getRefreshToken, setAuthToken } from "./authSt
 import type { ChatAttachment, FileResponse, FileUpload, TempUrlResponse } from "./files/types";
 
 import type {
+  ApprovalRequiredEvent,
   AgentResponse,
   Chat,
   ChatCreate,
@@ -14,6 +15,8 @@ import type {
   MessageSendRequest,
   OTPVerifyRequest,
   OTPVerifyResponse,
+  ToolApprovalRequest,
+  ToolApprovalResponse,
   User,
 } from "../types";
 
@@ -30,6 +33,18 @@ export type MessageStreamChunk = {
   mode: StreamChunkMode;
   event: string;
   raw: unknown;
+};
+
+export type ChatStreamHandlers = {
+  onChunkContent?: (text: string) => void;
+  onApprovalRequired?: (event: ApprovalRequiredEvent) => void;
+  onDone?: () => void;
+  onError?: (error: unknown) => void;
+};
+
+export type ChatStreamHandle = {
+  abort: () => void;
+  done: Promise<void>;
 };
 
 type SendMessageStreamOptions = {
@@ -287,6 +302,183 @@ class APIClient {
     }
   }
 
+  private getRuntimeBaseUrl(): string {
+    return String(this.client.defaults.baseURL || requireWorkspaceUrl()).replace(/\/+$/, "");
+  }
+
+  private buildRuntimeFetchHeaders(baseHeaders: HeadersInit | undefined, accessToken: string | null): Headers {
+    const headers = new Headers(baseHeaders);
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
+
+    const runtimeApiKey = getRuntimeApiKey();
+    if (runtimeApiKey) {
+      headers.set("X-API-Key", runtimeApiKey);
+    }
+
+    return headers;
+  }
+
+  private async runtimeFetchWithRefresh(url: string, init: RequestInit): Promise<Response> {
+    const ws = getWorkspaceUrl();
+    let accessToken = getAuthToken(ws);
+
+    const doFetch = (token: string | null) =>
+      fetch(url, {
+        ...init,
+        headers: this.buildRuntimeFetchHeaders(init.headers, token),
+      });
+
+    let response = await doFetch(accessToken);
+
+    if (response.status === 401) {
+      const refreshToken = getRefreshToken(ws);
+      if (refreshToken) {
+        try {
+          const refreshed = await this.refreshToken(refreshToken);
+          accessToken = refreshed.access_token;
+          setAuthToken(ws, accessToken);
+          response = await doFetch(accessToken);
+        } catch (refreshErr) {
+          clearAuth(ws);
+          window.location.href = "/login";
+          throw refreshErr;
+        }
+      } else {
+        clearAuth(ws);
+        window.location.href = "/login";
+        throw new Error("Unauthorized");
+      }
+    }
+
+    return response;
+  }
+
+  private isApprovalRequiredEvent(value: unknown): value is ApprovalRequiredEvent {
+    if (!value || typeof value !== "object") return false;
+
+    const event = value as Record<string, unknown>;
+    return (
+      event.type === "approval_required" &&
+      typeof event.tool_call_id === "string" &&
+      typeof event.function_namespace === "string" &&
+      typeof event.function_name === "string" &&
+      !!event.arguments &&
+      typeof event.arguments === "object"
+    );
+  }
+
+  private async consumeChatSSEStream(body: ReadableStream<Uint8Array>, handlers: ChatStreamHandlers) {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        let eventType = "";
+        for (const line of lines) {
+          if (line.startsWith("event:")) {
+            eventType = line.substring(6).trim();
+          } else if (line.startsWith("data:")) {
+            const data = line.substring(5).trim();
+            if (!data) continue;
+
+            try {
+              const parsed = this.parseSSEData(data);
+              if (parsed == null) continue;
+
+              if (eventType === "message") {
+                if (typeof parsed === "string") {
+                  handlers.onChunkContent?.(parsed);
+                  continue;
+                }
+
+                if (parsed && typeof parsed === "object") {
+                  const payload = parsed as Record<string, unknown>;
+                  const contentText = this.extractText(payload.content);
+                  if (contentText) handlers.onChunkContent?.(contentText);
+
+                  if (this.isApprovalRequiredEvent(parsed)) {
+                    handlers.onApprovalRequired?.(parsed);
+                  }
+                }
+              } else if (eventType === "done") {
+                handlers.onDone?.();
+                return;
+              } else if (eventType === "error") {
+                if (parsed && typeof parsed === "object" && "error" in (parsed as Record<string, unknown>)) {
+                  handlers.onError?.((parsed as { error?: unknown }).error ?? parsed);
+                } else {
+                  handlers.onError?.(parsed);
+                }
+                return;
+              }
+            } catch (error) {
+              handlers.onError?.(error);
+            }
+          }
+        }
+      }
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {
+        // Ignore release errors during aborted streams.
+      }
+    }
+  }
+
+  private startChatSSEStream(url: string, init: RequestInit, handlers: ChatStreamHandlers): ChatStreamHandle {
+    const controller = new AbortController();
+    let aborted = false;
+
+    const done = (async () => {
+      try {
+        const response = await this.runtimeFetchWithRefresh(url, {
+          ...init,
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          let detail = "";
+          try {
+            detail = await response.text();
+          } catch {
+            detail = "";
+          }
+          handlers.onError?.(new Error(`HTTP error! status: ${response.status}${detail ? ` ${detail}` : ""}`));
+          return;
+        }
+
+        if (!response.body) {
+          handlers.onError?.(new Error("No stream body"));
+          return;
+        }
+
+        await this.consumeChatSSEStream(response.body, handlers);
+      } catch (error) {
+        if (aborted) return;
+        handlers.onError?.(error);
+      }
+    })();
+
+    return {
+      abort: () => {
+        aborted = true;
+        controller.abort();
+      },
+      done,
+    };
+  }
+
   private async consumeSSEStream(
     body: ReadableStream<Uint8Array>,
     onChunk?: (chunk: MessageStreamChunk) => void
@@ -457,6 +649,62 @@ class APIClient {
   async sendMessage(chatId: string, data: MessageSendRequest): Promise<Message> {
     const res = await this.client.post(`/chats/${chatId}/messages`, data);
     return res.data as Message;
+  }
+
+  streamChatMessage(
+    chatId: string,
+    content: MessageSendRequest["content"],
+    handlers: ChatStreamHandlers = {}
+  ): ChatStreamHandle {
+    const encodedChatId = encodeURIComponent(chatId);
+    const url = `${this.getRuntimeBaseUrl()}/chats/${encodedChatId}/messages/stream`;
+    const payload = this.normalizeStreamMessagePayload({ content });
+
+    return this.startChatSSEStream(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+      handlers
+    );
+  }
+
+  async approveToolCall(chatId: string, toolCallId: string, approved: boolean): Promise<string> {
+    const encodedChatId = encodeURIComponent(chatId);
+    const encodedToolCallId = encodeURIComponent(toolCallId);
+    const payload: ToolApprovalRequest = { approved };
+
+    const res = await this.client.post(
+      `/chats/${encodedChatId}/approve-tool/${encodedToolCallId}`,
+      payload
+    );
+
+    const data = res.data as ToolApprovalResponse;
+    if (!data.channel_id) {
+      throw new Error("Approval response missing channel_id");
+    }
+
+    return data.channel_id;
+  }
+
+  streamChatChannel(chatId: string, channelId: string, handlers: ChatStreamHandlers = {}): ChatStreamHandle {
+    const encodedChatId = encodeURIComponent(chatId);
+    const encodedChannelId = encodeURIComponent(channelId);
+    const url = `${this.getRuntimeBaseUrl()}/chats/${encodedChatId}/stream/${encodedChannelId}`;
+
+    return this.startChatSSEStream(
+      url,
+      {
+        method: "GET",
+      },
+      handlers
+    );
+  }
+
+  streamApprovalChannel(chatId: string, channelId: string, handlers: ChatStreamHandlers = {}): ChatStreamHandle {
+    return this.streamChatChannel(chatId, channelId, handlers);
   }
 
   async sendMessageStream(chatId: string, data: MessageSendRequest, options: SendMessageStreamOptions = {}) {

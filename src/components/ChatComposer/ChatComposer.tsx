@@ -25,6 +25,7 @@ type ChatComposerProps = {
   onRemoveAttachment?: (index: number) => void;
   attachmentAccept?: string;
   uploadingAttachmentThumbnailUrl?: string | null;
+  onStop?: () => void;
 };
 
 function joinClasses(...classNames: Array<string | undefined | false>) {
@@ -61,6 +62,7 @@ export function ChatComposer({
   onRemoveAttachment,
   attachmentAccept,
   uploadingAttachmentThumbnailUrl,
+  onStop,
 }: ChatComposerProps) {
   const latestValueRef = useRef(value);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +88,7 @@ export function ChatComposer({
   const canSubmit = !disabled && !isUploadingAttachment && (value.trim().length > 0 || attachments.length > 0);
   const isMicDisabled = disabled || !isSpeechSupported;
   const isAttachmentEnabled = typeof onAddAttachment === "function";
+  const showStopButton = typeof onStop === "function";
   const computedTextareaStyle: CSSProperties = {
     ...textareaStyle,
     paddingRight: isAttachmentEnabled ? "94px" : "54px",
@@ -261,17 +264,29 @@ export function ChatComposer({
         </>
       ) : null}
 
-      <button
-        type="button"
-        className={joinClasses(styles.micButton, isListening && styles.micButtonActive)}
-        onClick={isListening ? stopListening : startListening}
-        disabled={isMicDisabled}
-        aria-label={isListening ? "Stop voice input" : "Start voice input"}
-        aria-pressed={isListening}
-        title={isSpeechSupported ? "Voice input" : "Voice input is not supported in this browser"}
-      >
-        {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-      </button>
+      {showStopButton ? (
+        <button
+          type="button"
+          className={joinClasses(styles.micButton, styles.stopButton)}
+          onClick={onStop}
+          aria-label="Stop generating response"
+          title="Stop generating"
+        >
+          <span className={styles.stopGlyph} aria-hidden="true" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          className={joinClasses(styles.micButton, isListening && styles.micButtonActive)}
+          onClick={isListening ? stopListening : startListening}
+          disabled={isMicDisabled}
+          aria-label={isListening ? "Stop voice input" : "Start voice input"}
+          aria-pressed={isListening}
+          title={isSpeechSupported ? "Voice input" : "Voice input is not supported in this browser"}
+        >
+          {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+        </button>
+      )}
     </form>
   );
 }
