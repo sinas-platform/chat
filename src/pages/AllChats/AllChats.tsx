@@ -131,6 +131,7 @@ export function AllChatsPage() {
   const chatsQ = useQuery({
     queryKey: ["chats", ws],
     queryFn: () => apiClient.listChats(),
+    enabled: Boolean(ws),
   });
 
   const renameChatM = useMutation({

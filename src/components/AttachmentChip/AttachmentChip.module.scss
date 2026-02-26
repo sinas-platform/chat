@@ -1,0 +1,115 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  border: 1px solid #d9d9d9;
+  border-radius: 999px;
+  background: #fff;
+  padding: 6px 8px 6px 10px;
+  position: relative;
+}
+
+.imageChip {
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 0;
+}
+
+.thumbnail {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.imageUploadOverlay {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #dadada;
+  border-top-color: #666;
+  animation: spin 0.85s linear infinite;
+  flex: 0 0 12px;
+}
+
+.content {
+  min-width: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.name {
+  min-width: 0;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #1f1f1f;
+}
+
+.meta {
+  font-size: 11px;
+  color: #6d6d6d;
+  white-space: nowrap;
+}
+
+.removeButton {
+  border: none;
+  background: transparent;
+  color: #6d6d6d;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+
+  .imageChip & {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #d9d9d9;
+  }
+
+  &:hover:not(:disabled) {
+    background: #f2f2f2;
+    color: #2b2b2b;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

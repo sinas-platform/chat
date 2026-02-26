@@ -1,3 +1,5 @@
+import type { ChatAttachment } from "../lib/files/types";
+
 // Authentication
 export interface User {
     id: string;
@@ -66,18 +68,95 @@ export interface Chat {
     created_at: string;
   }
   
-  export interface MessageSendRequest {
+export interface MessageSendRequest {
     content: MessageContent;
+    attachments?: ChatAttachment[];
   }
+
+export interface ApprovalRequiredEvent {
+  type: "approval_required";
+  tool_call_id: string;
+  function_namespace: string;
+  function_name: string;
+  arguments: Record<string, any>;
+}
+
+export interface ToolApprovalRequest {
+  approved: boolean;
+}
+
+export interface ToolApprovalResponse {
+  status: "approved" | "rejected";
+  tool_call_id: string;
+  channel_id: string;
+  message?: string;
+}
+
+export interface RuntimeStateRecord<TValue = unknown> {
+  id: string;
+  namespace: string;
+  key: string;
+  value: TValue;
+  visibility: string;
+  description?: string | null;
+  tags?: string[] | null;
+  relevance_score?: number | null;
+  expires_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ListStatesParams {
+  namespace?: string;
+}
+
+export interface CreateStateRequest<TValue = unknown> {
+  namespace: string;
+  key: string;
+  value: TValue;
+  visibility: string;
+  description?: string | null;
+  tags?: string[] | null;
+  relevance_score?: number | null;
+  expires_at?: string | null;
+}
+
+export interface UpdateStateRequest<TValue = unknown> {
+  value?: TValue;
+  visibility?: string;
+  description?: string | null;
+  tags?: string[] | null;
+  relevance_score?: number | null;
+  expires_at?: string | null;
+}
   
-  // Agents (minimal for now)
-  export interface Agent {
+export interface AgentResponse {
     id: string;
+    user_id: string;
     namespace: string;
     name: string;
     description: string | null;
+    llm_provider_id: string | null;
+    model: string | null;
+    temperature: number;
+    max_tokens: number | null;
+    system_prompt: string;
+    input_schema: Record<string, unknown> | null;
+    output_schema: Record<string, unknown> | null;
+    initial_messages: unknown[] | null;
+    enabled_functions: unknown[];
+    enabled_agents: unknown[];
+    enabled_skills: unknown[];
+    function_parameters: Record<string, unknown> | null;
+    state_namespaces_readonly: string[];
+    state_namespaces_readwrite: string[];
+    enabled_collections: unknown[];
     is_active: boolean;
+    is_default: boolean;
     created_at: string;
     updated_at: string;
   }
+
+  // Backwards-compatible alias for existing imports in the codebase.
+  export type Agent = AgentResponse;
   

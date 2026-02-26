@@ -123,11 +123,13 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
   const meQ = useQuery({
     queryKey: ["me", ws],
     queryFn: () => apiClient.me(),
+    enabled: Boolean(ws),
   });
 
   const chatsQ = useQuery({
     queryKey: ["chats", ws],
     queryFn: () => apiClient.listChats(),
+    enabled: Boolean(ws),
   });
 
   const chats = chatsQ.data ?? [];

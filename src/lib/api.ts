@@ -1,29 +1,54 @@
 import axios, { type AxiosError, type AxiosInstance } from "axios";
-import { getWorkspaceUrl } from "./workspace";
+import { getWorkspaceUrl, requireWorkspaceUrl } from "./workspace";
 import { clearAuth, getAuthToken, getRefreshToken, setAuthToken } from "./authStorage";
+import type { ChatAttachment, FileResponse, FileUpload, TempUrlResponse } from "./files/types";
 
 import type {
-  Agent,
+  ApprovalRequiredEvent,
+  AgentResponse,
   Chat,
   ChatCreate,
   ChatWithMessages,
+  CreateStateRequest,
+  ListStatesParams,
   LoginRequest,
   LoginResponse,
   Message,
   MessageSendRequest,
   OTPVerifyRequest,
   OTPVerifyResponse,
+  RuntimeStateRecord,
+  ToolApprovalRequest,
+  ToolApprovalResponse,
+  UpdateStateRequest,
   User,
 } from "../types";
 
 type RefreshResponse = { access_token: string; expires_in: number };
 type StreamChunkMode = "append" | "replace";
 
+function getRuntimeApiKey(): string | null {
+  const apiKey = (import.meta.env.VITE_X_API_KEY as string | undefined)?.trim();
+  return apiKey || null;
+}
+
 export type MessageStreamChunk = {
   text: string;
   mode: StreamChunkMode;
   event: string;
   raw: unknown;
+};
+
+export type ChatStreamHandlers = {
+  onChunkContent?: (text: string) => void;
+  onApprovalRequired?: (event: ApprovalRequiredEvent) => void;
+  onDone?: () => void;
+  onError?: (error: unknown) => void;
+};
+
+export type ChatStreamHandle = {
+  abort: () => void;
+  done: Promise<void>;
 };
 
 type SendMessageStreamOptions = {
@@ -42,7 +67,7 @@ class APIClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: getWorkspaceUrl(),
+      baseURL: getWorkspaceUrl() || undefined,
       headers: { "Content-Type": "application/json" },
     });
 
@@ -50,17 +75,27 @@ class APIClient {
   }
 
   setWorkspaceBaseUrl(baseUrl: string) {
-    this.client.defaults.baseURL = baseUrl.replace(/\/+$/, "");
+    this.client.defaults.baseURL = baseUrl.trim().replace(/\/+$/, "") || undefined;
   }
 
   private setupInterceptors() {
     this.client.interceptors.request.use((config) => {
       const ws = getWorkspaceUrl();
+      if (!ws) {
+        throw new Error("Workspace URL is not configured. Please select a workspace first.");
+      }
+
       const token = getAuthToken(ws);
+      const runtimeApiKey = getRuntimeApiKey();
 
       if (token) {
         config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      if (runtimeApiKey) {
+        config.headers = config.headers ?? {};
+        (config.headers as Record<string, string>)["X-API-Key"] = runtimeApiKey;
       }
 
       return config;
@@ -121,6 +156,43 @@ class APIClient {
       else p.resolve();
     });
     this.failedQueue = [];
+  }
+
+  private attachmentToContentPart(attachment: ChatAttachment): Record<string, unknown> {
+    const isImage = attachment.mime.toLowerCase().startsWith("image/");
+    if (isImage) {
+      return { type: "image", image: attachment.url };
+    }
+
+    return {
+      type: "file",
+      file: attachment.url,
+      name: attachment.name,
+      mime: attachment.mime,
+    };
+  }
+
+  private normalizeStreamMessagePayload(data: MessageSendRequest): Omit<MessageSendRequest, "attachments"> {
+    const attachments = Array.isArray(data.attachments) ? data.attachments : [];
+    if (attachments.length === 0) {
+      return { content: data.content };
+    }
+
+    const contentParts: Array<string | Record<string, unknown>> = [];
+
+    if (Array.isArray(data.content)) {
+      contentParts.push(...data.content);
+    } else if (typeof data.content === "string") {
+      if (data.content.length > 0) {
+        contentParts.push({ type: "text", text: data.content });
+      }
+    } else if (data.content != null) {
+      contentParts.push({ type: "text", text: this.extractText(data.content) });
+    }
+
+    contentParts.push(...attachments.map((attachment) => this.attachmentToContentPart(attachment)));
+
+    return { content: contentParts };
   }
 
   private extractText(value: unknown): string {
@@ -234,6 +306,183 @@ class APIClient {
     }
   }
 
+  private getRuntimeBaseUrl(): string {
+    return String(this.client.defaults.baseURL || requireWorkspaceUrl()).replace(/\/+$/, "");
+  }
+
+  private buildRuntimeFetchHeaders(baseHeaders: HeadersInit | undefined, accessToken: string | null): Headers {
+    const headers = new Headers(baseHeaders);
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
+
+    const runtimeApiKey = getRuntimeApiKey();
+    if (runtimeApiKey) {
+      headers.set("X-API-Key", runtimeApiKey);
+    }
+
+    return headers;
+  }
+
+  private async runtimeFetchWithRefresh(url: string, init: RequestInit): Promise<Response> {
+    const ws = getWorkspaceUrl();
+    let accessToken = getAuthToken(ws);
+
+    const doFetch = (token: string | null) =>
+      fetch(url, {
+        ...init,
+        headers: this.buildRuntimeFetchHeaders(init.headers, token),
+      });
+
+    let response = await doFetch(accessToken);
+
+    if (response.status === 401) {
+      const refreshToken = getRefreshToken(ws);
+      if (refreshToken) {
+        try {
+          const refreshed = await this.refreshToken(refreshToken);
+          accessToken = refreshed.access_token;
+          setAuthToken(ws, accessToken);
+          response = await doFetch(accessToken);
+        } catch (refreshErr) {
+          clearAuth(ws);
+          window.location.href = "/login";
+          throw refreshErr;
+        }
+      } else {
+        clearAuth(ws);
+        window.location.href = "/login";
+        throw new Error("Unauthorized");
+      }
+    }
+
+    return response;
+  }
+
+  private isApprovalRequiredEvent(value: unknown): value is ApprovalRequiredEvent {
+    if (!value || typeof value !== "object") return false;
+
+    const event = value as Record<string, unknown>;
+    return (
+      event.type === "approval_required" &&
+      typeof event.tool_call_id === "string" &&
+      typeof event.function_namespace === "string" &&
+      typeof event.function_name === "string" &&
+      !!event.arguments &&
+      typeof event.arguments === "object"
+    );
+  }
+
+  private async consumeChatSSEStream(body: ReadableStream<Uint8Array>, handlers: ChatStreamHandlers) {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        let eventType = "";
+        for (const line of lines) {
+          if (line.startsWith("event:")) {
+            eventType = line.substring(6).trim();
+          } else if (line.startsWith("data:")) {
+            const data = line.substring(5).trim();
+            if (!data) continue;
+
+            try {
+              const parsed = this.parseSSEData(data);
+              if (parsed == null) continue;
+
+              if (eventType === "message") {
+                if (typeof parsed === "string") {
+                  handlers.onChunkContent?.(parsed);
+                  continue;
+                }
+
+                if (parsed && typeof parsed === "object") {
+                  const payload = parsed as Record<string, unknown>;
+                  const contentText = this.extractText(payload.content);
+                  if (contentText) handlers.onChunkContent?.(contentText);
+
+                  if (this.isApprovalRequiredEvent(parsed)) {
+                    handlers.onApprovalRequired?.(parsed);
+                  }
+                }
+              } else if (eventType === "done") {
+                handlers.onDone?.();
+                return;
+              } else if (eventType === "error") {
+                if (parsed && typeof parsed === "object" && "error" in (parsed as Record<string, unknown>)) {
+                  handlers.onError?.((parsed as { error?: unknown }).error ?? parsed);
+                } else {
+                  handlers.onError?.(parsed);
+                }
+                return;
+              }
+            } catch (error) {
+              handlers.onError?.(error);
+            }
+          }
+        }
+      }
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {
+        // Ignore release errors during aborted streams.
+      }
+    }
+  }
+
+  private startChatSSEStream(url: string, init: RequestInit, handlers: ChatStreamHandlers): ChatStreamHandle {
+    const controller = new AbortController();
+    let aborted = false;
+
+    const done = (async () => {
+      try {
+        const response = await this.runtimeFetchWithRefresh(url, {
+          ...init,
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          let detail = "";
+          try {
+            detail = await response.text();
+          } catch {
+            detail = "";
+          }
+          handlers.onError?.(new Error(`HTTP error! status: ${response.status}${detail ? ` ${detail}` : ""}`));
+          return;
+        }
+
+        if (!response.body) {
+          handlers.onError?.(new Error("No stream body"));
+          return;
+        }
+
+        await this.consumeChatSSEStream(response.body, handlers);
+      } catch (error) {
+        if (aborted) return;
+        handlers.onError?.(error);
+      }
+    })();
+
+    return {
+      abort: () => {
+        aborted = true;
+        controller.abort();
+      },
+      done,
+    };
+  }
+
   private async consumeSSEStream(
     body: ReadableStream<Uint8Array>,
     onChunk?: (chunk: MessageStreamChunk) => void
@@ -326,17 +575,21 @@ class APIClient {
     accessToken: string | null,
     signal?: AbortSignal
   ) {
-    const base = (this.client.defaults.baseURL || getWorkspaceUrl()).replace(/\/+$/, "");
+    const base = String(this.client.defaults.baseURL || requireWorkspaceUrl()).replace(/\/+$/, "");
     const encodedChatId = encodeURIComponent(chatId);
     const url = `${base}/chats/${encodedChatId}/messages/stream`;
 
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    const runtimeApiKey = getRuntimeApiKey();
+    if (runtimeApiKey) headers["X-API-Key"] = runtimeApiKey;
+
+    const payload = this.normalizeStreamMessagePayload(data);
 
     return fetch(url, {
       method: "POST",
       headers,
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
       signal,
     });
   }
@@ -402,6 +655,62 @@ class APIClient {
     return res.data as Message;
   }
 
+  streamChatMessage(
+    chatId: string,
+    content: MessageSendRequest["content"],
+    handlers: ChatStreamHandlers = {}
+  ): ChatStreamHandle {
+    const encodedChatId = encodeURIComponent(chatId);
+    const url = `${this.getRuntimeBaseUrl()}/chats/${encodedChatId}/messages/stream`;
+    const payload = this.normalizeStreamMessagePayload({ content });
+
+    return this.startChatSSEStream(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+      handlers
+    );
+  }
+
+  async approveToolCall(chatId: string, toolCallId: string, approved: boolean): Promise<string> {
+    const encodedChatId = encodeURIComponent(chatId);
+    const encodedToolCallId = encodeURIComponent(toolCallId);
+    const payload: ToolApprovalRequest = { approved };
+
+    const res = await this.client.post(
+      `/chats/${encodedChatId}/approve-tool/${encodedToolCallId}`,
+      payload
+    );
+
+    const data = res.data as ToolApprovalResponse;
+    if (!data.channel_id) {
+      throw new Error("Approval response missing channel_id");
+    }
+
+    return data.channel_id;
+  }
+
+  streamChatChannel(chatId: string, channelId: string, handlers: ChatStreamHandlers = {}): ChatStreamHandle {
+    const encodedChatId = encodeURIComponent(chatId);
+    const encodedChannelId = encodeURIComponent(channelId);
+    const url = `${this.getRuntimeBaseUrl()}/chats/${encodedChatId}/stream/${encodedChannelId}`;
+
+    return this.startChatSSEStream(
+      url,
+      {
+        method: "GET",
+      },
+      handlers
+    );
+  }
+
+  streamApprovalChannel(chatId: string, channelId: string, handlers: ChatStreamHandlers = {}): ChatStreamHandle {
+    return this.streamChatChannel(chatId, channelId, handlers);
+  }
+
   async sendMessageStream(chatId: string, data: MessageSendRequest, options: SendMessageStreamOptions = {}) {
     const ws = getWorkspaceUrl();
     let accessToken = getAuthToken(ws);
@@ -464,11 +773,77 @@ class APIClient {
   }
 
   // --------------------
+  // States (runtime)
+  // --------------------
+  async listStates<TValue = unknown>(params: ListStatesParams = {}): Promise<Array<RuntimeStateRecord<TValue>>> {
+    const res = await this.client.get("/states", {
+      params: params.namespace ? { namespace: params.namespace } : undefined,
+    });
+    return res.data as Array<RuntimeStateRecord<TValue>>;
+  }
+
+  async createState<TValue = unknown>(payload: CreateStateRequest<TValue>): Promise<RuntimeStateRecord<TValue>> {
+    const res = await this.client.post("/states", payload);
+    return res.data as RuntimeStateRecord<TValue>;
+  }
+
+  async updateState<TValue = unknown>(
+    stateId: string,
+    payload: UpdateStateRequest<TValue>
+  ): Promise<RuntimeStateRecord<TValue>> {
+    const encodedStateId = encodeURIComponent(stateId);
+    const res = await this.client.put(`/states/${encodedStateId}`, payload);
+    return res.data as RuntimeStateRecord<TValue>;
+  }
+
+  async deleteState(stateId: string): Promise<void> {
+    const encodedStateId = encodeURIComponent(stateId);
+    await this.client.delete(`/states/${encodedStateId}`);
+  }
+
+  // --------------------
+  // Files
+  // --------------------
+  async uploadFile(namespace: string, collection: string, data: FileUpload): Promise<FileResponse> {
+    const encodedNamespace = encodeURIComponent(namespace);
+    const encodedCollection = encodeURIComponent(collection);
+    const res = await this.client.post(`/files/${encodedNamespace}/${encodedCollection}`, data);
+    return res.data as FileResponse;
+  }
+
+  async generateFileTempUrl(
+    namespace: string,
+    collection: string,
+    filename: string,
+    options: { expiresIn?: number; version?: number } = {}
+  ): Promise<TempUrlResponse | string> {
+    const encodedNamespace = encodeURIComponent(namespace);
+    const encodedCollection = encodeURIComponent(collection);
+    const encodedFilename = encodeURIComponent(filename);
+    const params: Record<string, number> = {
+      expires_in: options.expiresIn ?? 3600,
+    };
+    if (typeof options.version === "number") {
+      params.version = options.version;
+    }
+
+    const res = await this.client.post(
+      `/files/${encodedNamespace}/${encodedCollection}/${encodedFilename}/url`,
+      null,
+      { params }
+    );
+    return res.data as TempUrlResponse | string;
+  }
+
+  // --------------------
   // Agents (runtime)
   // --------------------
-  async listAgents(): Promise<Agent[]> {
-    const res = await this.client.get("/agents");
-    return res.data as Agent[];
+  async listAgents(appId?: string): Promise<AgentResponse[]> {
+    const normalizedAppId = appId?.trim();
+    const res = await this.client.get("/agents", {
+      headers: normalizedAppId ? { "X-Application": normalizedAppId } : undefined,
+    });
+    return res.data as AgentResponse[];
   }
 }
 

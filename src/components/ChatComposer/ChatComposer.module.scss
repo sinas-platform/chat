@@ -2,13 +2,72 @@
   position: relative;
 }
 
-.textarea {
-  width: 100%;
+.dropActive {
+  outline: 2px dashed #9cb6d8;
+  outline-offset: 6px;
+  border-radius: 16px;
 }
 
+.dropOverlay {
+  position: absolute;
+  inset: -4px;
+  border-radius: 16px;
+  background: rgba(245, 249, 255, 0.92);
+  border: 1px solid #cfe0f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.dropOverlayText {
+  font-size: 13px;
+  font-weight: 600;
+  color: #35557d;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #d9e7f7;
+}
+
+.attachmentArea {
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.attachmentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.attachmentError {
+  color: #b00020;
+  font-size: 12px;
+}
+
+.textarea {
+  width: 100%;
+  background: transparent;
+
+  &:disabled {
+    background: transparent;
+    color: inherit;
+    opacity: 1;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+.attachmentInput {
+  display: none;
+}
+
+.attachmentButton,
 .micButton {
   position: absolute;
-  right: 12px;
   bottom: 12px;
   width: 32px;
   height: 32px;
@@ -32,8 +91,35 @@
   }
 }
 
+.attachmentButton {
+  right: 50px;
+}
+
+.micButton {
+  right: 12px;
+}
+
 .micButtonActive {
   color: #0e6a33;
   border-color: #86cca2;
   background: #edf8f1;
+}
+
+.stopButton {
+  border-color: #cfd6e1;
+  background: #eef2f7;
+  color: #445066;
+
+  &:hover:not(:disabled) {
+    border-color: #bcc7d6;
+    background: #e4eaf2;
+  }
+}
+
+.stopGlyph {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: currentColor;
+  display: block;
 }
