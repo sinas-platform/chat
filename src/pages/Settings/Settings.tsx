@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Settings2 } from "lucide-react";
+import { Settings2 } from "lucide-react";
 
 import styles from "./Settings.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
@@ -13,6 +12,22 @@ import {
   type VisibleAgentsPreferenceValue,
 } from "../../hooks/useVisibleAgentsPreference";
 import { getWorkspaceUrl } from "../../lib/workspace";
+import type { AgentResponse } from "../../types";
+
+const AGENT_TONES = ["yellow", "blue", "mint"] as const;
+
+function joinClasses(...classNames: Array<string | undefined | false>) {
+  return classNames.filter(Boolean).join(" ");
+}
+
+function getAgentTone(agent: Pick<AgentResponse, "id" | "namespace" | "name">): (typeof AGENT_TONES)[number] {
+  const source = `${agent.id}:${agent.namespace}:${agent.name}`;
+  let hash = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = (hash * 31 + source.charCodeAt(index)) >>> 0;
+  }
+  return AGENT_TONES[hash % AGENT_TONES.length] ?? "yellow";
+}
 
 function sortAgentsForSettings<T extends { namespace: string; name: string }>(agents: T[]): T[] {
   return [...agents].sort((left, right) => {
@@ -33,7 +48,6 @@ function preferenceEquals(left: VisibleAgentsPreferenceValue, right: VisibleAgen
 }
 
 export function SettingsPage() {
-  const navigate = useNavigate();
   const workspaceUrl = getWorkspaceUrl();
   const hasWorkspaceUrl = workspaceUrl.length > 0;
   const visibleAgentsPreference = useVisibleAgentsPreference();
@@ -48,6 +62,7 @@ export function SettingsPage() {
   const [draftPreference, setDraftPreference] = useState<VisibleAgentsPreferenceValue>(DEFAULT_VISIBLE_AGENTS_PREFERENCE);
   const [isDirty, setIsDirty] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "Sinas - Settings";
@@ -57,6 +72,18 @@ export function SettingsPage() {
     if (isDirty) return;
     setDraftPreference(visibleAgentsPreference.preference);
   }, [isDirty, visibleAgentsPreference.preference]);
+
+  useEffect(() => {
+    if (!selectionNotice) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setSelectionNotice(null);
+    }, 2400);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [selectionNotice]);
 
   const effectiveVisibleRefs = useMemo(() => {
     if (draftPreference.mode === "all") return allAgentRefs;
@@ -69,6 +96,7 @@ export function SettingsPage() {
   const selectedCount = effectiveVisibleRefs.length;
   const totalAgentCount = sortedAgents.length;
   const hasUnsavedChanges = isDirty && !preferenceEquals(draftPreference, visibleAgentsPreference.preference);
+  const hasInvalidEmptyCustomSelection = draftPreference.mode === "custom" && selectedCount === 0 && totalAgentCount > 0;
   const saveDisabled =
     !hasWorkspaceUrl ||
     agentsQuery.isLoading ||
@@ -76,11 +104,13 @@ export function SettingsPage() {
     statesQuery.isLoading ||
     statesQuery.isError ||
     visibleAgentsPreference.isSavingPreference ||
+    hasInvalidEmptyCustomSelection ||
     !hasUnsavedChanges;
 
   function updateDraft(next: VisibleAgentsPreferenceValue) {
     visibleAgentsPreference.resetSavePreferenceError();
     setSaveMessage(null);
+    setSelectionNotice(null);
     setIsDirty(true);
     setDraftPreference(normalizeVisibleAgentsPreferenceValue(next));
   }
@@ -95,22 +125,17 @@ export function SettingsPage() {
 
   function toggleAgent(ref: string) {
     const currentSet = new Set(effectiveVisibleRefs);
-    if (currentSet.has(ref)) currentSet.delete(ref);
-    else currentSet.add(ref);
+    if (currentSet.has(ref)) {
+      if (currentSet.size <= 1 && totalAgentCount > 0) {
+        setSelectionNotice("At least one agent must remain visible so you can start a chat.");
+        return;
+      }
+      currentSet.delete(ref);
+    } else {
+      currentSet.add(ref);
+    }
 
     setCustomVisibleRefs(Array.from(currentSet));
-  }
-
-  function selectAllAgents() {
-    setCustomVisibleRefs(allAgentRefs);
-  }
-
-  function selectNoAgents() {
-    updateDraft({
-      version: 1,
-      mode: "custom",
-      visibleAgentRefs: [],
-    });
   }
 
   function resetToDefault() {
@@ -140,11 +165,6 @@ export function SettingsPage() {
               <h1 className={styles.title}>Settings</h1>
               <p className={styles.subtitle}>Manage what appears on your homepage.</p>
             </div>
-
-            <Button variant="default" onClick={() => navigate(-1)}>
-              <ArrowLeft size={16} aria-hidden />
-              Go back
-            </Button>
           </div>
 
           <section className={styles.card} aria-labelledby="homepage-agents-title">
@@ -158,8 +178,7 @@ export function SettingsPage() {
                 </h2>
               </div>
               <p className={styles.cardDescription}>
-                Choose which active agents are shown on the homepage. This preference is saved privately to your Sinas
-                state.
+                Choose which active agents are shown on the homepage.
               </p>
             </div>
 
@@ -198,6 +217,12 @@ export function SettingsPage() {
               </div>
             ) : null}
 
+            {selectionNotice ? (
+              <div className={styles.noticeBox} role="status" aria-live="polite">
+                <span>{selectionNotice}</span>
+              </div>
+            ) : null}
+
             <div className={styles.summaryRow}>
               <div className={styles.summaryPill}>
                 {draftPreference.mode === "all" ? "Default: show all agents" : `Custom: ${selectedCount} selected`}
@@ -211,22 +236,8 @@ export function SettingsPage() {
               <div className={styles.actionGroup}>
                 <Button
                   variant="default"
-                  onClick={selectAllAgents}
-                  disabled={totalAgentCount === 0 || agentsQuery.isLoading || statesQuery.isLoading}
-                >
-                  Select all
-                </Button>
-                <Button
-                  variant="default"
-                  onClick={selectNoAgents}
-                  disabled={totalAgentCount === 0 || agentsQuery.isLoading || statesQuery.isLoading}
-                >
-                  Select none
-                </Button>
-                <Button
-                  variant="default"
                   onClick={resetToDefault}
-                  disabled={agentsQuery.isLoading || statesQuery.isLoading}
+                  disabled={draftPreference.mode === "all" || agentsQuery.isLoading || statesQuery.isLoading}
                 >
                   Reset to default (show all)
                 </Button>
@@ -256,23 +267,39 @@ export function SettingsPage() {
                     const agentRef = getAgentRef(agent);
                     const checked = draftPreference.mode === "all" || effectiveVisibleRefSet.has(agentRef);
                     const description = agent.description?.trim() || "No description available.";
+                    const statusLabel = checked ? "Visible" : "Hidden";
+                    const tone = getAgentTone(agent);
 
                     return (
                       <li key={agent.id} className={styles.agentRow}>
-                        <label className={styles.agentLabel}>
-                          <input
-                            className={styles.checkbox}
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleAgent(agentRef)}
-                            disabled={visibleAgentsPreference.isSavingPreference}
-                          />
+                        <label
+                          className={joinClasses(
+                            styles.agentLabel,
+                            styles[`agentLabelTone${tone[0].toUpperCase()}${tone.slice(1)}`],
+                          )}
+                        >
+                          <span className={styles.selectCheckbox}>
+                            <input
+                              className={styles.selectCheckboxInput}
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleAgent(agentRef)}
+                              disabled={visibleAgentsPreference.isSavingPreference}
+                            />
+                            <span className={styles.selectCheckboxControl} aria-hidden />
+                          </span>
                           <span className={styles.agentMeta}>
-                            <span className={styles.agentName}>
-                              {agent.namespace} / {agent.name}
+                            <span className={styles.agentTopRow}>
+                              <span className={styles.agentName}>
+                                {agent.namespace} / {agent.name}
+                              </span>
+                              {agent.is_default ? <span className={styles.agentBadge}>Default</span> : null}
                             </span>
                             <span className={styles.agentRef}>{agentRef}</span>
                             <span className={styles.agentDescription}>{description}</span>
+                          </span>
+                          <span className={checked ? styles.visibilityPillVisible : styles.visibilityPillHidden}>
+                            {statusLabel}
                           </span>
                         </label>
                       </li>
@@ -284,7 +311,11 @@ export function SettingsPage() {
 
             <div className={styles.footerActions}>
               <div className={styles.footerHint}>
-                {hasUnsavedChanges ? "You have unsaved changes." : "Changes are saved."}
+                {hasInvalidEmptyCustomSelection
+                  ? "Select at least one agent."
+                  : hasUnsavedChanges
+                    ? "You have unsaved changes."
+                    : "Changes are saved."}
               </div>
               <Button variant="primary" onClick={() => void save()} disabled={saveDisabled}>
                 {visibleAgentsPreference.isSavingPreference ? "Saving..." : "Save"}
@@ -296,4 +327,3 @@ export function SettingsPage() {
     </div>
   );
 }
-

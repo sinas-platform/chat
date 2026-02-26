@@ -17,10 +17,8 @@
 }
 
 .headerRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 14px;
+  display: grid;
+  gap: 8px;
 }
 
 .title {
@@ -36,14 +34,13 @@
 }
 
 .card {
-  border: 1px solid #e5e5e5;
-  border-radius: 18px;
+  border: 1px solid #e7e7e7;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(8px);
   padding: 18px;
   display: grid;
   gap: 14px;
-  box-shadow: 0 16px 40px rgba(15, 15, 15, 0.04);
 }
 
 .cardHeader {
@@ -63,8 +60,9 @@
   display: grid;
   place-items: center;
   border-radius: 9px;
-  background: #111;
-  color: #fff;
+  background: #fff1e2;
+  border: 1px solid #efcfaf;
+  color: #9e4b11;
 }
 
 .cardTitle {
@@ -77,10 +75,12 @@
   margin: 0;
   color: #555;
   max-width: 70ch;
+  font-size: 14px;
 }
 
 .errorBox,
-.successBox {
+.successBox,
+.noticeBox {
   border-radius: 12px;
   padding: 10px 12px;
   display: flex;
@@ -91,15 +91,21 @@
 }
 
 .errorBox {
-  border: 1px solid #f1c9c2;
-  background: #fff4f2;
-  color: #8f2f20;
+  border: 1px solid #f0c7c2;
+  background: #fff2f0;
+  color: #8d1c10;
 }
 
 .successBox {
-  border: 1px solid #cce8d4;
-  background: #f4fff7;
-  color: #216535;
+  border: 1px solid #d7e9de;
+  background: #f5fbf8;
+  color: #245f3a;
+}
+
+.noticeBox {
+  border: 1px solid #f2d8bc;
+  background: #fff7ef;
+  color: #9e4b11;
 }
 
 .inlineAction {
@@ -118,8 +124,9 @@
 
 .summaryPill {
   border-radius: 999px;
-  background: #f2f2f2;
-  color: #1d1d1d;
+  background: #fff6ed;
+  color: #a35217;
+  border: 1px solid #f2d8bc;
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 600;
@@ -143,10 +150,17 @@
   gap: 8px;
 }
 
+.actionGroup :global(button) {
+  min-height: 34px;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
 .listShell {
-  border: 1px solid #ececec;
-  border-radius: 14px;
-  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 250, 250, 0.96));
   min-height: 180px;
   overflow: hidden;
 }
@@ -164,7 +178,7 @@
 }
 
 .agentRow {
-  border-top: 1px solid #efefef;
+  border-top: 1px solid #ececec;
 }
 
 .agentRow:first-child {
@@ -173,32 +187,134 @@
 
 .agentLabel {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: flex-start;
+  align-items: center;
   padding: 12px 14px;
   cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.agentLabelToneYellow {
+  background: linear-gradient(180deg, rgba(250, 247, 222, 0.75), rgba(250, 247, 222, 0.55));
+}
+
+.agentLabelToneBlue {
+  background: linear-gradient(180deg, rgba(233, 240, 255, 0.75), rgba(233, 240, 255, 0.55));
+}
+
+.agentLabelToneMint {
+  background: linear-gradient(180deg, rgba(234, 248, 241, 0.75), rgba(234, 248, 241, 0.55));
 }
 
 .agentLabel:hover {
-  background: #fafafa;
+  filter: brightness(0.99);
 }
 
-.checkbox {
-  margin-top: 2px;
-  width: 16px;
-  height: 16px;
-  accent-color: #111;
+.selectCheckbox {
+  width: 18px;
+  height: 18px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.selectCheckboxInput {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.selectCheckboxControl {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #b9b9b9;
+  border-radius: 5px;
+  background: #fff;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease,
+    opacity 120ms ease;
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 12px 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2 6.3L4.7 9L10 3.7' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    transition:
+      opacity 120ms ease,
+      transform 120ms ease;
+  }
+}
+
+.selectCheckboxInput:hover + .selectCheckboxControl {
+  border-color: #8f8f8f;
+}
+
+.selectCheckboxInput:focus-visible + .selectCheckboxControl {
+  border-color: #111;
+  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.18);
+}
+
+.selectCheckboxInput:checked + .selectCheckboxControl {
+  border-color: #e97203;
+  background: #e97203;
+  transform: translateY(-0.5px);
+}
+
+.selectCheckboxInput:checked + .selectCheckboxControl::after {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.selectCheckboxInput:disabled + .selectCheckboxControl {
+  opacity: 0.6;
 }
 
 .agentMeta {
   display: grid;
-  gap: 3px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.agentTopRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .agentName {
   font-weight: 600;
   color: #111;
+  min-width: 0;
+}
+
+.agentBadge {
+  width: fit-content;
+  font-size: 11px;
+  color: #242424;
+  border: 1px solid rgba(17, 17, 17, 0.2);
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .agentRef {
@@ -210,6 +326,30 @@
 .agentDescription {
   color: #555;
   font-size: 13px;
+  line-height: 1.35;
+}
+
+.visibilityPillVisible,
+.visibilityPillHidden {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+.visibilityPillVisible {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(17, 17, 17, 0.18);
+  color: #1f1f1f;
+}
+
+.visibilityPillHidden {
+  background: rgba(255, 255, 255, 0.52);
+  border-color: rgba(17, 17, 17, 0.12);
+  color: #6a6a6a;
 }
 
 .footerActions {
@@ -234,8 +374,7 @@
   }
 
   .headerRow {
-    flex-direction: column;
-    align-items: stretch;
+    gap: 6px;
   }
 
   .toolbar {
@@ -255,5 +394,16 @@
     flex-direction: column;
     align-items: stretch;
   }
-}
 
+  .agentLabel {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: flex-start;
+  }
+
+  .visibilityPillVisible,
+  .visibilityPillHidden {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 2px;
+  }
+}
