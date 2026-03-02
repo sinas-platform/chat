@@ -2,7 +2,7 @@
   display: grid;
   grid-template-columns: 280px 1fr;
   height: 100vh;
-  background: #fff;
+  background: var(--color-bg-app);
 }
 
 .main {
@@ -15,6 +15,37 @@
 
 .mainContent {
   width: min(780px, 100%);
+}
+
+.topActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.themeToggle {
+  border: 1px solid var(--color-border-default);
+  border-radius: 999px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  height: 34px;
+  padding: 0 12px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-border-muted);
+    background: var(--color-bg-surface-hover);
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
 }
 
 .hero {
@@ -38,24 +69,24 @@
   width: 30px;
   height: 30px;
   border-radius: 999px;
-  border: 1px solid #111;
-  background: #f4f4f4;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-surface-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #111;
+  color: var(--color-text-primary);
 }
 
 .heroIconToneYellow {
-  background: #faf7de;
+  background: var(--color-tone-yellow);
 }
 
 .heroIconToneBlue {
-  background: #e9f0ff;
+  background: var(--color-tone-blue);
 }
 
 .heroIconToneMint {
-  background: #eaf8f1;
+  background: var(--color-tone-mint);
 }
 
 .heroTitle {
@@ -64,15 +95,16 @@
 }
 
 .heroHint {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 14px;
   margin-left: 40px;
 }
 
 .agentPicker {
   margin-top: 24px;
-  border: 1px solid #e3e3e3;
+  border: 1px solid var(--color-border-soft);
   border-radius: 16px;
+  background: var(--color-bg-surface);
   padding: 16px;
   width: min(780px, 100%);
   margin-left: auto;
@@ -84,7 +116,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #444;
+  color: var(--color-text-secondary);
 }
 
 .recentAgentRow {
@@ -119,17 +151,18 @@
 
 .agentSearchField {
   width: 100%;
-  border: 1px solid #d7d7d7;
+  border: 1px solid var(--color-border-default);
   border-radius: 999px;
   padding: 0 12px;
   height: 34px;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #737373;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-surface);
 
   &:focus-within {
-    border-color: #8f8f8f;
+    border-color: var(--color-border-muted);
   }
 }
 
@@ -143,31 +176,31 @@
 .agentViewToggle {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #d7d7d7;
+  border: 1px solid var(--color-border-default);
   border-radius: 999px;
   overflow: hidden;
-  background: #fff;
+  background: var(--color-bg-surface);
 }
 
 .agentViewBtn {
   width: 30px;
   height: 30px;
   border: none;
-  background: #fff;
-  color: #666;
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 
   &:hover {
-    background: #f4f4f4;
+    background: var(--color-bg-surface-hover);
   }
 }
 
 .agentViewBtnActive {
-  background: #ededed;
-  color: #111;
+  background: var(--color-bg-surface-muted);
+  color: var(--color-text-primary);
 }
 
 .agentSearchInput {
@@ -192,9 +225,9 @@
 }
 
 .agentCard {
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--color-border-default);
   border-radius: 18px;
-  background: #f8f8f8;
+  background: var(--color-bg-surface-subtle);
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -206,12 +239,12 @@
 
   &:hover {
     transform: translateY(-1px);
-    border-color: #acacac;
+    border-color: var(--color-border-muted);
   }
 }
 
 .agentCardActive {
-  border-color: #111;
+  border-color: var(--color-border-strong);
 }
 
 .agentCardList {
@@ -242,15 +275,15 @@
 }
 
 .agentCardToneYellow {
-  background: #faf7de;
+  background: var(--color-tone-yellow);
 }
 
 .agentCardToneBlue {
-  background: #e9f0ff;
+  background: var(--color-tone-blue);
 }
 
 .agentCardToneMint {
-  background: #eaf8f1;
+  background: var(--color-tone-mint);
 }
 
 .agentCardTop {
@@ -263,9 +296,9 @@
   width: 22px;
   height: 22px;
   border-radius: 999px;
-  border: 1px solid rgba(17, 17, 17, 0.35);
-  background: rgba(255, 255, 255, 0.72);
-  color: #111;
+  border: 1px solid var(--color-badge-border);
+  background: var(--color-badge-bg-strong);
+  color: var(--color-text-primary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -274,22 +307,22 @@
 .agentName {
   font-size: 14px;
   font-weight: 700;
-  color: #111;
+  color: var(--color-text-primary);
 }
 
 .agentBadge {
   width: fit-content;
   font-size: 12px;
-  color: #242424;
-  border: 1px solid rgba(17, 17, 17, 0.35);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-badge-border);
   border-radius: 999px;
   padding: 3px 8px;
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--color-badge-bg);
 }
 
 .agentDescription {
   font-size: 12px;
-  color: #4d4d4d;
+  color: var(--color-text-secondary);
   line-height: 1.35;
 }
 
@@ -301,14 +334,14 @@
 }
 
 .loadingText {
-  color: #e97203;
+  color: var(--color-accent);
   font-size: 13px;
   font-weight: 500;
 }
 
 .muted {
   margin-top: 10px;
-  color: #7b7b7b;
+  color: var(--color-text-muted);
   font-size: 13px;
 }
 
@@ -317,31 +350,32 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: #8d1c10;
+  color: var(--color-danger);
   font-size: 13px;
-  background: #fff2f0;
-  border: 1px solid #f0c7c2;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
   border-radius: 10px;
   padding: 8px 10px;
 }
 
 .retryButton {
-  border: 1px solid #d7d7d7;
-  background: #fff;
-  color: #111;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 12px;
   cursor: pointer;
 
   &:hover {
-    background: #f6f6f6;
+    background: var(--color-bg-surface-hover);
   }
 }
 
 .composer {
   margin-top: 22px;
-  border: 1px solid #111;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-surface);
   border-radius: 18px;
   padding: 12px 14px;
   width: min(720px, 100%);
@@ -352,6 +386,7 @@
 .composerInput {
   width: 100%;
   border: 0;
+  color: var(--color-text-primary);
   outline: none;
   resize: none;
   font-size: 14px;
@@ -377,6 +412,10 @@
 
   .mainContent {
     width: 100%;
+  }
+
+  .topActions {
+    margin-bottom: 12px;
   }
 
   .agentControls {

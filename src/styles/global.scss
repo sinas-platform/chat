@@ -1,3 +1,5 @@
+@use "./colors";
+
 *,
 *::before,
 *::after {
@@ -21,6 +23,7 @@ body {
     Roboto,
     sans-serif;
 
-  color: #111;
-  background: #fff;
+  color: var(--color-text-primary);
+  background: var(--color-bg-app);
+  transition: background-color 160ms ease, color 160ms ease;
 }

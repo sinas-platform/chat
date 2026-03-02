@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, ChevronDown, LayoutGrid, List, Search, type LucideIcon } from "lucide-react";
+import { Bot, ChevronDown, LayoutGrid, List, Moon, Search, Sun, type LucideIcon } from "lucide-react";
 
 import styles from "./HomePage.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
@@ -12,6 +12,7 @@ import { useVisibleAgentsPreference } from "../../hooks/useVisibleAgentsPreferen
 import { apiClient } from "../../lib/api";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
+import { useTheme } from "../../lib/useTheme";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import type { AgentResponse, Chat } from "../../types";
 
@@ -148,6 +149,7 @@ export default function HomePage() {
   const ws = getWorkspaceUrl();
   const hasWorkspaceUrl = ws.length > 0;
   const visibleAgentsPreference = useVisibleAgentsPreference();
+  const { theme, toggleTheme, isSavingTheme, themeErrorMessage } = useTheme();
   const agentsQ = visibleAgentsPreference.agentsQuery;
 
   const [selectedAgentKey, setSelectedAgentKey] = useState<string | null>(() => readSelectedAgentKey());
@@ -381,6 +383,26 @@ export default function HomePage() {
 
       <main className={styles.main}>
         <div className={styles.mainContent}>
+          <div className={styles.topActions}>
+            <button
+              type="button"
+              className={styles.themeToggle}
+              onClick={() => void toggleTheme()}
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              disabled={isSavingTheme}
+            >
+              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+              <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+            </button>
+          </div>
+
+          {themeErrorMessage ? (
+            <div className={styles.errorState} role="alert" style={{ marginBottom: 12 }}>
+              <span>{themeErrorMessage}</span>
+            </div>
+          ) : null}
+
           {!hasWorkspaceUrl ? (
             <section className={styles.agentPicker}>
               <div className={styles.agentPickerTitle}>Select workspace</div>

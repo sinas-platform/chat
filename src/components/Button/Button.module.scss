@@ -1,7 +1,7 @@
 .button {
-  border: 1px solid rgba(0, 0, 0, 0.14);
-  background: #fff;
-  color: #111;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
   border-radius: 8px;
   padding: 12px 14px;
   font-size: 14px;
@@ -18,15 +18,15 @@
 }
 
 .primary {
-  background: #111;
-  color: #fff;
-  border-color: #111;
+  background: var(--color-bg-inverse);
+  color: var(--color-text-inverse);
+  border-color: var(--color-bg-inverse);
 }
 
 .link {
   border: none;
   background: transparent;
-  color: rgba(0, 0, 0, 0.75);
+  color: var(--color-text-secondary);
   padding: 0;
   font-size: 13px;
   text-decoration: underline;

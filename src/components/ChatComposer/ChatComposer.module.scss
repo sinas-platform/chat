@@ -3,7 +3,7 @@
 }
 
 .dropActive {
-  outline: 2px dashed #9cb6d8;
+  outline: 2px dashed var(--color-border-muted);
   outline-offset: 6px;
   border-radius: 16px;
 }
@@ -12,8 +12,8 @@
   position: absolute;
   inset: -4px;
   border-radius: 16px;
-  background: rgba(245, 249, 255, 0.92);
-  border: 1px solid #cfe0f5;
+  background: var(--color-bg-overlay);
+  border: 1px solid var(--color-border-default);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -24,11 +24,11 @@
 .dropOverlayText {
   font-size: 13px;
   font-weight: 600;
-  color: #35557d;
+  color: var(--color-text-primary);
   padding: 8px 12px;
   border-radius: 999px;
-  background: #fff;
-  border: 1px solid #d9e7f7;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
 }
 
 .attachmentArea {
@@ -45,7 +45,7 @@
 }
 
 .attachmentError {
-  color: #b00020;
+  color: var(--color-danger);
   font-size: 12px;
 }
 
@@ -71,18 +71,18 @@
   bottom: 12px;
   width: 32px;
   height: 32px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border-default);
   border-radius: 999px;
-  background: #fff;
-  color: #444;
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
 
   &:hover:not(:disabled) {
-    border-color: #bbb;
-    background: #f7f7f7;
+    border-color: var(--color-border-muted);
+    background: var(--color-bg-surface-hover);
   }
 
   &:disabled {
@@ -100,19 +100,19 @@
 }
 
 .micButtonActive {
-  color: #0e6a33;
-  border-color: #86cca2;
-  background: #edf8f1;
+  color: var(--color-success);
+  border-color: var(--color-success-border);
+  background: var(--color-success-bg);
 }
 
 .stopButton {
-  border-color: #cfd6e1;
-  background: #eef2f7;
-  color: #445066;
+  border-color: var(--color-border-default);
+  background: var(--color-bg-surface-muted);
+  color: var(--color-text-secondary);
 
   &:hover:not(:disabled) {
-    border-color: #bcc7d6;
-    background: #e4eaf2;
+    border-color: var(--color-border-muted);
+    background: var(--color-bg-surface-hover);
   }
 }
 

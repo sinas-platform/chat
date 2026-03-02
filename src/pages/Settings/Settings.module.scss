@@ -2,7 +2,7 @@
   height: 100vh;
   display: grid;
   grid-template-columns: 280px 1fr;
-  background: #fff;
+  background: var(--color-bg-app);
 }
 
 .main {
@@ -30,13 +30,13 @@
 
 .subtitle {
   margin: 8px 0 0;
-  color: #585858;
+  color: var(--color-text-secondary);
 }
 
 .card {
-  border: 1px solid #e7e7e7;
+  border: 1px solid var(--color-border-soft);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--color-bg-surface);
   backdrop-filter: blur(8px);
   padding: 18px;
   display: grid;
@@ -60,9 +60,9 @@
   display: grid;
   place-items: center;
   border-radius: 9px;
-  background: #fff1e2;
-  border: 1px solid #efcfaf;
-  color: #9e4b11;
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning);
 }
 
 .cardTitle {
@@ -73,7 +73,7 @@
 
 .cardDescription {
   margin: 0;
-  color: #555;
+  color: var(--color-text-secondary);
   max-width: 70ch;
   font-size: 14px;
 }
@@ -91,21 +91,21 @@
 }
 
 .errorBox {
-  border: 1px solid #f0c7c2;
-  background: #fff2f0;
-  color: #8d1c10;
+  border: 1px solid var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 
 .successBox {
-  border: 1px solid #d7e9de;
-  background: #f5fbf8;
-  color: #245f3a;
+  border: 1px solid var(--color-success-border);
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .noticeBox {
-  border: 1px solid #f2d8bc;
-  background: #fff7ef;
-  color: #9e4b11;
+  border: 1px solid var(--color-warning-border);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .inlineAction {
@@ -124,16 +124,16 @@
 
 .summaryPill {
   border-radius: 999px;
-  background: #fff6ed;
-  color: #a35217;
-  border: 1px solid #f2d8bc;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 600;
 }
 
 .summaryText {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
@@ -158,16 +158,16 @@
 }
 
 .listShell {
-  border: 1px solid #e8e8e8;
+  border: 1px solid var(--color-border-soft);
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 250, 250, 0.96));
+  background: linear-gradient(180deg, var(--color-bg-surface), var(--color-bg-surface-subtle));
   min-height: 180px;
   overflow: hidden;
 }
 
 .emptyState {
   padding: 18px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .agentList {
@@ -178,7 +178,7 @@
 }
 
 .agentRow {
-  border-top: 1px solid #ececec;
+  border-top: 1px solid var(--color-border-subtle);
 }
 
 .agentRow:first-child {
@@ -196,15 +196,15 @@
 }
 
 .agentLabelToneYellow {
-  background: linear-gradient(180deg, rgba(250, 247, 222, 0.75), rgba(250, 247, 222, 0.55));
+  background: var(--color-tone-yellow);
 }
 
 .agentLabelToneBlue {
-  background: linear-gradient(180deg, rgba(233, 240, 255, 0.75), rgba(233, 240, 255, 0.55));
+  background: var(--color-tone-blue);
 }
 
 .agentLabelToneMint {
-  background: linear-gradient(180deg, rgba(234, 248, 241, 0.75), rgba(234, 248, 241, 0.55));
+  background: var(--color-tone-mint);
 }
 
 .agentLabel:hover {
@@ -233,9 +233,9 @@
 .selectCheckboxControl {
   width: 18px;
   height: 18px;
-  border: 1px solid #b9b9b9;
+  border: 1px solid var(--color-border-muted);
   border-radius: 5px;
-  background: #fff;
+  background: var(--color-bg-surface);
   transition:
     border-color 120ms ease,
     background 120ms ease,
@@ -264,17 +264,17 @@
 }
 
 .selectCheckboxInput:hover + .selectCheckboxControl {
-  border-color: #8f8f8f;
+  border-color: var(--color-border-muted);
 }
 
 .selectCheckboxInput:focus-visible + .selectCheckboxControl {
-  border-color: #111;
-  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.18);
+  border-color: var(--color-border-strong);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
 .selectCheckboxInput:checked + .selectCheckboxControl {
-  border-color: #e97203;
-  background: #e97203;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
   transform: translateY(-0.5px);
 }
 
@@ -303,28 +303,28 @@
 
 .agentName {
   font-weight: 600;
-  color: #111;
+  color: var(--color-text-primary);
   min-width: 0;
 }
 
 .agentBadge {
   width: fit-content;
   font-size: 11px;
-  color: #242424;
-  border: 1px solid rgba(17, 17, 17, 0.2);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-badge-border-soft);
   border-radius: 999px;
   padding: 2px 7px;
-  background: rgba(255, 255, 255, 0.62);
+  background: var(--color-badge-bg-strong);
 }
 
 .agentRef {
-  color: #6a6a6a;
+  color: var(--color-text-muted);
   font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 .agentDescription {
-  color: #555;
+  color: var(--color-text-secondary);
   font-size: 13px;
   line-height: 1.35;
 }
@@ -341,15 +341,15 @@
 }
 
 .visibilityPillVisible {
-  background: rgba(255, 255, 255, 0.72);
-  border-color: rgba(17, 17, 17, 0.18);
-  color: #1f1f1f;
+  background: var(--color-badge-bg-strong);
+  border-color: var(--color-badge-border-soft);
+  color: var(--color-text-primary);
 }
 
 .visibilityPillHidden {
-  background: rgba(255, 255, 255, 0.52);
-  border-color: rgba(17, 17, 17, 0.12);
-  color: #6a6a6a;
+  background: var(--color-badge-bg-muted);
+  border-color: var(--color-badge-border-soft);
+  color: var(--color-text-muted);
 }
 
 .footerActions {
@@ -361,7 +361,7 @@
 
 .footerHint {
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 @media (max-width: 920px) {
