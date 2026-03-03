@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "../lib/api";
+import { useAuth } from "../lib/authContext";
 import { getWorkspaceUrl } from "../lib/workspace";
 import type { RuntimeStateRecord } from "../types";
 
@@ -90,14 +91,16 @@ function isPermissionError(error: unknown): boolean {
 
 export function useThemePreference() {
   const queryClient = useQueryClient();
+  const { token, loading: authLoading } = useAuth();
   const ws = getWorkspaceUrl();
   const hasWorkspaceUrl = ws.length > 0;
+  const canUsePreferencesState = hasWorkspaceUrl && !authLoading && Boolean(token);
   const statesQueryKey = ["states", ws, THEME_PREFERENCES_NAMESPACE] as const;
 
   const statesQuery = useQuery({
     queryKey: statesQueryKey,
     queryFn: () => apiClient.listStates({ namespace: THEME_PREFERENCES_NAMESPACE }),
-    enabled: hasWorkspaceUrl,
+    enabled: canUsePreferencesState,
   });
 
   const preferenceState = useMemo(() => findThemeState(statesQuery.data), [statesQuery.data]);
@@ -105,6 +108,10 @@ export function useThemePreference() {
 
   const savePreferenceM = useMutation({
     mutationFn: async (nextPreference: ThemePreferenceValue) => {
+      if (!canUsePreferencesState) {
+        throw new Error("Not authenticated");
+      }
+
       const normalizedValue = normalizeThemePreferenceValue(nextPreference);
 
       if (preferenceState?.id) {

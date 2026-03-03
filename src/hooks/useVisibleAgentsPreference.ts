@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "../lib/api";
+import { useAuth } from "../lib/authContext";
 import { getApplicationId, getWorkspaceUrl } from "../lib/workspace";
 import type { AgentResponse, RuntimeStateRecord } from "../types";
 
@@ -129,21 +130,23 @@ function filterAgentsByPreference(
 
 export function useVisibleAgentsPreference() {
   const queryClient = useQueryClient();
+  const { token, loading: authLoading } = useAuth();
   const ws = getWorkspaceUrl();
   const appId = getApplicationId();
   const hasWorkspaceUrl = ws.length > 0;
+  const canUsePreferencesState = hasWorkspaceUrl && !authLoading && Boolean(token);
   const statesQueryKey = ["states", ws, VISIBLE_AGENTS_PREFERENCES_NAMESPACE] as const;
 
   const agentsQuery = useQuery({
     queryKey: ["runtime-agents", ws, appId ?? ""],
     queryFn: () => apiClient.listAgents(appId),
-    enabled: hasWorkspaceUrl,
+    enabled: canUsePreferencesState,
   });
 
   const statesQuery = useQuery({
     queryKey: statesQueryKey,
     queryFn: () => apiClient.listStates({ namespace: VISIBLE_AGENTS_PREFERENCES_NAMESPACE }),
-    enabled: hasWorkspaceUrl,
+    enabled: canUsePreferencesState,
   });
 
   const preferenceState = useMemo(() => findVisibleAgentsState(statesQuery.data), [statesQuery.data]);
@@ -164,6 +167,10 @@ export function useVisibleAgentsPreference() {
 
   const savePreferenceM = useMutation({
     mutationFn: async (nextPreference: VisibleAgentsPreferenceValue) => {
+      if (!canUsePreferencesState) {
+        throw new Error("Not authenticated");
+      }
+
       const normalizedValue = normalizeVisibleAgentsPreferenceValue(nextPreference);
 
       if (preferenceState?.id) {
@@ -227,4 +234,3 @@ export function useVisibleAgentsPreference() {
     preferenceWriteErrorMessage,
   };
 }
-

@@ -27,6 +27,12 @@ import type {
 type RefreshResponse = { access_token: string; expires_in: number };
 type StreamChunkMode = "append" | "replace";
 
+function redirectToLoginIfNeeded(): void {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname === "/login") return;
+  window.location.href = "/login";
+}
+
 function getRuntimeApiKey(): string | null {
   const apiKey = (import.meta.env.VITE_X_API_KEY as string | undefined)?.trim();
   return apiKey || null;
@@ -121,7 +127,7 @@ class APIClient {
 
           if (!refreshToken) {
             clearAuth(ws);
-            window.location.href = "/login";
+            redirectToLoginIfNeeded();
             return Promise.reject(error);
           }
 
@@ -138,7 +144,7 @@ class APIClient {
           } catch (refreshErr) {
             this.processQueue(refreshErr);
             clearAuth(ws);
-            window.location.href = "/login";
+            redirectToLoginIfNeeded();
             return Promise.reject(refreshErr);
           } finally {
             this.isRefreshing = false;
@@ -346,12 +352,12 @@ class APIClient {
           response = await doFetch(accessToken);
         } catch (refreshErr) {
           clearAuth(ws);
-          window.location.href = "/login";
+          redirectToLoginIfNeeded();
           throw refreshErr;
         }
       } else {
         clearAuth(ws);
-        window.location.href = "/login";
+        redirectToLoginIfNeeded();
         throw new Error("Unauthorized");
       }
     }
@@ -727,12 +733,12 @@ class APIClient {
           response = await this.streamMessageRequest(chatId, data, accessToken, options.signal);
         } catch (refreshErr) {
           clearAuth(ws);
-          window.location.href = "/login";
+          redirectToLoginIfNeeded();
           throw refreshErr;
         }
       } else {
         clearAuth(ws);
-        window.location.href = "/login";
+        redirectToLoginIfNeeded();
         throw new Error("Unauthorized");
       }
     }
@@ -740,7 +746,7 @@ class APIClient {
     if (!response.ok) {
       if (response.status === 401) {
         clearAuth(ws);
-        window.location.href = "/login";
+        redirectToLoginIfNeeded();
       }
 
       let detail = "";
