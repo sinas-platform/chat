@@ -15,6 +15,7 @@ body,
 body {
   margin: 0;
   font-family:
+    "Readex Pro",
     Inter,
     system-ui,
     -apple-system,
@@ -26,4 +27,11 @@ body {
   color: var(--color-text-primary);
   background: var(--color-bg-app);
   transition: background-color 160ms ease, color 160ms ease;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
 }

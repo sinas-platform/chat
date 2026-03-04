@@ -27,6 +27,11 @@ export function WorkspaceModal({ open, initialValue, onClose, onSave }: Props) {
   const valid = parsedUrl.success;
   const errorMessage = valid ? "" : (parsedUrl.error.issues[0]?.message ?? "Please enter a valid http(s) URL.");
 
+  const handleSave = () => {
+    setTouched(true);
+    if (parsedUrl.success) onSave(parsedUrl.data);
+  };
+
   if (!open) return null;
 
   return (
@@ -39,7 +44,7 @@ export function WorkspaceModal({ open, initialValue, onClose, onSave }: Props) {
             <div className={styles.subTitle}>Enter your Sinas server URL</div>
           </div>
 
-          <Button variant="icon" onClick={onClose} aria-label="Close">
+          <Button variant="minimal" className={styles.closeButton} onClick={onClose} aria-label="Close">
             <X size={18} />
           </Button>
         </div>
@@ -54,26 +59,22 @@ export function WorkspaceModal({ open, initialValue, onClose, onSave }: Props) {
             }}
             placeholder="https://workspace.example.com"
             autoFocus
+            endActionClassName={styles.inputActionWrapper}
+            endAction={
+              <Button
+                variant="minimal"
+                type="button"
+                className={styles.inputAction}
+                onClick={handleSave}
+                disabled={!valid}
+              >
+                Save
+              </Button>
+            }
           />
         </label>
 
         {touched && !valid && <div className={styles.error}>{errorMessage}</div>}
-
-        <div className={styles.actions}>
-          <Button type="button" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            type="button"
-            onClick={() => {
-              if (parsedUrl.success) onSave(parsedUrl.data);
-            }}
-            disabled={!valid}
-          >
-            Save
-          </Button>
-        </div>
       </div>
     </div>
   );

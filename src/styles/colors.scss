@@ -1,7 +1,8 @@
 :root {
   color-scheme: light;
 
-  --color-bg-app: #ffffff;
+  /* App background gradient */
+  --color-bg-app: radial-gradient(circle at 20% 0%, #ffffff 0%, #fff7ec 45%, #ffe0b8 75%, #ffb066 100%);
   --color-bg-surface: #ffffff;
   --color-bg-surface-subtle: #f8f8f8;
   --color-bg-surface-muted: #f4f4f4;
@@ -9,12 +10,12 @@
   --color-bg-overlay: rgba(0, 0, 0, 0.35);
   --color-bg-inverse: #111111;
 
-  --color-text-primary: #111111;
-  --color-text-secondary: #666666;
-  --color-text-muted: #7b7b7b;
+  --color-text-primary: #4E4741;
+  --color-text-secondary: #7e746b;
+  --color-text-muted: #ada59c;
   --color-text-inverse: #ffffff;
 
-  --color-border-default: #d7d7d7;
+  --color-border-default: #E4DED8;
   --color-border-soft: #e3e3e3;
   --color-border-subtle: #ececec;
   --color-border-strong: #111111;
@@ -52,6 +53,40 @@
   --color-chip-overlay: rgba(255, 255, 255, 0.42);
 
   --color-dim-overlay: rgba(0, 0, 0, 0.35);
+
+  /* Design tokens (Figma) */
+  --Border-white: linear-gradient(114deg, #fbf9f5 16.43%, #fff 98.66%);
+  --Card-white: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.9) 9.47%,
+    rgba(255, 255, 255, 0.8) 93.75%
+  );
+}
+
+:root:not([data-theme]),
+html[data-theme="light"] {
+  /* Palette tokens (light theme only) */
+  --color-palette-orange: #e97203;
+  --color-palette-pink: #e526a4;
+  --color-palette-purple: #ae32d3;
+  --color-palette-violet: #8032d5;
+  --color-palette-indigo: #4e5cd0;
+  --color-palette-cyan: #37bce5;
+  --color-palette-green: #92b421;
+  --color-palette-yellow: #f9b524;
+
+  --color-palette-neutral-200: #e4ded8;
+  --color-palette-neutral-100: #f7f4ef;
+  --color-palette-white: #ffffff;
+
+  --color-palette-orange-soft: #ffead6;
+  --color-palette-pink-soft: #ffdef3;
+  --color-palette-purple-soft: #f2c8ff;
+  --color-palette-violet-soft: #e3ccfd;
+  --color-palette-indigo-soft: #dadefe;
+  --color-palette-cyan-soft: #cbedf8;
+  --color-palette-green-soft: #f2fad4;
+  --color-palette-yellow-soft: #fff0cf;
 }
 
 html[data-theme="dark"] {
@@ -65,12 +100,12 @@ html[data-theme="dark"] {
   --color-bg-overlay: rgba(4, 8, 13, 0.64);
   --color-bg-inverse: #e8edf5;
 
-  --color-text-primary: #e8edf5;
-  --color-text-secondary: #b6c2d2;
-  --color-text-muted: #94a3b8;
+  --color-text-primary: #4E4741;
+  --color-text-secondary: #7e746b;
+  --color-text-muted: #ada59c;
   --color-text-inverse: #0f141b;
 
-  --color-border-default: #334155;
+  --color-border-default: #E4DED8;
   --color-border-soft: #2b3647;
   --color-border-subtle: #304153;
   --color-border-strong: #a8b8cb;

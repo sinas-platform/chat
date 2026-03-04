@@ -3,26 +3,48 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background: #fff;
 }
 
 .card {
-  width: 520px;
+  width: 596px;
   max-width: calc(100vw - 48px);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 24px;
-  padding: 40px 36px;
+  border-radius: 32px;
+  padding: 40px 48px 32px;
+  position: relative;
+  background: var(
+    --Card-white,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9) 9.47%, rgba(255, 255, 255, 0.8) 93.75%)
+  );
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: var(--Border-white, linear-gradient(114deg, #fbf9f5 16.43%, #fff 98.66%));
+  pointer-events: none;
+
+  /* Cut out the center so the (semi-transparent) card background shows the page behind it. */
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.card > * {
+  position: relative;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .logo {
-  width: min(180px, 100%);
+  width: min(177px, 100%);
   height: auto;
   display: block;
 }
@@ -42,12 +64,12 @@
 
 .form {
   display: grid;
-  gap: 14px;
+  gap: 8px;
 }
 
 .hint {
-  color: rgba(0, 0, 0, 0.55);
-  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
   text-align: left;
 }
 
@@ -56,11 +78,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-top: 6px;
+  padding-top: 16px;
 }
 
 .workspaceLabel {
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--color-text-primary);
   font-size: 13px;
 }
 
@@ -81,21 +103,21 @@
 }
 
 .footer {
-  margin-top: 22px;
+  margin-top: 48px;
   text-align: center;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
 /* Field */
 .field {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .fieldLabel {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.65);
+  font-size: 12px;
+  color: var(--color-text-secondary);
 }
 
 .fieldError {
@@ -122,6 +144,5 @@
 }
 
 .mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    monospace;
+  font-weight: 700;
 }

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 
 import { useAuth } from "../../lib/authContext.tsx";
 import { getWorkspaceUrl, setWorkspaceUrl } from "../../lib/workspace";
 import { apiClient } from "../../lib/api";
 import { emailSchema, otpSchema } from "../../lib/validation";
+import rightArrowIcon from "../../icons/right-arrow.svg";
 import sinasLogo from "../../icons/sinas-logo.svg";
 import { Input } from "../../components/Input/Input.tsx";
 import { Button } from "../../components/Button/Button.tsx";
@@ -161,7 +161,11 @@ export function LoginPage() {
                       disabled={loading || !email.trim()}
                       aria-label="Send one-time code"
                     >
-                      {loading ? <SinasLoader size={20} /> : <ArrowRight size={20} />}
+                      {loading ? (
+                        <SinasLoader size={20} />
+                      ) : (
+                        <img src={rightArrowIcon} width={24} height={24} alt="" aria-hidden="true" />
+                      )}
                     </Button>
                   }
                 />
