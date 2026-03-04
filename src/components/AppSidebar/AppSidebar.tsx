@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CirclePlus, LogOut, Settings } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import {
   FloatingPortal,
   autoUpdate,
@@ -13,14 +13,13 @@ import {
   useInteractions,
 } from "@floating-ui/react";
 
-import sinasLogo from "../../icons/sinas-logo-small.svg";
+import sinasLogo from "../../icons/sinas-logo.svg";
+import plusIcon from "../../icons/plus.svg";
 import { apiClient } from "../../lib/api";
-import { getAgentByNamespaceAndName } from "../../lib/agents";
 import { useAuth } from "../../lib/authContext";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import { Button } from "../Button/Button";
 import SinasLoader from "../Loader/Loader";
-import type { Chat } from "../../types";
 import styles from "./AppSidebar.module.scss";
 
 type AppSidebarProps = {
@@ -29,22 +28,6 @@ type AppSidebarProps = {
 
 function joinClasses(...classNames: Array<string | undefined | false>) {
   return classNames.filter(Boolean).join(" ");
-}
-
-function getBadgeToneClass(chat: Chat): string {
-  const agent = getAgentByNamespaceAndName(chat.agent_namespace, chat.agent_name);
-  if (!agent) return styles.chatBadgeToneNeutral;
-  if (agent.tone === "yellow") return styles.chatBadgeToneYellow;
-  if (agent.tone === "blue") return styles.chatBadgeToneBlue;
-  if (agent.tone === "mint") return styles.chatBadgeToneMint;
-  return styles.chatBadgeToneNeutral;
-}
-
-function getBadgeLabel(chat: Chat): string {
-  const agent = getAgentByNamespaceAndName(chat.agent_namespace, chat.agent_name);
-  if (agent) return agent.displayName;
-  if (chat.agent_name) return chat.agent_name;
-  return "Unknown";
 }
 
 function SidebarChatTitle({ title }: { title: string }) {
@@ -164,7 +147,8 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
           className={styles.newChatBtn}
           onClick={onCreateNewChat}
         >
-          New chat <CirclePlus size={16} aria-hidden />
+          <img className={styles.newChatIcon} src={plusIcon} alt="" aria-hidden />
+          <span>New chat</span>
         </Button>
 
         <div className={styles.sidebarSectionTitle}>Your chats</div>
@@ -178,7 +162,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
           ) : chats.length === 0 ? (
             <div className={styles.muted}>No chats yet</div>
           ) : (
-            chats.map((chat: Chat) => {
+            chats.map((chat) => {
               const chatTitle = chat.title?.trim() || "Untitled chat";
               return (
                 <Button
@@ -188,7 +172,6 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
                   onClick={() => navigate(`/chats/${chat.id}`)}
                 >
                   <SidebarChatTitle title={chatTitle} />
-                  <span className={joinClasses(styles.chatBadge, getBadgeToneClass(chat))}>{getBadgeLabel(chat)}</span>
                 </Button>
               );
             })
