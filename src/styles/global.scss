@@ -26,7 +26,14 @@ body {
 
   color: var(--color-text-primary);
   background: var(--color-bg-app);
-  transition: background-color 160ms ease, color 160ms ease;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.app-root {
+  min-height: 100%;
 }
 
 button,

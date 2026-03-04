@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Settings } from "lucide-react";
+import { Bot, LogOut, Settings } from "lucide-react";
 import {
   FloatingPortal,
   autoUpdate,
@@ -15,9 +15,12 @@ import {
 
 import sinasLogo from "../../icons/sinas-logo.svg";
 import plusIcon from "../../icons/plus.svg";
+import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { apiClient } from "../../lib/api";
+import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { useAuth } from "../../lib/authContext";
-import { getWorkspaceUrl } from "../../lib/workspace";
+import { getApplicationId, getWorkspaceUrl } from "../../lib/workspace";
+import type { AgentResponse, Chat } from "../../types";
 import { Button } from "../Button/Button";
 import SinasLoader from "../Loader/Loader";
 import styles from "./AppSidebar.module.scss";
@@ -28,6 +31,88 @@ type AppSidebarProps = {
 
 function joinClasses(...classNames: Array<string | undefined | false>) {
   return classNames.filter(Boolean).join(" ");
+}
+
+function toAgentKey(namespace?: string | null, name?: string | null): string | null {
+  if (!namespace || !name) return null;
+  return `${namespace.toLowerCase()}::${name.toLowerCase()}`;
+}
+
+function getAgentKey(agent: Pick<AgentResponse, "namespace" | "name">): string {
+  return `${agent.namespace.toLowerCase()}::${agent.name.toLowerCase()}`;
+}
+
+function getPlaceholderCssVars(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  return {
+    "--agent-icon-color": placeholder.color,
+    "--agent-icon-soft-color": placeholder.softColor,
+  } as CSSProperties;
+}
+
+function getPlaceholderGlyphStyle(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  const iconUrl = `url("${placeholder.iconSrc}")`;
+  return {
+    WebkitMaskImage: iconUrl,
+    maskImage: iconUrl,
+  } as CSSProperties;
+}
+
+type ChatAgentIconProps = {
+  chat: Chat;
+  agentsById: Map<string, AgentResponse>;
+  agentsByKey: Map<string, AgentResponse>;
+  iconSrcByAgentId: Record<string, string>;
+  placeholderByAgentId: Record<string, AgentPlaceholderMeta>;
+  onAgentIconError: (agentId: string) => Promise<string | null>;
+};
+
+function ChatAgentIcon({
+  chat,
+  agentsById,
+  agentsByKey,
+  iconSrcByAgentId,
+  placeholderByAgentId,
+  onAgentIconError,
+}: ChatAgentIconProps) {
+  let chatAgent = chat.agent_id ? agentsById.get(chat.agent_id) : undefined;
+  if (!chatAgent) {
+    const endpointKey = toAgentKey(chat.agent_namespace, chat.agent_name);
+    chatAgent = endpointKey ? agentsByKey.get(endpointKey) : undefined;
+  }
+
+  const iconSrc = chatAgent ? iconSrcByAgentId[chatAgent.id] : undefined;
+  const placeholder = chatAgent ? placeholderByAgentId[chatAgent.id] : undefined;
+  const placeholderCssVars = getPlaceholderCssVars(placeholder);
+  const shouldShowPlaceholder = !iconSrc && Boolean(placeholderCssVars);
+  const placeholderGlyphStyle = getPlaceholderGlyphStyle(placeholder);
+
+  return (
+    <span
+      className={joinClasses(styles.chatAgentIconWrap, shouldShowPlaceholder && styles.chatAgentIconWrapPlaceholder)}
+      style={shouldShowPlaceholder ? placeholderCssVars : undefined}
+      aria-hidden
+    >
+      {iconSrc && chatAgent ? (
+        <img
+          className={styles.chatAgentIconImage}
+          src={iconSrc}
+          alt=""
+          loading="lazy"
+          onError={() => {
+            void onAgentIconError(chatAgent.id);
+          }}
+        />
+      ) : shouldShowPlaceholder ? (
+        <span className={styles.chatAgentPlaceholderGlyph} style={placeholderGlyphStyle} />
+      ) : (
+        <Bot size={14} />
+      )}
+    </span>
+  );
 }
 
 function SidebarChatTitle({ title }: { title: string }) {
@@ -100,6 +185,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
   const location = useLocation();
   const { logout } = useAuth();
   const ws = getWorkspaceUrl();
+  const appId = getApplicationId();
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -114,6 +200,21 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
     queryFn: () => apiClient.listChats(),
     enabled: Boolean(ws),
   });
+
+  const agentsQ = useQuery({
+    queryKey: ["config-agents", ws, appId ?? ""],
+    queryFn: () => apiClient.listAgents(appId),
+    enabled: Boolean(ws),
+  });
+
+  const activeAgents = useMemo(() => (agentsQ.data ?? []).filter((agent) => agent.is_active), [agentsQ.data]);
+  const { iconSrcByAgentId, onAgentIconError } = useAgentIconSources(activeAgents, apiClient);
+  const placeholderByAgentId = useMemo(() => buildAgentPlaceholderMetaById(activeAgents), [activeAgents]);
+  const agentsById = useMemo(() => new Map(activeAgents.map((agent) => [agent.id, agent] as const)), [activeAgents]);
+  const agentsByKey = useMemo(
+    () => new Map(activeAgents.map((agent) => [getAgentKey(agent), agent] as const)),
+    [activeAgents],
+  );
 
   const chats = chatsQ.data ?? [];
   const isAllChatsPage = location.pathname === "/chats";
@@ -171,6 +272,14 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
                   className={joinClasses(styles.chatRow, chat.id === activeChatId && styles.chatRowActive)}
                   onClick={() => navigate(`/chats/${chat.id}`)}
                 >
+                  <ChatAgentIcon
+                    chat={chat}
+                    agentsById={agentsById}
+                    agentsByKey={agentsByKey}
+                    iconSrcByAgentId={iconSrcByAgentId}
+                    placeholderByAgentId={placeholderByAgentId}
+                    onAgentIconError={onAgentIconError}
+                  />
                   <SidebarChatTitle title={chatTitle} />
                 </Button>
               );

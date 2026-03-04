@@ -71,7 +71,7 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: 2px;
+  gap: 6px;
   overflow: auto;
   min-height: 0;
   max-height: none;
@@ -86,7 +86,8 @@
   padding: 8px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 9px;
   cursor: pointer;
   transition: background-color 140ms ease-in-out;
   height: 34px;
@@ -98,6 +99,41 @@
 
 .chatRowActive {
   background-color: var(--color-palette-neutral-100);
+}
+
+.chatAgentIconWrap {
+  width: 18px;
+  height: 18px;
+  color: var(--agent-icon-color, var(--color-text-primary));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.chatAgentIconWrapPlaceholder {
+  color: var(--agent-icon-color, var(--color-text-primary));
+}
+
+.chatAgentPlaceholderGlyph {
+  width: 18px;
+  height: 18px;
+  background: var(--agent-icon-color);
+  display: block;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.chatAgentIconImage {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  object-fit: cover;
+  display: block;
 }
 
 .chatTitle {

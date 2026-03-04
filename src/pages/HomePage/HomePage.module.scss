@@ -249,9 +249,13 @@
 }
 
 .agentCard {
-  border: 2px solid transparent;
   border-radius: 24px;
-  background: var(--Card-white) padding-box, var(--Border-white) border-box;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.65) 9.47%,
+    rgba(255, 255, 255, 0.55) 93.75%
+  );
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   padding: 20px;
@@ -261,7 +265,6 @@
   text-align: left;
   cursor: pointer;
   min-height: 176px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .agentCardList {
