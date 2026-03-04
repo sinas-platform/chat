@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
 import { Input } from "../../../components/Input/Input.tsx";
 import { Button } from "../../../components/Button/Button.tsx";
+import crossIcon from "../../../icons/cross.svg";
 import { workspaceUrlSchema } from "../../../lib/validation";
 import styles from "./WorkspaceModal.module.scss";
 
@@ -12,20 +12,26 @@ type Props = {
   onSave: (url: string) => void;
 };
 
+function stripWorkspaceProtocol(input: string) {
+  return input.trim().replace(/^https?:\/\//i, "").replace(/^\/+/, "");
+}
+
 export function WorkspaceModal({ open, initialValue, onClose, onSave }: Props) {
-  const [value, setValue] = useState(initialValue);
+  const [value, setValue] = useState(stripWorkspaceProtocol(initialValue));
   const [touched, setTouched] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setValue(initialValue);
+      setValue(stripWorkspaceProtocol(initialValue));
       setTouched(false);
     }
   }, [open, initialValue]);
 
-  const parsedUrl = useMemo(() => workspaceUrlSchema.safeParse(value), [value]);
+  const fullWorkspaceUrl = useMemo(() => (value.trim() ? `https://${value.trim()}` : ""), [value]);
+  const parsedUrl = useMemo(() => workspaceUrlSchema.safeParse(fullWorkspaceUrl), [fullWorkspaceUrl]);
   const valid = parsedUrl.success;
-  const errorMessage = valid ? "" : (parsedUrl.error.issues[0]?.message ?? "Please enter a valid http(s) URL.");
+  const rawErrorMessage = valid ? "" : (parsedUrl.error.issues[0]?.message ?? "Please enter a valid https URL.");
+  const errorMessage = rawErrorMessage === "Please enter a valid http(s) URL." ? "Please enter a valid https URL." : rawErrorMessage;
 
   const handleSave = () => {
     setTouched(true);
@@ -45,7 +51,7 @@ export function WorkspaceModal({ open, initialValue, onClose, onSave }: Props) {
           </div>
 
           <Button variant="minimal" className={styles.closeButton} onClick={onClose} aria-label="Close">
-            <X size={18} />
+            <img src={crossIcon} width={24} height={24} alt="" aria-hidden="true" />
           </Button>
         </div>
 
@@ -54,11 +60,13 @@ export function WorkspaceModal({ open, initialValue, onClose, onSave }: Props) {
           <Input
             value={value}
             onChange={(e) => {
-              setValue(e.target.value);
+              setValue(stripWorkspaceProtocol(e.target.value));
               setTouched(true);
             }}
-            placeholder="https://workspace.example.com"
+            placeholder="workspace.example.com"
             autoFocus
+            className={styles.workspaceInput}
+            wrapperClassName={styles.workspaceInputWrapper}
             endActionClassName={styles.inputActionWrapper}
             endAction={
               <Button
@@ -68,7 +76,7 @@ export function WorkspaceModal({ open, initialValue, onClose, onSave }: Props) {
                 onClick={handleSave}
                 disabled={!valid}
               >
-                Save
+                <span className={styles.inputActionContent}>Save</span>
               </Button>
             }
           />

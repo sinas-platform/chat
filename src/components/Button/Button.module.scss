@@ -26,11 +26,16 @@
 .link {
   border: none;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   padding: 0;
-  font-size: 13px;
+  font-size: 14px;
   text-decoration: underline;
   border-radius: 0;
+  transition: font-style 0.15s ease-in-out;
+
+  &:hover {
+    font-style: italic;
+  }
 }
 
 .icon {

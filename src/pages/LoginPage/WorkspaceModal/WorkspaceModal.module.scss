@@ -50,10 +50,72 @@
   color: var(--color-text-secondary);
 }
 
+.workspaceInputWrapper {
+  position: relative;
+
+  &::before {
+    position: absolute;
+    content: "https://";
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-primary);
+    font-size: 15px;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  &::after {
+    position: absolute;
+    content: "";
+    left: 74px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--input-border-color);
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+.workspaceInput {
+  padding-left: 88px;
+}
+
 .inputAction {
   border: none;
   background: transparent;
   color: var(--color-text-primary);
+  position: relative;
+  overflow: visible;
+
+  &::before {
+    position: absolute;
+    content: "";
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    right: -1px;
+    background-color: #4a4540;
+    border-radius: inherit;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+  }
+
+  &:not(:disabled):hover {
+    color: #fff;
+
+    &::before {
+      opacity: 1;
+    }
+  }
+}
+
+.inputActionContent {
+  position: relative;
+  z-index: 1;
 }
 
 .inputActionWrapper {

@@ -42,6 +42,7 @@ export function LoginPage() {
 
   const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
   const lastAutoSubmittedOtp = useRef<string | null>(null);
+  const isEmailActionLoading = loading;
 
   // refresh label after save by depending on modal open state
   const workspaceUrl = useMemo(() => getWorkspaceUrl(), [workspaceModalOpen]);
@@ -49,6 +50,7 @@ export function LoginPage() {
 
   const submitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isEmailActionLoading) return;
     setError("");
     const parsedEmail = emailSchema.safeParse(email);
 
@@ -157,12 +159,13 @@ export function LoginPage() {
                     <Button
                       type="submit"
                       variant="minimal"
-                      className={styles.inputAction}
-                      disabled={loading || !email.trim()}
+                      className={`${styles.inputAction} ${isEmailActionLoading ? styles.inputActionLoading : ""}`}
+                      disabled={!email.trim()}
+                      aria-disabled={isEmailActionLoading}
                       aria-label="Send one-time code"
                     >
-                      {loading ? (
-                        <SinasLoader size={20} />
+                      {isEmailActionLoading ? (
+                        <SinasLoader size={32} />
                       ) : (
                         <img src={rightArrowIcon} width={24} height={24} alt="" aria-hidden="true" />
                       )}
@@ -177,12 +180,6 @@ export function LoginPage() {
               </div>
 
               <div className={styles.hint}>We’ll send a one-time code to your email.</div>
-              {loading ? (
-                <div className={styles.loadingState} role="status" aria-live="polite">
-                  <SinasLoader size={26} />
-                  <span className={styles.loadingText}>Sending one-time code...</span>
-                </div>
-              ) : null}
 
               <div className={styles.workspaceRow}>
                 <div className={styles.workspaceLabel}>
@@ -206,14 +203,14 @@ export function LoginPage() {
             <h1 className={styles.title}>Insert your one-time code</h1>
 
             <div className={styles.subTitle}>
-              Code sent to <span className={styles.mono}>{email}</span>
+              Code sent to {email}
             </div>
 
             <form onSubmit={submitOtp} className={styles.form} noValidate>
               <OTPInput value={otp} onChange={setOtp} disabled={loading} />
               {loading ? (
                 <div className={styles.loadingState} role="status" aria-live="polite">
-                  <SinasLoader size={26} />
+                  <SinasLoader size={28} />
                   <span className={styles.loadingText}>Verifying code...</span>
                 </div>
               ) : null}
@@ -238,7 +235,9 @@ export function LoginPage() {
           </>
         )}
 
-        <div className={styles.footer}>Secure authentication powered by Sinas</div>
+        <div className={`${styles.footer} ${step === "otp" ? styles.footerOtp : ""}`}>
+          Secure authentication powered by Sinas
+        </div>
       </div>
 
       <WorkspaceModal

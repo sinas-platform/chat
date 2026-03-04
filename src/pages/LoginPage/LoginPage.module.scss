@@ -50,21 +50,21 @@
 }
 
 .title {
-  margin: 0 0 14px 0;
+  margin-bottom: 6px;
   text-align: center;
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 500;
 }
 
 .subTitle {
   text-align: center;
-  margin: 0 0 18px 0;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--color-text-secondary);
+  font-size: 12px;
 }
 
 .form {
   display: grid;
-  gap: 8px;
+  gap: 20px;
 }
 
 .hint {
@@ -83,7 +83,7 @@
 
 .workspaceLabel {
   color: var(--color-text-primary);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .error {
@@ -100,6 +100,10 @@
   justify-content: space-between;
   gap: 12px;
   margin-top: 4px;
+
+  &:has(> :only-child) {
+    justify-content: center;
+  }
 }
 
 .footer {
@@ -107,6 +111,10 @@
   text-align: center;
   color: var(--color-text-muted);
   font-size: 12px;
+}
+
+.footerOtp {
+  margin-top: 24px;
 }
 
 /* Field */
@@ -129,6 +137,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  justify-content: center;
 }
 
 .loadingText {
@@ -141,6 +150,47 @@
   border: none;
   background: transparent;
   color: rgba(0, 0, 0, 0.82);
+  position: relative;
+  overflow: visible;
+  border-radius: 0 11px 11px 0;
+
+  &::before {
+    position: absolute;
+    content: "";
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    right: -1px;
+    background-color: #4a4540;
+    border-radius: inherit;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  &:not(:disabled):hover {
+    color: #fff;
+
+    &::before {
+      opacity: 1;
+    }
+
+    img {
+      filter: brightness(0) invert(1);
+    }
+  }
+}
+
+.inputActionLoading {
+  pointer-events: none;
+  cursor: default;
+  opacity: 1;
 }
 
 .mono {
