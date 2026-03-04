@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, ChevronDown, LayoutGrid, List, Moon, Search, Sun } from "lucide-react";
+import { Bot, ChevronDown, LayoutGrid, List, Search } from "lucide-react";
 
 import styles from "./HomePage.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
@@ -14,7 +14,6 @@ import { apiClient } from "../../lib/api";
 import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
-import { useTheme } from "../../lib/useTheme";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import type { AgentResponse, Chat } from "../../types";
 
@@ -138,7 +137,7 @@ function getPlaceholderGlyphStyle(placeholder: AgentPlaceholderMeta | undefined)
 }
 
 function AgentCard({ agent, isActive, onSelect, iconSrc, placeholder, onIconError, className }: AgentCardProps) {
-  const primaryLabel = `${agent.namespace} / ${agent.name}`;
+  const primaryLabel = `${agent.name}`;
   const secondaryLabel = agent.description?.trim() || "No description available.";
   const placeholderCssVars = getPlaceholderCssVars(placeholder);
   const cardCssVars = placeholderCssVars;
@@ -181,7 +180,7 @@ function AgentCard({ agent, isActive, onSelect, iconSrc, placeholder, onIconErro
         </span>
         <span className={styles.agentName}>{primaryLabel}</span>
       </div>
-      <div className={styles.agentBadge}>{agent.is_default ? "Default" : "Agent"}</div>
+      <div className={styles.agentBadge}>{agent.namespace}</div>
       <div className={styles.agentDescription}>{secondaryLabel}</div>
     </button>
   );
@@ -192,7 +191,6 @@ export default function HomePage() {
   const ws = getWorkspaceUrl();
   const hasWorkspaceUrl = ws.length > 0;
   const visibleAgentsPreference = useVisibleAgentsPreference();
-  const { theme, toggleTheme, isSavingTheme, themeErrorMessage } = useTheme();
   const agentsQ = visibleAgentsPreference.agentsQuery;
 
   const [selectedAgentKey, setSelectedAgentKey] = useState<string | null>(() => readSelectedAgentKey());
@@ -418,7 +416,7 @@ export default function HomePage() {
     saveSelectedAgentKey(key);
   }
 
-  const selectedAgentDescription = selectedAgent?.description?.trim() || "Select an agent to start a new chat.";
+  const selectedAgentDescription = selectedAgent?.description?.trim() || "How can I help you?";
   const hasAgents = activeAgents.length > 0;
   const hasAnyActiveAgents = allActiveAgents.length > 0;
   const isAgentsLoading = agentsQ.isLoading;
@@ -433,26 +431,6 @@ export default function HomePage() {
 
       <main className={styles.main}>
         <div className={styles.mainContent}>
-          <div className={styles.topActions}>
-            <button
-              type="button"
-              className={styles.themeToggle}
-              onClick={() => void toggleTheme()}
-              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-              title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-              disabled={isSavingTheme}
-            >
-              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-              <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
-            </button>
-          </div>
-
-          {themeErrorMessage ? (
-            <div className={styles.errorState} role="alert" style={{ marginBottom: 12 }}>
-              <span>{themeErrorMessage}</span>
-            </div>
-          ) : null}
-
           {!hasWorkspaceUrl ? (
             <section className={styles.agentPicker}>
               <div className={styles.agentPickerTitle}>Select workspace</div>

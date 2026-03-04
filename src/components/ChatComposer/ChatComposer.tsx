@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent } from "react";
-import { Mic, MicOff, Paperclip } from "lucide-react";
 
+import attachmentIcon from "../../icons/attachment.svg";
+import microphoneIcon from "../../icons/microphone.svg";
 import type { ChatAttachment } from "../../lib/files/types";
 import { useSpeechToText } from "../../lib/useSpeechToText";
 import { AttachmentChip } from "../AttachmentChip/AttachmentChip";
@@ -89,6 +90,8 @@ export function ChatComposer({
   const isMicDisabled = disabled || !isSpeechSupported;
   const isAttachmentEnabled = typeof onAddAttachment === "function";
   const showStopButton = typeof onStop === "function";
+  const hasAttachmentItems = attachments.length > 0 || isUploadingAttachment;
+  const hasAttachmentMeta = hasAttachmentItems || Boolean(attachmentError);
   const computedTextareaStyle: CSSProperties = {
     ...textareaStyle,
     paddingRight: isAttachmentEnabled ? "94px" : "54px",
@@ -193,9 +196,9 @@ export function ChatComposer({
         </div>
       ) : null}
 
-      {isAttachmentEnabled || attachments.length > 0 || isUploadingAttachment || attachmentError ? (
-        <div className={styles.attachmentArea}>
-          {attachments.length > 0 || isUploadingAttachment ? (
+      {hasAttachmentMeta ? (
+        <div className={joinClasses(styles.attachmentArea, hasAttachmentItems && styles.attachmentAreaWithItems)}>
+          {hasAttachmentItems ? (
             <div className={styles.attachmentList}>
               {attachments.map((attachment, index) => (
                 <AttachmentChip
@@ -259,7 +262,7 @@ export function ChatComposer({
             aria-label="Attach file"
             title="Attach file"
           >
-            <Paperclip size={16} />
+            <img className={styles.attachmentIcon} src={attachmentIcon} alt="" aria-hidden />
           </button>
         </>
       ) : null}
@@ -284,7 +287,7 @@ export function ChatComposer({
           aria-pressed={isListening}
           title={isSpeechSupported ? "Voice input" : "Voice input is not supported in this browser"}
         >
-          {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+          <img className={styles.micIcon} src={microphoneIcon} alt="" aria-hidden />
         </button>
       )}
     </form>

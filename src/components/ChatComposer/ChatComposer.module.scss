@@ -32,10 +32,13 @@
 }
 
 .attachmentArea {
-  margin-bottom: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.attachmentAreaWithItems {
+  margin-bottom: 8px;
 }
 
 .attachmentList {
@@ -68,21 +71,22 @@
 .attachmentButton,
 .micButton {
   position: absolute;
-  bottom: 12px;
+  bottom: 18px;
   width: 32px;
   height: 32px;
-  border: 1px solid var(--color-border-default);
+  border: none;
   border-radius: 999px;
-  background: var(--color-bg-surface);
+  background: transparent;
   color: var(--color-text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  padding: 0;
+  transition: background-color 140ms ease;
 
   &:hover:not(:disabled) {
-    border-color: var(--color-border-muted);
-    background: var(--color-bg-surface-hover);
+    background: var(--color-palette-neutral-100);
   }
 
   &:disabled {
@@ -96,23 +100,20 @@
 }
 
 .micButton {
-  right: 12px;
+  right: 16px;
 }
 
 .micButtonActive {
   color: var(--color-success);
-  border-color: var(--color-success-border);
   background: var(--color-success-bg);
 }
 
 .stopButton {
-  border-color: var(--color-border-default);
   background: var(--color-bg-surface-muted);
   color: var(--color-text-secondary);
 
   &:hover:not(:disabled) {
-    border-color: var(--color-border-muted);
-    background: var(--color-bg-surface-hover);
+    background: var(--color-palette-neutral-100);
   }
 }
 
@@ -121,5 +122,12 @@
   height: 9px;
   border-radius: 2px;
   background: currentColor;
+  display: block;
+}
+
+.attachmentIcon,
+.micIcon {
+  width: 20px;
+  height: 20px;
   display: block;
 }

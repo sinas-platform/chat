@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Bot, Settings2 } from "lucide-react";
+import { Bot, Moon, Settings2, Sun } from "lucide-react";
 
 import styles from "./Settings.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
@@ -14,6 +14,7 @@ import {
 } from "../../hooks/useVisibleAgentsPreference";
 import { apiClient } from "../../lib/api";
 import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
+import { useTheme } from "../../lib/useTheme";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import type { AgentResponse } from "../../types";
 
@@ -73,6 +74,7 @@ export function SettingsPage() {
   const workspaceUrl = getWorkspaceUrl();
   const hasWorkspaceUrl = workspaceUrl.length > 0;
   const visibleAgentsPreference = useVisibleAgentsPreference();
+  const { theme, toggleTheme, isSavingTheme, themeErrorMessage } = useTheme();
   const { agentsQuery, statesQuery } = visibleAgentsPreference;
 
   const sortedAgents = useMemo(
@@ -189,7 +191,23 @@ export function SettingsPage() {
               <h1 className={styles.title}>Settings</h1>
               <p className={styles.subtitle}>Manage what appears on your homepage.</p>
             </div>
+            <button
+              type="button"
+              className={styles.themeToggle}
+              onClick={() => void toggleTheme()}
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              disabled={isSavingTheme}
+            >
+              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+              <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+            </button>
           </div>
+          {themeErrorMessage ? (
+            <div className={styles.errorBox} role="alert">
+              <span>{themeErrorMessage}</span>
+            </div>
+          ) : null}
 
           <section className={styles.card} aria-labelledby="homepage-agents-title">
             <div className={styles.cardHeader}>
