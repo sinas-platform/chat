@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, LogOut, Settings } from "lucide-react";
+import { Bot } from "lucide-react";
 import {
   FloatingPortal,
   autoUpdate,
@@ -9,12 +9,16 @@ import {
   offset,
   shift,
   useFloating,
+  useFocus,
   useHover,
   useInteractions,
 } from "@floating-ui/react";
 
 import sinasLogo from "../../icons/sinas-logo.svg";
 import plusIcon from "../../icons/plus.svg";
+import linkIcon from "../../icons/link.svg";
+import settingsIcon from "../../icons/settings.svg";
+import logoutIcon from "../../icons/logout.svg";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { apiClient } from "../../lib/api";
 import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
@@ -28,6 +32,8 @@ import styles from "./AppSidebar.module.scss";
 type AppSidebarProps = {
   activeChatId?: string;
 };
+
+const SIDEBAR_CHAT_LIMIT = 10;
 
 function joinClasses(...classNames: Array<string | undefined | false>) {
   return classNames.filter(Boolean).join(" ");
@@ -59,6 +65,11 @@ function getPlaceholderGlyphStyle(placeholder: AgentPlaceholderMeta | undefined)
     WebkitMaskImage: iconUrl,
     maskImage: iconUrl,
   } as CSSProperties;
+}
+
+function getChatSortTime(chat: Chat): number {
+  const timestamp = Date.parse(chat.last_message_at ?? chat.updated_at ?? chat.created_at);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
 type ChatAgentIconProps = {
@@ -182,12 +193,25 @@ function SidebarChatTitle({ title }: { title: string }) {
 
 export function AppSidebar({ activeChatId }: AppSidebarProps) {
   const navigate = useNavigate();
-  const location = useLocation();
   const { logout } = useAuth();
   const ws = getWorkspaceUrl();
   const appId = getApplicationId();
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLogoutTooltipOpen, setIsLogoutTooltipOpen] = useState(false);
+  const { refs: logoutTooltipRefs, floatingStyles: logoutTooltipStyles, context: logoutTooltipContext } = useFloating({
+    open: isLogoutTooltipOpen,
+    onOpenChange: setIsLogoutTooltipOpen,
+    whileElementsMounted: autoUpdate,
+    placement: "top",
+    middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 })],
+  });
+  const logoutHover = useHover(logoutTooltipContext, { move: false, enabled: !isLoggingOut });
+  const logoutFocus = useFocus(logoutTooltipContext, { enabled: !isLoggingOut });
+  const { getReferenceProps: getLogoutReferenceProps, getFloatingProps: getLogoutFloatingProps } = useInteractions([
+    logoutHover,
+    logoutFocus,
+  ]);
 
   const meQ = useQuery({
     queryKey: ["me", ws],
@@ -217,9 +241,11 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
   );
 
   const chats = chatsQ.data ?? [];
-  const isAllChatsPage = location.pathname === "/chats";
-  const isSettingsPage = location.pathname === "/settings";
-
+  const sidebarChats = useMemo(() => {
+    return [...chats]
+      .sort((a, b) => getChatSortTime(b) - getChatSortTime(a))
+      .slice(0, SIDEBAR_CHAT_LIMIT);
+  }, [chats]);
   function onCreateNewChat() {
     navigate("/");
   }
@@ -263,7 +289,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
           ) : chats.length === 0 ? (
             <div className={styles.muted}>No chats yet</div>
           ) : (
-            chats.map((chat) => {
+            sidebarChats.map((chat) => {
               const chatTitle = chat.title?.trim() || "Untitled chat";
               return (
                 <Button
@@ -289,20 +315,22 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
 
         <Button
           variant="minimal"
-          className={joinClasses(styles.allChatsBtn, isAllChatsPage && styles.allChatsBtnActive)}
+          className={styles.allChatsBtn}
           onClick={() => navigate("/chats")}
         >
-          All chats
+          <img className={styles.allChatsIcon} src={linkIcon} alt="" aria-hidden />
+          <span>All chats</span>
         </Button>
+
       </div>
 
       <div className={styles.sidebarBottom}>
         <Button
           variant="minimal"
-          className={joinClasses(styles.settingsBtn, isSettingsPage && styles.settingsBtnActive)}
+          className={styles.settingsBtn}
           onClick={() => navigate("/settings")}
         >
-          <Settings size={16} aria-hidden />
+          <img className={styles.settingsIcon} src={settingsIcon} alt="" aria-hidden />
           <span>Settings</span>
         </Button>
 
@@ -310,13 +338,26 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
           <Button
             variant="icon"
             className={styles.logoutBtn}
+            ref={logoutTooltipRefs.setReference}
+            {...getLogoutReferenceProps()}
             onClick={onLogout}
             disabled={isLoggingOut}
             aria-label="Log out"
-            title="Log out"
           >
-            <LogOut size={16} />
+            <img className={styles.logoutIcon} src={logoutIcon} alt="" aria-hidden />
           </Button>
+          {isLogoutTooltipOpen ? (
+            <FloatingPortal>
+              <div
+                ref={logoutTooltipRefs.setFloating}
+                style={logoutTooltipStyles}
+                className={styles.iconTooltip}
+                {...getLogoutFloatingProps()}
+              >
+                Log out
+              </div>
+            </FloatingPortal>
+          ) : null}
           <div className={styles.userEmail}>{meQ.data?.email ?? "…"}</div>
         </div>
       </div>

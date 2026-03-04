@@ -1,5 +1,5 @@
 .sidebar {
-  border-right: 1px solid var(--color-border-soft);
+  border-right: 1px solid var(--color-palette-neutral-100);
   background: var(--color-bg-surface);
   display: flex;
   flex-direction: column;
@@ -70,12 +70,12 @@
 .chatList {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  gap: 6px;
+  gap: 8px;
   overflow: auto;
   min-height: 0;
   max-height: none;
   padding-right: 2px;
+  padding-bottom: 6px;
 }
 
 .chatRow {
@@ -164,23 +164,30 @@
 .allChatsBtn {
   margin-top: 12px;
   width: 100%;
-  height: 42px;
-  border-radius: 12px;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-bg-surface);
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
   color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 8px;
   cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease;
+  transition: background-color 140ms ease-in-out;
 
-  &:not(.allChatsBtnActive):hover {
-    background: var(--color-bg-surface-hover);
-    border-color: var(--color-border-muted);
+  &:not(:disabled):hover {
+    background-color: var(--color-palette-neutral-100);
   }
 }
 
-.allChatsBtnActive {
-  background: var(--color-bg-surface-muted);
-  border-color: var(--color-border-default);
+.allChatsIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
 }
 
 .sidebarBottom {
@@ -192,55 +199,73 @@
 .settingsBtn {
   width: calc(100% + 32px);
   margin: 0 -16px;
-  height: 44px;
+  height: 50px;
   border-radius: 0;
-  border-top: 1px solid var(--color-border-default);
-  border-bottom: 1px solid var(--color-border-default);
+  border-top: 1px solid var(--color-palette-neutral-100);
+  border-bottom: 1px solid var(--color-palette-neutral-100);
   border-left: none;
   border-right: none;
   background: transparent;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
-  padding: 0 16px;
+  padding: 0 24px;
   color: var(--color-text-primary);
   cursor: pointer;
   transition: background-color 140ms ease;
 
   &:hover {
-    background: var(--color-bg-surface-muted);
+    background: var(--color-palette-neutral-100);
   }
 }
-
-.settingsBtnActive {
-  background: var(--color-bg-surface-muted);
+.settingsIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
 }
 
 .userRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding-top: 10px;
+  // gap: 8px;
+  margin-top: 16px;
 }
 
 .logoutBtn {
   border-radius: 999px;
+  border: none;
+  transition: background-color 140ms ease;
+  height: 32px;
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logoutIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.iconTooltip {
+  z-index: 9999;
+  padding: 6px 8px;
+  border-radius: 8px;
   border: 1px solid var(--color-border-default);
   background: var(--color-bg-surface);
   color: var(--color-text-primary);
-  flex: 0 0 auto;
-  transition: background-color 140ms ease, border-color 140ms ease;
-
-  &:not(:disabled):hover {
-    background: var(--color-bg-surface-hover);
-    border-color: var(--color-border-muted);
-  }
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: var(--color-shadow-tooltip);
+  pointer-events: none;
 }
 
 .userEmail {
   min-width: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
