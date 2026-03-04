@@ -138,7 +138,7 @@ export function useVisibleAgentsPreference() {
   const statesQueryKey = ["states", ws, VISIBLE_AGENTS_PREFERENCES_NAMESPACE] as const;
 
   const agentsQuery = useQuery({
-    queryKey: ["runtime-agents", ws, appId ?? ""],
+    queryKey: ["config-agents", ws, appId ?? ""],
     queryFn: () => apiClient.listAgents(appId),
     enabled: canUsePreferencesState,
   });

@@ -842,14 +842,26 @@ class APIClient {
   }
 
   // --------------------
-  // Agents (runtime)
+  // Agents (config)
   // --------------------
   async listAgents(appId?: string): Promise<AgentResponse[]> {
     const normalizedAppId = appId?.trim();
-    const res = await this.client.get("/agents", {
+    const res = await this.client.get("/api/v1/agents", {
       headers: normalizedAppId ? { "X-Application": normalizedAppId } : undefined,
     });
     return res.data as AgentResponse[];
+  }
+
+  async getAgent(namespace: string, name: string, appId?: string): Promise<AgentResponse> {
+    const encodedNamespace = encodeURIComponent(namespace);
+    const encodedName = encodeURIComponent(name);
+    const normalizedAppId = appId?.trim();
+
+    const res = await this.client.get(`/api/v1/agents/${encodedNamespace}/${encodedName}`, {
+      headers: normalizedAppId ? { "X-Application": normalizedAppId } : undefined,
+    });
+
+    return res.data as AgentResponse;
   }
 }
 

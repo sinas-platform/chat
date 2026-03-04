@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Settings2 } from "lucide-react";
+import { Bot, Settings2 } from "lucide-react";
 
 import styles from "./Settings.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { Button } from "../../components/Button/Button";
+import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import {
   DEFAULT_VISIBLE_AGENTS_PREFERENCE,
   getAgentRef,
@@ -11,6 +12,7 @@ import {
   useVisibleAgentsPreference,
   type VisibleAgentsPreferenceValue,
 } from "../../hooks/useVisibleAgentsPreference";
+import { apiClient } from "../../lib/api";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import type { AgentResponse } from "../../types";
 
@@ -57,6 +59,7 @@ export function SettingsPage() {
     () => sortAgentsForSettings(visibleAgentsPreference.activeAgents),
     [visibleAgentsPreference.activeAgents],
   );
+  const { iconSrcByAgentId, onAgentIconError } = useAgentIconSources(sortedAgents, apiClient);
   const allAgentRefs = useMemo(() => sortedAgents.map((agent) => getAgentRef(agent)), [sortedAgents]);
 
   const [draftPreference, setDraftPreference] = useState<VisibleAgentsPreferenceValue>(DEFAULT_VISIBLE_AGENTS_PREFERENCE);
@@ -290,8 +293,25 @@ export function SettingsPage() {
                           </span>
                           <span className={styles.agentMeta}>
                             <span className={styles.agentTopRow}>
-                              <span className={styles.agentName}>
-                                {agent.namespace} / {agent.name}
+                              <span className={styles.agentIdentity}>
+                                <span className={styles.agentIconWrap} aria-hidden>
+                                  {iconSrcByAgentId[agent.id] ? (
+                                    <img
+                                      className={styles.agentIconImage}
+                                      src={iconSrcByAgentId[agent.id]}
+                                      alt=""
+                                      loading="lazy"
+                                      onError={() => {
+                                        void onAgentIconError(agent.id);
+                                      }}
+                                    />
+                                  ) : (
+                                    <Bot size={12} />
+                                  )}
+                                </span>
+                                <span className={styles.agentName}>
+                                  {agent.namespace} / {agent.name}
+                                </span>
                               </span>
                               {agent.is_default ? <span className={styles.agentBadge}>Default</span> : null}
                             </span>

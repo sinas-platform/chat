@@ -135,6 +135,8 @@ export interface AgentResponse {
     user_id: string;
     namespace: string;
     name: string;
+    icon: string | null;
+    icon_url: string | null;
     description: string | null;
     llm_provider_id: string | null;
     model: string | null;

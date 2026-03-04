@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, ChevronDown, LayoutGrid, List, Moon, Search, Sun, type LucideIcon } from "lucide-react";
+import { Bot, ChevronDown, LayoutGrid, List, Moon, Search, Sun } from "lucide-react";
 
 import styles from "./HomePage.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import SinasLoader from "../../components/Loader/Loader";
+import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { useVisibleAgentsPreference } from "../../hooks/useVisibleAgentsPreference";
 import { apiClient } from "../../lib/api";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
@@ -110,11 +111,12 @@ type AgentCardProps = {
   agent: AgentResponse;
   isActive: boolean;
   onSelect: (agent: AgentResponse) => void;
+  iconSrc?: string;
+  onIconError: (agentId: string) => Promise<string | null>;
   className?: string;
 };
 
-function AgentCard({ agent, isActive, onSelect, className }: AgentCardProps) {
-  const AgentIcon: LucideIcon = Bot;
+function AgentCard({ agent, isActive, onSelect, iconSrc, onIconError, className }: AgentCardProps) {
   const tone = getAgentTone(agent);
   const primaryLabel = `${agent.namespace} / ${agent.name}`;
   const secondaryLabel = agent.description?.trim() || "No description available.";
@@ -134,7 +136,19 @@ function AgentCard({ agent, isActive, onSelect, className }: AgentCardProps) {
     >
       <div className={styles.agentCardTop}>
         <span className={styles.agentIconWrap} aria-hidden>
-          <AgentIcon size={14} />
+          {iconSrc ? (
+            <img
+              className={styles.agentIconImage}
+              src={iconSrc}
+              alt=""
+              loading="lazy"
+              onError={() => {
+                void onIconError(agent.id);
+              }}
+            />
+          ) : (
+            <Bot size={14} />
+          )}
         </span>
         <span className={styles.agentName}>{primaryLabel}</span>
       </div>
@@ -184,6 +198,7 @@ export default function HomePage() {
 
   const allActiveAgents = visibleAgentsPreference.activeAgents;
   const activeAgents = visibleAgentsPreference.visibleActiveAgents;
+  const { iconSrcByAgentId, onAgentIconError } = useAgentIconSources(activeAgents, apiClient);
 
   const agentsByKey = useMemo(
     () => new Map(activeAgents.map((agent) => [getAgentKey(agent), agent] as const)),
@@ -221,6 +236,7 @@ export default function HomePage() {
   }, [activeAgents, agentsByKey, selectedAgentKey]);
 
   const selectedAgentTone = selectedAgent ? getAgentTone(selectedAgent) : "yellow";
+  const selectedAgentIconSrc = selectedAgent ? iconSrcByAgentId[selectedAgent.id] : undefined;
 
   const recentAgents = useMemo(() => {
     const chats = [...(chatsQ.data ?? [])];
@@ -424,7 +440,18 @@ export default function HomePage() {
                     styles[`heroIconTone${selectedAgentTone[0].toUpperCase()}${selectedAgentTone.slice(1)}`],
                   )}
                 >
-                  <Bot size={18} />
+                  {selectedAgent && selectedAgentIconSrc ? (
+                    <img
+                      className={styles.heroIconImage}
+                      src={selectedAgentIconSrc}
+                      alt=""
+                      onError={() => {
+                        void onAgentIconError(selectedAgent.id);
+                      }}
+                    />
+                  ) : (
+                    <Bot size={18} />
+                  )}
                 </span>
                 <div className={styles.heroTitle}>Hello! I&apos;m {selectedAgent ? selectedAgent.name : "an agent"}</div>
               </div>
@@ -498,6 +525,8 @@ export default function HomePage() {
                     agent={agent}
                     isActive={selectedAgent?.id === agent.id}
                     onSelect={onSelectAgent}
+                    iconSrc={iconSrcByAgentId[agent.id]}
+                    onIconError={onAgentIconError}
                     className={styles.recentAgentCard}
                   />
                 ))}
@@ -590,6 +619,8 @@ export default function HomePage() {
                     agent={agent}
                     isActive={selectedAgent?.id === agent.id}
                     onSelect={onSelectAgent}
+                    iconSrc={iconSrcByAgentId[agent.id]}
+                    onIconError={onAgentIconError}
                     className={agentView === "list" ? styles.agentCardList : undefined}
                   />
                 ))

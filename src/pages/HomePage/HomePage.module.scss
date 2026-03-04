@@ -77,6 +77,14 @@
   color: var(--color-text-primary);
 }
 
+.heroIconImage {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  display: block;
+}
+
 .heroIconToneYellow {
   background: var(--color-tone-yellow);
 }
@@ -302,6 +310,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.agentIconImage {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  display: block;
 }
 
 .agentName {
