@@ -97,6 +97,25 @@
   background: var(--color-tone-mint);
 }
 
+.heroIconWrapPlaceholder {
+  background: var(--color-bg-surface);
+  border-color: var(--agent-icon-soft-color);
+  box-shadow: 0 0 0 3px var(--agent-icon-soft-color);
+}
+
+.heroPlaceholderGlyph {
+  width: 18px;
+  height: 18px;
+  background: var(--agent-icon-color);
+  display: block;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
 .heroTitle {
   font-size: 30px;
   font-weight: 600;
@@ -110,9 +129,6 @@
 
 .agentPicker {
   margin-top: 24px;
-  border: 1px solid var(--color-border-soft);
-  border-radius: 16px;
-  background: var(--color-bg-surface);
   padding: 16px;
   width: min(780px, 100%);
   margin-left: auto;
@@ -233,38 +249,31 @@
 }
 
 .agentCard {
-  border: 1px solid var(--color-border-default);
-  border-radius: 18px;
-  background: var(--color-bg-surface-subtle);
-  padding: 12px;
+  border: 2px solid transparent;
+  border-radius: 24px;
+  background: var(--Card-white) padding-box, var(--Border-white) border-box;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
   text-align: left;
   cursor: pointer;
-  min-height: 138px;
-  transition: transform 0.15s ease, border-color 0.15s ease;
-
-  &:hover {
-    transform: translateY(-1px);
-    border-color: var(--color-border-muted);
-  }
-}
-
-.agentCardActive {
-  border-color: var(--color-border-strong);
+  min-height: 176px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .agentCardList {
   min-height: 0;
-  padding: 10px 12px;
+  padding: 16px 18px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     "top badge"
     "description badge";
-  row-gap: 5px;
-  column-gap: 10px;
+  row-gap: 8px;
+  column-gap: 14px;
   text-align: left;
 }
 
@@ -282,64 +291,70 @@
   grid-area: description;
 }
 
-.agentCardToneYellow {
-  background: var(--color-tone-yellow);
-}
-
-.agentCardToneBlue {
-  background: var(--color-tone-blue);
-}
-
-.agentCardToneMint {
-  background: var(--color-tone-mint);
-}
-
 .agentCardTop {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .agentIconWrap {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  border: 1px solid var(--color-badge-border);
-  background: var(--color-badge-bg-strong);
-  color: var(--color-text-primary);
+  width: 28px;
+  height: 28px;
+  color: var(--agent-icon-color, var(--color-text-primary));
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.agentIconWrapPlaceholder {
+  color: var(--agent-icon-color, var(--color-text-primary));
+}
+
+.agentPlaceholderGlyph {
+  width: 28px;
+  height: 28px;
+  background: var(--agent-icon-color);
+  display: block;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
 .agentIconImage {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   object-fit: cover;
   display: block;
 }
 
 .agentName {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
   color: var(--color-text-primary);
 }
 
 .agentBadge {
   width: fit-content;
-  font-size: 12px;
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-badge-border);
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--agent-icon-color, var(--color-text-primary));
   border-radius: 999px;
-  padding: 3px 8px;
-  background: var(--color-badge-bg);
+  padding: 6px 14px;
+  border: none;
+  background: var(--agent-icon-soft-color, var(--color-badge-bg));
 }
 
 .agentDescription {
-  font-size: 12px;
+  font-size: 15px;
   color: var(--color-text-secondary);
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .loadingState {

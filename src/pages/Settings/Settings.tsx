@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Bot, Settings2 } from "lucide-react";
 
 import styles from "./Settings.module.scss";
@@ -13,6 +13,7 @@ import {
   type VisibleAgentsPreferenceValue,
 } from "../../hooks/useVisibleAgentsPreference";
 import { apiClient } from "../../lib/api";
+import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import type { AgentResponse } from "../../types";
 
@@ -49,6 +50,25 @@ function preferenceEquals(left: VisibleAgentsPreferenceValue, right: VisibleAgen
   return normalizedLeft.visibleAgentRefs.every((ref, index) => ref === normalizedRight.visibleAgentRefs[index]);
 }
 
+function getPlaceholderCssVars(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  return {
+    "--agent-icon-color": placeholder.color,
+    "--agent-icon-soft-color": placeholder.softColor,
+  } as CSSProperties;
+}
+
+function getPlaceholderGlyphStyle(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  const iconUrl = `url("${placeholder.iconSrc}")`;
+  return {
+    WebkitMaskImage: iconUrl,
+    maskImage: iconUrl,
+  } as CSSProperties;
+}
+
 export function SettingsPage() {
   const workspaceUrl = getWorkspaceUrl();
   const hasWorkspaceUrl = workspaceUrl.length > 0;
@@ -60,6 +80,7 @@ export function SettingsPage() {
     [visibleAgentsPreference.activeAgents],
   );
   const { iconSrcByAgentId, onAgentIconError } = useAgentIconSources(sortedAgents, apiClient);
+  const placeholderByAgentId = useMemo(() => buildAgentPlaceholderMetaById(sortedAgents), [sortedAgents]);
   const allAgentRefs = useMemo(() => sortedAgents.map((agent) => getAgentRef(agent)), [sortedAgents]);
 
   const [draftPreference, setDraftPreference] = useState<VisibleAgentsPreferenceValue>(DEFAULT_VISIBLE_AGENTS_PREFERENCE);
@@ -272,6 +293,9 @@ export function SettingsPage() {
                     const description = agent.description?.trim() || "No description available.";
                     const statusLabel = checked ? "Visible" : "Hidden";
                     const tone = getAgentTone(agent);
+                    const placeholderCssVars = getPlaceholderCssVars(placeholderByAgentId[agent.id]);
+                    const placeholderGlyphStyle = getPlaceholderGlyphStyle(placeholderByAgentId[agent.id]);
+                    const shouldShowPlaceholder = !iconSrcByAgentId[agent.id] && Boolean(placeholderCssVars);
 
                     return (
                       <li key={agent.id} className={styles.agentRow}>
@@ -294,7 +318,14 @@ export function SettingsPage() {
                           <span className={styles.agentMeta}>
                             <span className={styles.agentTopRow}>
                               <span className={styles.agentIdentity}>
-                                <span className={styles.agentIconWrap} aria-hidden>
+                                <span
+                                  className={joinClasses(
+                                    styles.agentIconWrap,
+                                    shouldShowPlaceholder && styles.agentIconWrapPlaceholder,
+                                  )}
+                                  style={shouldShowPlaceholder ? placeholderCssVars : undefined}
+                                  aria-hidden
+                                >
                                   {iconSrcByAgentId[agent.id] ? (
                                     <img
                                       className={styles.agentIconImage}
@@ -305,6 +336,8 @@ export function SettingsPage() {
                                         void onAgentIconError(agent.id);
                                       }}
                                     />
+                                  ) : shouldShowPlaceholder ? (
+                                    <span className={styles.agentPlaceholderGlyph} style={placeholderGlyphStyle} />
                                   ) : (
                                     <Bot size={12} />
                                   )}

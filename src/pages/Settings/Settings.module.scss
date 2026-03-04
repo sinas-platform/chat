@@ -321,6 +321,25 @@
   flex: 0 0 auto;
 }
 
+.agentIconWrapPlaceholder {
+  background: var(--color-bg-surface);
+  border-color: var(--agent-icon-soft-color);
+  box-shadow: 0 0 0 2px var(--agent-icon-soft-color);
+}
+
+.agentPlaceholderGlyph {
+  width: 12px;
+  height: 12px;
+  background: var(--agent-icon-color);
+  display: block;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
 .agentIconImage {
   width: 100%;
   height: 100%;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Bot, ChevronDown, LayoutGrid, List, Moon, Search, Sun } from "lucide-react";
@@ -11,6 +11,7 @@ import SinasLoader from "../../components/Loader/Loader";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { useVisibleAgentsPreference } from "../../hooks/useVisibleAgentsPreference";
 import { apiClient } from "../../lib/api";
+import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
 import { useTheme } from "../../lib/useTheme";
@@ -112,14 +113,37 @@ type AgentCardProps = {
   isActive: boolean;
   onSelect: (agent: AgentResponse) => void;
   iconSrc?: string;
+  placeholder?: AgentPlaceholderMeta;
   onIconError: (agentId: string) => Promise<string | null>;
   className?: string;
 };
 
-function AgentCard({ agent, isActive, onSelect, iconSrc, onIconError, className }: AgentCardProps) {
-  const tone = getAgentTone(agent);
+function getPlaceholderCssVars(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  return {
+    "--agent-icon-color": placeholder.color,
+    "--agent-icon-soft-color": placeholder.softColor,
+  } as CSSProperties;
+}
+
+function getPlaceholderGlyphStyle(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  const iconUrl = `url("${placeholder.iconSrc}")`;
+  return {
+    WebkitMaskImage: iconUrl,
+    maskImage: iconUrl,
+  } as CSSProperties;
+}
+
+function AgentCard({ agent, isActive, onSelect, iconSrc, placeholder, onIconError, className }: AgentCardProps) {
   const primaryLabel = `${agent.namespace} / ${agent.name}`;
   const secondaryLabel = agent.description?.trim() || "No description available.";
+  const placeholderCssVars = getPlaceholderCssVars(placeholder);
+  const cardCssVars = placeholderCssVars;
+  const placeholderGlyphStyle = getPlaceholderGlyphStyle(placeholder);
+  const shouldShowPlaceholder = !iconSrc && Boolean(placeholderCssVars);
 
   return (
     <button
@@ -127,15 +151,18 @@ function AgentCard({ agent, isActive, onSelect, iconSrc, onIconError, className 
       type="button"
       className={joinClasses(
         styles.agentCard,
-        styles[`agentCardTone${tone[0].toUpperCase()}${tone.slice(1)}`],
         isActive && styles.agentCardActive,
         className,
       )}
+      style={cardCssVars}
       onClick={() => onSelect(agent)}
       aria-pressed={isActive}
     >
       <div className={styles.agentCardTop}>
-        <span className={styles.agentIconWrap} aria-hidden>
+        <span
+          className={joinClasses(styles.agentIconWrap, shouldShowPlaceholder && styles.agentIconWrapPlaceholder)}
+          aria-hidden
+        >
           {iconSrc ? (
             <img
               className={styles.agentIconImage}
@@ -146,6 +173,8 @@ function AgentCard({ agent, isActive, onSelect, iconSrc, onIconError, className 
                 void onIconError(agent.id);
               }}
             />
+          ) : shouldShowPlaceholder ? (
+            <span className={styles.agentPlaceholderGlyph} style={placeholderGlyphStyle} />
           ) : (
             <Bot size={14} />
           )}
@@ -199,6 +228,7 @@ export default function HomePage() {
   const allActiveAgents = visibleAgentsPreference.activeAgents;
   const activeAgents = visibleAgentsPreference.visibleActiveAgents;
   const { iconSrcByAgentId, onAgentIconError } = useAgentIconSources(activeAgents, apiClient);
+  const placeholderByAgentId = useMemo(() => buildAgentPlaceholderMetaById(allActiveAgents), [allActiveAgents]);
 
   const agentsByKey = useMemo(
     () => new Map(activeAgents.map((agent) => [getAgentKey(agent), agent] as const)),
@@ -237,6 +267,10 @@ export default function HomePage() {
 
   const selectedAgentTone = selectedAgent ? getAgentTone(selectedAgent) : "yellow";
   const selectedAgentIconSrc = selectedAgent ? iconSrcByAgentId[selectedAgent.id] : undefined;
+  const selectedAgentPlaceholder = selectedAgent ? placeholderByAgentId[selectedAgent.id] : undefined;
+  const selectedAgentPlaceholderCssVars = getPlaceholderCssVars(selectedAgentPlaceholder);
+  const selectedAgentPlaceholderGlyphStyle = getPlaceholderGlyphStyle(selectedAgentPlaceholder);
+  const shouldShowSelectedAgentPlaceholder = !selectedAgentIconSrc && Boolean(selectedAgentPlaceholderCssVars);
 
   const recentAgents = useMemo(() => {
     const chats = [...(chatsQ.data ?? [])];
@@ -437,8 +471,10 @@ export default function HomePage() {
                 <span
                   className={joinClasses(
                     styles.heroIconWrap,
+                    shouldShowSelectedAgentPlaceholder && styles.heroIconWrapPlaceholder,
                     styles[`heroIconTone${selectedAgentTone[0].toUpperCase()}${selectedAgentTone.slice(1)}`],
                   )}
+                  style={shouldShowSelectedAgentPlaceholder ? selectedAgentPlaceholderCssVars : undefined}
                 >
                   {selectedAgent && selectedAgentIconSrc ? (
                     <img
@@ -449,6 +485,8 @@ export default function HomePage() {
                         void onAgentIconError(selectedAgent.id);
                       }}
                     />
+                  ) : shouldShowSelectedAgentPlaceholder ? (
+                    <span className={styles.heroPlaceholderGlyph} style={selectedAgentPlaceholderGlyphStyle} />
                   ) : (
                     <Bot size={18} />
                   )}
@@ -526,6 +564,7 @@ export default function HomePage() {
                     isActive={selectedAgent?.id === agent.id}
                     onSelect={onSelectAgent}
                     iconSrc={iconSrcByAgentId[agent.id]}
+                    placeholder={placeholderByAgentId[agent.id]}
                     onIconError={onAgentIconError}
                     className={styles.recentAgentCard}
                   />
@@ -620,6 +659,7 @@ export default function HomePage() {
                     isActive={selectedAgent?.id === agent.id}
                     onSelect={onSelectAgent}
                     iconSrc={iconSrcByAgentId[agent.id]}
+                    placeholder={placeholderByAgentId[agent.id]}
                     onIconError={onAgentIconError}
                     className={agentView === "list" ? styles.agentCardList : undefined}
                   />
