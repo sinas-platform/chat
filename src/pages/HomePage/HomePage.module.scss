@@ -18,65 +18,84 @@
 
 .hero {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  gap: 20px;
   margin-top: 6px;
 }
 
 .heroText {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .heroTitleRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 20px;
 }
 
 .heroIconWrap {
-  width: 30px;
-  height: 30px;
+  width: 64px;
+  height: 64px;
   border-radius: 999px;
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-bg-surface-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--color-text-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
+  position: relative;
+  isolation: isolate;
+  --hero-pulse-color: transparent;
+}
+
+.heroIconWrapPulse {
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 999px;
+    background: radial-gradient(
+      50% 50% at 50% 50%,
+      transparent 44%,
+      var(--hero-pulse-color) 64%,
+      transparent 80%
+    );
+    opacity: 0.36;
+    z-index: -1;
+    pointer-events: none;
+    filter: blur(1.5px);
+    animation: heroPlaceholderBorderPulse 1.9s ease-in-out infinite;
+  }
 }
 
 .heroIconImage {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
   object-fit: cover;
   display: block;
 }
 
-.heroIconToneYellow {
-  background: var(--color-tone-yellow);
-}
-
-.heroIconToneBlue {
-  background: var(--color-tone-blue);
-}
-
-.heroIconToneMint {
-  background: var(--color-tone-mint);
-}
-
 .heroIconWrapPlaceholder {
-  background: var(--color-bg-surface);
-  border-color: var(--agent-icon-soft-color);
-  box-shadow: 0 0 0 3px var(--agent-icon-soft-color);
+  background: var(--color-palette-white);
+  border-color: transparent;
+  --hero-pulse-color: var(--agent-icon-color);
+}
+
+.heroIconWrapCustomIcon {
+  border-color: transparent;
+  --hero-pulse-color: var(--agent-icon-color);
 }
 
 .heroPlaceholderGlyph {
-  width: 18px;
-  height: 18px;
+  width: 32px;
+  height: 32px;
   background: var(--agent-icon-color);
   display: block;
+  position: relative;
+  z-index: 1;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
@@ -85,15 +104,32 @@
   mask-size: contain;
 }
 
+@keyframes heroPlaceholderBorderPulse {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.28;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroIconWrapPulse::before {
+    animation: none;
+  }
+}
+
 .heroTitle {
-  font-size: 30px;
-  font-weight: 600;
+  font-size: 32px;
+  font-weight: 500;
 }
 
 .heroHint {
   color: var(--color-text-secondary);
   font-size: 14px;
-  margin-left: 40px;
 }
 
 .agentPicker {
@@ -123,36 +159,51 @@
 }
 
 .allAgentsSection {
-  margin-top: 24px;
+  margin-top: 18px;
   border: none;
-  padding: 0 16px;
-  width: min(760px, 100%);
-  margin-left: auto;
-  margin-right: auto;
+  padding: 0 0 32px;
+  width: 100%;
+}
+
+.allAgentsTitle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
 }
 
 .agentControls {
-  margin-top: 10px;
+  margin-top: 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .agentSearchField {
   width: 100%;
-  border: 1px solid var(--color-border-default);
-  border-radius: 999px;
-  padding: 0 12px;
-  height: 34px;
+  border-radius: 12px;
+  padding: 8px 12px;
+  height: 32px;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--color-text-secondary);
-  background: var(--color-bg-surface);
+  background: rgba(255, 255, 255, 0.60);
+
+  &::placeholder {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+  }
 
   &:focus-within {
-    border-color: var(--color-border-muted);
+    border-color: #ddb888;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      0 0 0 2px rgba(221, 184, 136, 0.26);
   }
+}
+
+.agentSearchIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
 }
 
 .agentControlActions {
@@ -165,31 +216,36 @@
 .agentViewToggle {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--color-border-default);
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--color-bg-surface);
+  border-radius: 12px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.60);
+  gap: 16px;
 }
 
 .agentViewBtn {
-  width: 30px;
-  height: 30px;
   border: none;
-  background: var(--color-bg-surface);
-  color: var(--color-text-secondary);
+  background: transparent;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: opacity 140ms ease;
+  padding: 0;
 
   &:hover {
-    background: var(--color-bg-surface-hover);
+    opacity: 0.2;
   }
 }
 
 .agentViewBtnActive {
-  background: var(--color-bg-surface-muted);
-  color: var(--color-text-primary);
+  opacity: 0.2;
+  cursor: default;
+}
+
+.agentViewIcon {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .agentSearchInput {
@@ -197,8 +253,28 @@
   border: none;
   background: transparent;
   padding: 0;
-  font-size: 13px;
+  font-size: 14px;
+  color: #5e4d39;
   outline: none;
+
+  &::placeholder {
+    color: #a28b70;
+  }
+}
+
+.agentSortTrigger {
+  background: rgba(255, 255, 255, 0.60);
+  min-height: 32px;
+  padding: 7px 12px;
+  font-size: 14px;
+  border-radius: 12px;
+  border: none;
+}
+
+.agentSortIcon {
+  width: 14px;
+  height: 14px;
+  display: block;
 }
 
 .allAgentGrid {
@@ -277,6 +353,7 @@
 
 .agentIconWrapPlaceholder {
   color: var(--agent-icon-color, var(--color-text-primary));
+  height: fit-content;
 }
 
 .agentPlaceholderGlyph {
@@ -420,7 +497,7 @@
   }
 
   .agentControlActions {
-    justify-content: flex-end;
+    justify-content: space-between;
   }
 
   .allAgentGrid {

@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, ChevronDown, LayoutGrid, List, Search } from "lucide-react";
+import { Bot } from "lucide-react";
 
 import styles from "./HomePage.module.scss";
+import downArrowIcon from "../../icons/down-arrow.svg";
+import gridLayoutIcon from "../../icons/grid-layout.svg";
+import listLayoutIcon from "../../icons/list-layout.svg";
+import searchIcon from "../../icons/search.svg";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
@@ -28,7 +32,8 @@ function joinClasses(...classNames: Array<string | undefined | false>) {
 }
 
 const SELECTED_AGENT_STORAGE_KEY = "chat.selected_agent_endpoint";
-const AGENT_TONES = ["yellow", "blue", "mint"] as const;
+const HERO_MESSAGE_INDEX_STORAGE_KEY = "chat.home.hero_message_index";
+const HERO_MESSAGE_COUNT = 3;
 
 type AgentSortMode = "alphabetical" | "recent";
 type AgentViewMode = "grid" | "list";
@@ -98,13 +103,18 @@ function saveSelectedAgentKey(agentKey: string): void {
   }
 }
 
-function getAgentTone(agent: Pick<AgentResponse, "id" | "namespace" | "name">): (typeof AGENT_TONES)[number] {
-  const source = `${agent.id}:${agent.namespace}:${agent.name}`;
-  let hash = 0;
-  for (let index = 0; index < source.length; index += 1) {
-    hash = (hash * 31 + source.charCodeAt(index)) >>> 0;
+function getNextHeroMessageIndex(): number {
+  if (typeof window === "undefined") return 0;
+
+  try {
+    const storedRaw = window.localStorage.getItem(HERO_MESSAGE_INDEX_STORAGE_KEY);
+    const storedIndex = storedRaw == null ? 0 : Number.parseInt(storedRaw, 10);
+    const nextIndex = Number.isNaN(storedIndex) ? 0 : ((storedIndex % HERO_MESSAGE_COUNT) + HERO_MESSAGE_COUNT) % HERO_MESSAGE_COUNT;
+    window.localStorage.setItem(HERO_MESSAGE_INDEX_STORAGE_KEY, String((nextIndex + 1) % HERO_MESSAGE_COUNT));
+    return nextIndex;
+  } catch {
+    return 0;
   }
-  return AGENT_TONES[hash % AGENT_TONES.length] ?? "yellow";
 }
 
 type AgentCardProps = {
@@ -203,6 +213,7 @@ export default function HomePage() {
   const [agentSearch, setAgentSearch] = useState("");
   const [agentSort, setAgentSort] = useState<AgentSortMode>("alphabetical");
   const [agentView, setAgentView] = useState<AgentViewMode>("grid");
+  const [heroMessageIndex, setHeroMessageIndex] = useState(0);
   const pendingAttachmentsRef = useRef<PendingAttachment[]>([]);
 
   useEffect(() => {
@@ -263,12 +274,24 @@ export default function HomePage() {
     return activeAgents.find((agent) => agent.is_default) ?? activeAgents[0] ?? null;
   }, [activeAgents, agentsByKey, selectedAgentKey]);
 
-  const selectedAgentTone = selectedAgent ? getAgentTone(selectedAgent) : "yellow";
   const selectedAgentIconSrc = selectedAgent ? iconSrcByAgentId[selectedAgent.id] : undefined;
   const selectedAgentPlaceholder = selectedAgent ? placeholderByAgentId[selectedAgent.id] : undefined;
   const selectedAgentPlaceholderCssVars = getPlaceholderCssVars(selectedAgentPlaceholder);
   const selectedAgentPlaceholderGlyphStyle = getPlaceholderGlyphStyle(selectedAgentPlaceholder);
   const shouldShowSelectedAgentPlaceholder = !selectedAgentIconSrc && Boolean(selectedAgentPlaceholderCssVars);
+  const selectedAgentName = selectedAgent?.name ?? "an agent";
+  const heroMessages = useMemo(
+    () => [
+      { title: `${selectedAgentName} here.`, hint: "What's on your mind?" },
+      { title: `${selectedAgentName} at your service.`, hint: "What are we tackling?" },
+      { title: `Hey, I'm ${selectedAgentName}.`, hint: "How can I help?" },
+    ],
+    [selectedAgentName],
+  );
+
+  useEffect(() => {
+    setHeroMessageIndex(getNextHeroMessageIndex());
+  }, []);
 
   const recentAgents = useMemo(() => {
     const chats = [...(chatsQ.data ?? [])];
@@ -412,11 +435,13 @@ export default function HomePage() {
 
   function onSelectAgent(agent: AgentResponse) {
     const key = getAgentKey(agent);
+    if (key === selectedAgentKey) return;
     setSelectedAgentKey(key);
     saveSelectedAgentKey(key);
+    setHeroMessageIndex(getNextHeroMessageIndex());
   }
 
-  const selectedAgentDescription = selectedAgent?.description?.trim() || "How can I help you?";
+  const activeHeroMessage = heroMessages[heroMessageIndex] ?? heroMessages[0];
   const hasAgents = activeAgents.length > 0;
   const hasAnyActiveAgents = allActiveAgents.length > 0;
   const isAgentsLoading = agentsQ.isLoading;
@@ -444,34 +469,33 @@ export default function HomePage() {
           ) : (
             <>
           <div className={styles.hero}>
+            <span
+              className={joinClasses(
+                styles.heroIconWrap,
+                selectedAgent ? styles.heroIconWrapPulse : undefined,
+                shouldShowSelectedAgentPlaceholder && styles.heroIconWrapPlaceholder,
+                selectedAgent && selectedAgentIconSrc ? styles.heroIconWrapCustomIcon : undefined,
+              )}
+              style={selectedAgentPlaceholderCssVars}
+            >
+              {selectedAgent && selectedAgentIconSrc ? (
+                <img
+                  className={styles.heroIconImage}
+                  src={selectedAgentIconSrc}
+                  alt=""
+                  onError={() => {
+                    void onAgentIconError(selectedAgent.id);
+                  }}
+                />
+              ) : shouldShowSelectedAgentPlaceholder ? (
+                <span className={styles.heroPlaceholderGlyph} style={selectedAgentPlaceholderGlyphStyle} />
+              ) : (
+                <Bot size={32} />
+              )}
+            </span>
             <div className={styles.heroText}>
-              <div className={styles.heroTitleRow}>
-                <span
-                  className={joinClasses(
-                    styles.heroIconWrap,
-                    shouldShowSelectedAgentPlaceholder && styles.heroIconWrapPlaceholder,
-                    styles[`heroIconTone${selectedAgentTone[0].toUpperCase()}${selectedAgentTone.slice(1)}`],
-                  )}
-                  style={shouldShowSelectedAgentPlaceholder ? selectedAgentPlaceholderCssVars : undefined}
-                >
-                  {selectedAgent && selectedAgentIconSrc ? (
-                    <img
-                      className={styles.heroIconImage}
-                      src={selectedAgentIconSrc}
-                      alt=""
-                      onError={() => {
-                        void onAgentIconError(selectedAgent.id);
-                      }}
-                    />
-                  ) : shouldShowSelectedAgentPlaceholder ? (
-                    <span className={styles.heroPlaceholderGlyph} style={selectedAgentPlaceholderGlyphStyle} />
-                  ) : (
-                    <Bot size={18} />
-                  )}
-                </span>
-                <div className={styles.heroTitle}>Hello! I&apos;m {selectedAgent ? selectedAgent.name : "an agent"}</div>
-              </div>
-              <div className={styles.heroHint}>{selectedAgentDescription}</div>
+              <div className={styles.heroTitle}>{activeHeroMessage.title}</div>
+              <div className={styles.heroHint}>{activeHeroMessage.hint}</div>
             </div>
           </div>
 
@@ -552,9 +576,10 @@ export default function HomePage() {
           </section>
 
           <section className={styles.allAgentsSection}>
+            <div className={styles.allAgentsTitle}>All agents</div>
             <div className={styles.agentControls}>
               <div className={styles.agentSearchField}>
-                <Search size={16} aria-hidden />
+                <img className={styles.agentSearchIcon} src={searchIcon} alt="" aria-hidden />
                 <input
                   className={styles.agentSearchInput}
                   type="search"
@@ -567,21 +592,21 @@ export default function HomePage() {
                 <div className={styles.agentViewToggle} role="group" aria-label="Agent card view mode">
                   <button
                     type="button"
-                    className={joinClasses(styles.agentViewBtn, agentView === "grid" && styles.agentViewBtnActive)}
-                    onClick={() => setAgentView("grid")}
-                    aria-label="Show agents as grid"
-                    aria-pressed={agentView === "grid"}
-                  >
-                    <LayoutGrid size={14} />
-                  </button>
-                  <button
-                    type="button"
                     className={joinClasses(styles.agentViewBtn, agentView === "list" && styles.agentViewBtnActive)}
                     onClick={() => setAgentView("list")}
                     aria-label="Show agents as list"
                     aria-pressed={agentView === "list"}
                   >
-                    <List size={14} />
+                    <img className={styles.agentViewIcon} src={listLayoutIcon} alt="" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    className={joinClasses(styles.agentViewBtn, agentView === "grid" && styles.agentViewBtnActive)}
+                    onClick={() => setAgentView("grid")}
+                    aria-label="Show agents as grid"
+                    aria-pressed={agentView === "grid"}
+                  >
+                    <img className={styles.agentViewIcon} src={gridLayoutIcon} alt="" aria-hidden />
                   </button>
                 </div>
 
@@ -589,11 +614,12 @@ export default function HomePage() {
                   trigger={
                     <>
                       {agentSortLabel}
-                      <ChevronDown size={14} />
+                      <img className={styles.agentSortIcon} src={downArrowIcon} alt="" aria-hidden />
                     </>
                   }
                   triggerAriaLabel="Sort agents"
                   variant="text"
+                  triggerClassName={styles.agentSortTrigger}
                   items={[
                     {
                       id: "sort-alphabetical",
