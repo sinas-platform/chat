@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Bot, Loader2 } from "lucide-react";
+import { Bot, CircleHelp, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -43,6 +43,10 @@ type ChatMessagesProps = {
   isStreaming: boolean;
   streamingContent: string;
   thinkingText: string;
+  toolRuns: ToolRun[];
+  pendingApprovals: ApprovalRequiredEvent[];
+  processingApproval: string | null;
+  onApprovalDecision: (approval: ApprovalRequiredEvent, approved: boolean) => void;
   assistantAvatarSrc?: string;
   assistantAvatarPlaceholder?: AgentPlaceholderMeta;
   onAssistantAvatarError?: () => void;
@@ -71,13 +75,14 @@ interface ToolRun {
   description: string;
   status: ToolRunStatus;
   startedAt: string;
-  endedAt?: string;
-  result?: unknown;
   error?: string | null;
 }
 
-type ToolProgressListProps = {
+type ToolProgressRowsProps = {
   tools: ToolRun[];
+  assistantAvatarSrc?: string;
+  assistantAvatarPlaceholder?: AgentPlaceholderMeta;
+  onAssistantAvatarError?: () => void;
 };
 
 const MARKDOWN_PLUGINS = [remarkGfm];
@@ -207,6 +212,25 @@ function normalizeToolName(name: string | null | undefined): string {
 function getToolDescription(description: string | null | undefined, toolName: string): string {
   const trimmed = description?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : `Running ${toolName}`;
+}
+
+function getApprovalReason(approval: ApprovalRequiredEvent): string {
+  const args = approval.arguments ?? {};
+  const candidates = [
+    args.justification,
+    args.reason,
+    args.description,
+    args.message,
+    args.purpose,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") continue;
+    const trimmed = candidate.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+
+  return "The assistant needs your permission to continue with the next action.";
 }
 
 function extractToolCallId(value: unknown): string | null {
@@ -483,6 +507,172 @@ function MessageAttachmentImage({ attachment, compact }: MessageAttachmentImageP
   );
 }
 
+type AssistantAvatarProps = {
+  showAssistantAvatarLoading?: boolean;
+  showAssistantAvatarPulse?: boolean;
+  assistantAvatarSrc?: string;
+  assistantAvatarPlaceholder?: AgentPlaceholderMeta;
+  onAssistantAvatarError?: () => void;
+};
+
+function AssistantAvatar({
+  showAssistantAvatarLoading = false,
+  showAssistantAvatarPulse = false,
+  assistantAvatarSrc,
+  assistantAvatarPlaceholder,
+  onAssistantAvatarError,
+}: AssistantAvatarProps) {
+  const assistantAvatarCssVars = getPlaceholderCssVars(assistantAvatarPlaceholder);
+  const assistantAvatarGlyphStyle = getPlaceholderGlyphStyle(assistantAvatarPlaceholder);
+  const shouldShowAssistantPlaceholder = !assistantAvatarSrc && Boolean(assistantAvatarCssVars);
+
+  return (
+    <div
+      className={joinClasses(
+        styles.assistantAvatar,
+        showAssistantAvatarPulse && styles.assistantAvatarPulse,
+        shouldShowAssistantPlaceholder && styles.assistantAvatarPlaceholder,
+        assistantAvatarSrc && styles.assistantAvatarCustomIcon,
+      )}
+      style={assistantAvatarCssVars}
+      role={showAssistantAvatarLoading ? "status" : undefined}
+      aria-live={showAssistantAvatarLoading ? "polite" : undefined}
+      aria-label={showAssistantAvatarLoading ? "Generating response" : undefined}
+    >
+      {assistantAvatarSrc ? (
+        <img
+          className={styles.assistantAvatarImage}
+          src={assistantAvatarSrc}
+          alt=""
+          aria-hidden="true"
+          onError={onAssistantAvatarError}
+        />
+      ) : shouldShowAssistantPlaceholder ? (
+        <span className={styles.assistantAvatarPlaceholderGlyph} style={assistantAvatarGlyphStyle} />
+      ) : (
+        <Bot size={20} aria-hidden="true" />
+      )}
+    </div>
+  );
+}
+
+type ApprovalPromptRowProps = {
+  approval: ApprovalRequiredEvent;
+  isProcessing: boolean;
+  disableActions: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+  assistantAvatarSrc?: string;
+  assistantAvatarPlaceholder?: AgentPlaceholderMeta;
+  onAssistantAvatarError?: () => void;
+};
+
+const ApprovalPromptRow = memo(function ApprovalPromptRow({
+  approval,
+  isProcessing,
+  disableActions,
+  onApprove,
+  onReject,
+  assistantAvatarSrc,
+  assistantAvatarPlaceholder,
+  onAssistantAvatarError,
+}: ApprovalPromptRowProps) {
+  return (
+    <div className={`${styles.messageRow} ${styles.assistantRow}`}>
+      <AssistantAvatar
+        assistantAvatarSrc={assistantAvatarSrc}
+        assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+        onAssistantAvatarError={onAssistantAvatarError}
+      />
+
+      <div className={`${styles.approvalCard} ${isProcessing ? styles.approvalCardProcessing : ""}`}>
+        <div className={styles.approvalIconWrap}>
+          {isProcessing ? (
+            <Loader2 className={styles.approvalSpinner} aria-hidden="true" />
+          ) : (
+            <CircleHelp className={styles.approvalIcon} aria-hidden="true" />
+          )}
+        </div>
+
+        <div className={styles.approvalContent}>
+          <h4 className={styles.approvalTitle}>{isProcessing ? "Processing approval..." : "Action Needs Your Approval"}</h4>
+          <p className={styles.approvalText}>{getApprovalReason(approval)}</p>
+          <p className={styles.approvalHint}>Approve to continue, or reject to stop this action.</p>
+
+          <div className={styles.approvalActions}>
+            <button type="button" className={`${styles.approvalButton} ${styles.approveButton}`} onClick={onApprove} disabled={disableActions}>
+              {isProcessing ? "Processing..." : "Approve"}
+            </button>
+            <button type="button" className={`${styles.approvalButton} ${styles.rejectButton}`} onClick={onReject} disabled={disableActions}>
+              Reject
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+ApprovalPromptRow.displayName = "ApprovalPromptRow";
+
+const ToolProgressRows = memo(function ToolProgressRows({
+  tools,
+  assistantAvatarSrc,
+  assistantAvatarPlaceholder,
+  onAssistantAvatarError,
+}: ToolProgressRowsProps) {
+  if (tools.length === 0) return null;
+
+  return (
+    <div className={styles.toolProgressInlineList} role="status" aria-live="polite" aria-atomic="false">
+      {tools.map((tool) => {
+        const isRunning = tool.status === "running";
+        const isDone = tool.status === "done";
+        const statusText = isRunning ? "Running" : isDone ? "Completed" : "Failed";
+
+        return (
+          <div key={tool.id} className={`${styles.messageRow} ${styles.assistantRow}`}>
+            <AssistantAvatar
+              assistantAvatarSrc={assistantAvatarSrc}
+              assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+              onAssistantAvatarError={onAssistantAvatarError}
+            />
+
+            <div
+              className={joinClasses(
+                styles.toolProgressCard,
+                isRunning && styles.toolProgressRunning,
+                isDone && styles.toolProgressDone,
+                tool.status === "error" && styles.toolProgressError
+              )}
+            >
+              <span
+                className={joinClasses(
+                  styles.toolProgressDot,
+                  isRunning && styles.toolProgressDotRunning,
+                  isDone && styles.toolProgressDotDone,
+                  tool.status === "error" && styles.toolProgressDotError
+                )}
+                aria-hidden="true"
+              />
+              <div className={styles.toolProgressContent}>
+                <p className={styles.toolProgressDescription}>{tool.description}</p>
+                <p className={styles.toolProgressMeta}>
+                  <code className={styles.toolProgressName}>{tool.name}</code>
+                  <span className={styles.toolProgressStatus}>{statusText}</span>
+                </p>
+                {tool.status === "error" && tool.error ? <p className={styles.toolProgressErrorText}>{tool.error}</p> : null}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+ToolProgressRows.displayName = "ToolProgressRows";
+
 const ChatMessageRow = memo(function ChatMessageRow({
   message,
   showAssistantAvatarLoading = false,
@@ -500,39 +690,17 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const shouldHideAssistantBubble = isAssistant && showAssistantAvatarLoading;
-  const assistantAvatarCssVars = getPlaceholderCssVars(assistantAvatarPlaceholder);
-  const assistantAvatarGlyphStyle = getPlaceholderGlyphStyle(assistantAvatarPlaceholder);
-  const shouldShowAssistantPlaceholder = !assistantAvatarSrc && Boolean(assistantAvatarCssVars);
 
   return (
     <div className={`${styles.messageRow} ${isUser ? styles.userRow : styles.assistantRow}`} ref={rowRef}>
       {isAssistant ? (
-        <div
-          className={joinClasses(
-            styles.assistantAvatar,
-            showAssistantAvatarPulse && styles.assistantAvatarPulse,
-            shouldShowAssistantPlaceholder && styles.assistantAvatarPlaceholder,
-            assistantAvatarSrc && styles.assistantAvatarCustomIcon,
-          )}
-          style={assistantAvatarCssVars}
-          role={showAssistantAvatarLoading ? "status" : undefined}
-          aria-live={showAssistantAvatarLoading ? "polite" : undefined}
-          aria-label={showAssistantAvatarLoading ? "Generating response" : undefined}
-        >
-          {assistantAvatarSrc ? (
-            <img
-              className={styles.assistantAvatarImage}
-              src={assistantAvatarSrc}
-              alt=""
-              aria-hidden="true"
-              onError={onAssistantAvatarError}
-            />
-          ) : shouldShowAssistantPlaceholder ? (
-            <span className={styles.assistantAvatarPlaceholderGlyph} style={assistantAvatarGlyphStyle} />
-          ) : (
-            <Bot size={20} aria-hidden="true" />
-          )}
-        </div>
+        <AssistantAvatar
+          showAssistantAvatarLoading={showAssistantAvatarLoading}
+          showAssistantAvatarPulse={showAssistantAvatarPulse}
+          assistantAvatarSrc={assistantAvatarSrc}
+          assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+          onAssistantAvatarError={onAssistantAvatarError}
+        />
       ) : null}
 
       {!shouldHideAssistantBubble ? (
@@ -614,6 +782,10 @@ const ChatMessages = memo(function ChatMessages({
   isStreaming,
   streamingContent,
   thinkingText,
+  toolRuns,
+  pendingApprovals,
+  processingApproval,
+  onApprovalDecision,
   assistantAvatarSrc,
   assistantAvatarPlaceholder,
   onAssistantAvatarError,
@@ -637,7 +809,7 @@ const ChatMessages = memo(function ChatMessages({
           <SinasLoader size={28} />
           <span className={styles.loadingText}>Loading conversation...</span>
         </div>
-      ) : messages.length === 0 ? (
+      ) : messages.length === 0 && pendingApprovals.length === 0 ? (
         <div className={styles.empty}>No messages yet</div>
       ) : (
         messages.map((message, index) => {
@@ -663,6 +835,32 @@ const ChatMessages = memo(function ChatMessages({
         })
       )}
 
+      <ToolProgressRows
+        tools={toolRuns}
+        assistantAvatarSrc={assistantAvatarSrc}
+        assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+        onAssistantAvatarError={onAssistantAvatarError}
+      />
+
+      {pendingApprovals.map((approval) => {
+        const isProcessing = processingApproval === approval.tool_call_id;
+        const disableActions = Boolean(processingApproval) || isStreaming;
+
+        return (
+          <ApprovalPromptRow
+            key={approval.tool_call_id}
+            approval={approval}
+            isProcessing={isProcessing}
+            disableActions={disableActions}
+            onApprove={() => onApprovalDecision(approval, true)}
+            onReject={() => onApprovalDecision(approval, false)}
+            assistantAvatarSrc={assistantAvatarSrc}
+            assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+            onAssistantAvatarError={onAssistantAvatarError}
+          />
+        );
+      })}
+
       {showStreamingRow ? (
         <ChatMessageRow
           key="streaming-assistant"
@@ -684,52 +882,6 @@ const ChatMessages = memo(function ChatMessages({
 });
 
 ChatMessages.displayName = "ChatMessages";
-
-const ToolProgressList = memo(function ToolProgressList({ tools }: ToolProgressListProps) {
-  if (tools.length === 0) return null;
-
-  return (
-    <div className={styles.toolProgressList} role="status" aria-live="polite" aria-atomic="false">
-      {tools.map((tool) => {
-        const isRunning = tool.status === "running";
-        const isDone = tool.status === "done";
-        const statusText = isRunning ? "Running" : isDone ? "Completed" : "Failed";
-
-        return (
-          <div
-            key={tool.id}
-            className={joinClasses(
-              styles.toolProgressCard,
-              isRunning && styles.toolProgressRunning,
-              isDone && styles.toolProgressDone,
-              tool.status === "error" && styles.toolProgressError
-            )}
-          >
-            <span
-              className={joinClasses(
-                styles.toolProgressDot,
-                isRunning && styles.toolProgressDotRunning,
-                isDone && styles.toolProgressDotDone,
-                tool.status === "error" && styles.toolProgressDotError
-              )}
-              aria-hidden="true"
-            />
-            <div className={styles.toolProgressContent}>
-              <p className={styles.toolProgressDescription}>{tool.description}</p>
-              <p className={styles.toolProgressMeta}>
-                <code className={styles.toolProgressName}>{tool.name}</code>
-                <span className={styles.toolProgressStatus}>{statusText}</span>
-              </p>
-              {tool.status === "error" && tool.error ? <p className={styles.toolProgressErrorText}>{tool.error}</p> : null}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-});
-
-ToolProgressList.displayName = "ToolProgressList";
 
 export function ChatPage() {
   const { chatId } = useParams<{ chatId: string }>();
@@ -895,8 +1047,6 @@ export function ChatPage() {
           description,
           status: "running",
           startedAt: existing?.startedAt ?? now,
-          endedAt: undefined,
-          result: undefined,
           error: null,
         },
       };
@@ -920,8 +1070,6 @@ export function ChatPage() {
           description,
           status: "done",
           startedAt: existing?.startedAt ?? now,
-          endedAt: now,
-          result: event.result,
           error: null,
         },
       };
@@ -946,8 +1094,6 @@ export function ChatPage() {
             description: existing?.description ?? getToolDescription(null, toolName),
             status: "error",
             startedAt: existing?.startedAt ?? now,
-            endedAt: now,
-            result: existing?.result,
             error: errorMessage,
           },
         };
@@ -965,7 +1111,6 @@ export function ChatPage() {
           next[id] = {
             ...tool,
             status: "error",
-            endedAt: now,
             error: errorMessage,
           };
         } else {
@@ -978,7 +1123,6 @@ export function ChatPage() {
   }
 
   function finalizeRunningTools(status: "done" | "error", errorMessage?: string | null) {
-    const now = new Date().toISOString();
     setActiveTools((prev) => {
       let changed = false;
       const next: Record<string, ToolRun> = {};
@@ -993,7 +1137,6 @@ export function ChatPage() {
         next[id] = {
           ...tool,
           status,
-          endedAt: now,
           ...(status === "error" ? { error: errorMessage ?? tool.error ?? "Stream error" } : { error: null }),
         };
       }
@@ -1400,6 +1543,12 @@ export function ChatPage() {
             isStreaming={isStreaming}
             streamingContent={streamingContent}
             thinkingText={thinkingText}
+            toolRuns={toolRuns}
+            pendingApprovals={pendingApprovals}
+            processingApproval={processingApproval}
+            onApprovalDecision={(approval, approved) => {
+              void handleApproval(approval, approved);
+            }}
             assistantAvatarSrc={assistantAvatarSrc}
             assistantAvatarPlaceholder={assistantAvatarPlaceholder}
             onAssistantAvatarError={onAssistantAvatarError}
@@ -1408,68 +1557,6 @@ export function ChatPage() {
               latestUserMessageRef.current = node;
             }}
           />
-
-          {toolRuns.length > 0 ? <ToolProgressList tools={toolRuns} /> : null}
-
-          {pendingApprovals.length > 0 ? (
-            <div className={styles.approvalList}>
-              {pendingApprovals.map((approval) => {
-                const isProcessing = processingApproval === approval.tool_call_id;
-                const disableActions = Boolean(processingApproval) || isStreaming;
-
-                return (
-                  <div
-                    key={approval.tool_call_id}
-                    className={`${styles.approvalCard} ${isProcessing ? styles.approvalCardProcessing : ""}`}
-                  >
-                    <div className={styles.approvalIconWrap}>
-                      {isProcessing ? (
-                        <Loader2 className={styles.approvalSpinner} aria-hidden="true" />
-                      ) : (
-                        <AlertTriangle className={styles.approvalIcon} aria-hidden="true" />
-                      )}
-                    </div>
-
-                    <div className={styles.approvalContent}>
-                      <h4 className={styles.approvalTitle}>
-                        {isProcessing ? "Processing approval..." : "Function Approval Required"}
-                      </h4>
-                      <p className={styles.approvalText}>
-                        The agent wants to call{" "}
-                        <code className={styles.approvalCode}>
-                          {approval.function_namespace}/{approval.function_name}
-                        </code>
-                      </p>
-
-                      <div className={styles.approvalArgsBlock}>
-                        <p className={styles.approvalArgsLabel}>Arguments</p>
-                        <pre className={styles.approvalArgs}>{JSON.stringify(approval.arguments ?? {}, null, 2)}</pre>
-                      </div>
-
-                      <div className={styles.approvalActions}>
-                        <button
-                          type="button"
-                          className={`${styles.approvalButton} ${styles.approveButton}`}
-                          onClick={() => void handleApproval(approval, true)}
-                          disabled={disableActions}
-                        >
-                          {isProcessing ? "Processing..." : "Approve"}
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.approvalButton} ${styles.rejectButton}`}
-                          onClick={() => void handleApproval(approval, false)}
-                          disabled={disableActions}
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
 
           <ChatComposer
             className={styles.composer}

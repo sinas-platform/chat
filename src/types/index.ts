@@ -82,7 +82,7 @@ export interface ApprovalRequiredEvent {
 }
 
 export interface ToolStartEvent {
-  type: "tool_start";
+  type?: "tool_start";
   tool_call_id: string;
   name: string;
   arguments?: string | Record<string, unknown> | null;
@@ -90,7 +90,7 @@ export interface ToolStartEvent {
 }
 
 export interface ToolEndEvent {
-  type: "tool_end";
+  type?: "tool_end";
   tool_call_id: string;
   name?: string | null;
   result?: unknown;
