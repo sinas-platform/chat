@@ -73,6 +73,45 @@
   }
 }
 
+.voiceStatus {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #7b6d5f;
+}
+
+.voiceStatusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #d9a15b;
+  flex: 0 0 8px;
+}
+
+.voiceStatusStarting .voiceStatusDot,
+.voiceStatusListening .voiceStatusDot {
+  animation: voiceStatusPulse 1.2s ease-in-out infinite;
+}
+
+.voiceStatusListening {
+  color: #8b4900;
+}
+
+.voiceStatusListening .voiceStatusDot {
+  background: #e17a14;
+}
+
+.voiceStatusError {
+  color: #9e2d20;
+}
+
+.voiceStatusError .voiceStatusDot {
+  background: #c5483a;
+  animation: none;
+}
+
 .attachmentInput {
   display: none;
 }
@@ -89,7 +128,7 @@
   justify-content: center;
   cursor: pointer;
   padding: 0;
-  transition: background-color 140ms ease, border-color 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
   border: none;
   background: transparent;
 
@@ -115,6 +154,15 @@
   color: #6a3d00;
   background: #ffd493;
   border-color: #ffc472;
+  box-shadow: 0 0 0 3px rgba(255, 170, 67, 0.22);
+}
+
+.micButtonStarting {
+  background: #ffe3b7;
+}
+
+.micButtonListening {
+  animation: micButtonPulse 1.25s ease-in-out infinite;
 }
 
 .stopButton {
@@ -141,4 +189,34 @@
   width: 18px;
   height: 18px;
   display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voiceStatusStarting .voiceStatusDot,
+  .voiceStatusListening .voiceStatusDot,
+  .micButtonListening {
+    animation: none;
+  }
+}
+
+@keyframes micButtonPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.045);
+  }
+}
+
+@keyframes voiceStatusPulse {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
 }

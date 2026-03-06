@@ -51,6 +51,7 @@ type ChatMessagesProps = {
   assistantAvatarPlaceholder?: AgentPlaceholderMeta;
   onAssistantAvatarError?: () => void;
   messagesContainerRef?: RefObject<HTMLDivElement | null>;
+  messagesEndRef?: RefObject<HTMLDivElement | null>;
   onLatestUserMessageRef?: (node: HTMLDivElement | null) => void;
 };
 
@@ -790,6 +791,7 @@ const ChatMessages = memo(function ChatMessages({
   assistantAvatarPlaceholder,
   onAssistantAvatarError,
   messagesContainerRef,
+  messagesEndRef,
   onLatestUserMessageRef,
 }: ChatMessagesProps) {
   const lastMessage = messages[messages.length - 1];
@@ -877,6 +879,8 @@ const ChatMessages = memo(function ChatMessages({
           onAssistantAvatarError={onAssistantAvatarError}
         />
       ) : null}
+
+      <div ref={messagesEndRef} aria-hidden="true" />
     </div>
   );
 });
@@ -888,6 +892,7 @@ export function ChatPage() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const latestUserMessageRef = useRef<HTMLDivElement | null>(null);
   const shouldPinLatestUserMessageRef = useRef(false);
 
@@ -1294,6 +1299,10 @@ export function ChatPage() {
     });
   }
 
+  function scrollToBottom(behavior: ScrollBehavior = "auto") {
+    messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
+  }
+
   const sendMsgM = useMutation({
     mutationFn: async (vars: SendMessageVariables) => {
       if (!chatId) throw new Error("Missing chatId");
@@ -1389,6 +1398,19 @@ export function ChatPage() {
 
     return () => window.cancelAnimationFrame(frameId);
   }, [messages]);
+
+  useEffect(() => {
+    const hasRunningTool = toolRuns.some((tool) => tool.status === "running");
+    const hasPendingApproval = pendingApprovals.length > 0;
+    const shouldAutoScroll = isStreaming || streamingContent.length > 0 || hasRunningTool || hasPendingApproval;
+    if (!shouldAutoScroll) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      scrollToBottom("auto");
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isStreaming, streamingContent, toolRuns, pendingApprovals]);
 
   // Auto-send initial draft once
   useEffect(() => {
@@ -1553,6 +1575,7 @@ export function ChatPage() {
             assistantAvatarPlaceholder={assistantAvatarPlaceholder}
             onAssistantAvatarError={onAssistantAvatarError}
             messagesContainerRef={messagesContainerRef}
+            messagesEndRef={messagesEndRef}
             onLatestUserMessageRef={(node) => {
               latestUserMessageRef.current = node;
             }}
