@@ -66,7 +66,7 @@
     z-index: -1;
     pointer-events: none;
     filter: blur(1.5px);
-    animation: heroPlaceholderBorderPulse 1.9s ease-in-out infinite;
+    animation: heroPlaceholderBorderPulse 2.8s ease-in-out infinite;
   }
 }
 
@@ -107,12 +107,12 @@
 @keyframes heroPlaceholderBorderPulse {
   0%,
   100% {
-    transform: scale(0.9);
-    opacity: 0.28;
+    transform: scale(1);
+    opacity: 0.34;
   }
   50% {
-    transform: scale(1.1);
-    opacity: 0.5;
+    transform: scale(1.08);
+    opacity: 0.46;
   }
 }
 

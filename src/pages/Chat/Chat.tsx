@@ -1,7 +1,7 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Bot, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -9,11 +9,12 @@ import styles from "./Chat.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import SinasLoader from "../../components/Loader/Loader";
+import { useAgentIconSources } from "../../hooks/useAgentIconSources";
+import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { apiClient, type ChatStreamHandle } from "../../lib/api";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
-import type { ApprovalRequiredEvent } from "../../types";
-import sinasLogoSmall from "../../icons/sinas-logo-small.svg";
+import type { AgentResponse, ApprovalRequiredEvent, ChatWithMessages } from "../../types";
 
 type AudioAttachmentFormat = "wav" | "mp3" | "m4a" | "ogg";
 
@@ -41,6 +42,11 @@ type ChatMessagesProps = {
   isPending: boolean;
   isStreaming: boolean;
   streamingContent: string;
+  assistantAvatarSrc?: string;
+  assistantAvatarPlaceholder?: AgentPlaceholderMeta;
+  onAssistantAvatarError?: () => void;
+  messagesContainerRef?: RefObject<HTMLDivElement | null>;
+  onLatestUserMessageRef?: (node: HTMLDivElement | null) => void;
 };
 
 type RenderedMessageAttachment = {
@@ -82,6 +88,29 @@ type PendingChatAttachment =
         added_at: string;
       };
     };
+
+function joinClasses(...classNames: Array<string | undefined | false>): string {
+  return classNames.filter(Boolean).join(" ");
+}
+
+function getPlaceholderCssVars(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  return {
+    "--agent-icon-color": placeholder.color,
+    "--agent-icon-soft-color": placeholder.softColor,
+  } as CSSProperties;
+}
+
+function getPlaceholderGlyphStyle(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  const iconUrl = `url("${placeholder.iconSrc}")`;
+  return {
+    WebkitMaskImage: iconUrl,
+    maskImage: iconUrl,
+  } as CSSProperties;
+}
 
 function getFileExtension(filename: string): string {
   const dotIndex = filename.lastIndexOf(".");
@@ -325,6 +354,11 @@ function shouldRenderMessage(message: ChatMessageViewModel): boolean {
 type ChatMessageRowProps = {
   message: ChatMessageViewModel;
   showAssistantAvatarLoading?: boolean;
+  showAssistantAvatarPulse?: boolean;
+  assistantAvatarSrc?: string;
+  assistantAvatarPlaceholder?: AgentPlaceholderMeta;
+  onAssistantAvatarError?: () => void;
+  rowRef?: (node: HTMLDivElement | null) => void;
 };
 
 type MessageAttachmentImageProps = {
@@ -371,6 +405,11 @@ function MessageAttachmentImage({ attachment, compact }: MessageAttachmentImageP
 const ChatMessageRow = memo(function ChatMessageRow({
   message,
   showAssistantAvatarLoading = false,
+  showAssistantAvatarPulse = false,
+  assistantAvatarSrc,
+  assistantAvatarPlaceholder,
+  onAssistantAvatarError,
+  rowRef,
 }: ChatMessageRowProps) {
   const { text: messageText, attachments } = parseMessageContent(message.content);
   const imageAttachments = attachments.filter((attachment) => attachment.kind === "image");
@@ -380,17 +419,37 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const shouldHideAssistantBubble = isAssistant && showAssistantAvatarLoading;
+  const assistantAvatarCssVars = getPlaceholderCssVars(assistantAvatarPlaceholder);
+  const assistantAvatarGlyphStyle = getPlaceholderGlyphStyle(assistantAvatarPlaceholder);
+  const shouldShowAssistantPlaceholder = !assistantAvatarSrc && Boolean(assistantAvatarCssVars);
 
   return (
-    <div className={`${styles.messageRow} ${isUser ? styles.userRow : styles.assistantRow}`}>
+    <div className={`${styles.messageRow} ${isUser ? styles.userRow : styles.assistantRow}`} ref={rowRef}>
       {isAssistant ? (
-        <div className={styles.assistantAvatar}>
-          {showAssistantAvatarLoading ? (
-            <div className={styles.assistantAvatarLoading} role="status" aria-live="polite" aria-label="Generating response">
-              <SinasLoader size={24} />
-            </div>
+        <div
+          className={joinClasses(
+            styles.assistantAvatar,
+            showAssistantAvatarPulse && styles.assistantAvatarPulse,
+            shouldShowAssistantPlaceholder && styles.assistantAvatarPlaceholder,
+            assistantAvatarSrc && styles.assistantAvatarCustomIcon,
+          )}
+          style={assistantAvatarCssVars}
+          role={showAssistantAvatarLoading ? "status" : undefined}
+          aria-live={showAssistantAvatarLoading ? "polite" : undefined}
+          aria-label={showAssistantAvatarLoading ? "Generating response" : undefined}
+        >
+          {assistantAvatarSrc ? (
+            <img
+              className={styles.assistantAvatarImage}
+              src={assistantAvatarSrc}
+              alt=""
+              aria-hidden="true"
+              onError={onAssistantAvatarError}
+            />
+          ) : shouldShowAssistantPlaceholder ? (
+            <span className={styles.assistantAvatarPlaceholderGlyph} style={assistantAvatarGlyphStyle} />
           ) : (
-            <img className={styles.assistantAvatarImage} src={sinasLogoSmall} alt="" aria-hidden="true" />
+            <Bot size={20} aria-hidden="true" />
           )}
         </div>
       ) : null}
@@ -473,8 +532,14 @@ const ChatMessages = memo(function ChatMessages({
   isPending,
   isStreaming,
   streamingContent,
+  assistantAvatarSrc,
+  assistantAvatarPlaceholder,
+  onAssistantAvatarError,
+  messagesContainerRef,
+  onLatestUserMessageRef,
 }: ChatMessagesProps) {
   const lastMessage = messages[messages.length - 1];
+  const latestUserMessageIndex = [...messages].map((message) => message.role).lastIndexOf("user");
   const isWaitingForFirstChunk =
     isPending &&
     lastMessage?.role === "assistant" &&
@@ -482,7 +547,7 @@ const ChatMessages = memo(function ChatMessages({
   const showStreamingRow = isStreaming || streamingContent.length > 0;
 
   return (
-    <div className={styles.messages}>
+    <div className={styles.messages} ref={messagesContainerRef}>
       {isError ? <div className={styles.error}>Could not load chat</div> : null}
 
       {isLoading && messages.length === 0 ? (
@@ -506,6 +571,11 @@ const ChatMessages = memo(function ChatMessages({
               key={message.id ?? `${message.role ?? "message"}-${message.created_at ?? "unknown"}-${index}`}
               message={message}
               showAssistantAvatarLoading={shouldShowAssistantLoading}
+              showAssistantAvatarPulse={shouldShowAssistantLoading}
+              assistantAvatarSrc={assistantAvatarSrc}
+              assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+              onAssistantAvatarError={onAssistantAvatarError}
+              rowRef={index === latestUserMessageIndex ? onLatestUserMessageRef : undefined}
             />
           );
         })
@@ -521,6 +591,10 @@ const ChatMessages = memo(function ChatMessages({
             created_at: new Date().toISOString(),
           }}
           showAssistantAvatarLoading={isStreaming && streamingContent.length === 0}
+          showAssistantAvatarPulse={isStreaming}
+          assistantAvatarSrc={assistantAvatarSrc}
+          assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+          onAssistantAvatarError={onAssistantAvatarError}
         />
       ) : null}
     </div>
@@ -533,6 +607,9 @@ export function ChatPage() {
   const { chatId } = useParams<{ chatId: string }>();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const latestUserMessageRef = useRef<HTMLDivElement | null>(null);
+  const shouldPinLatestUserMessageRef = useRef(false);
 
   const initialDraft = useMemo(() => {
     const state = location.state as LocationState | null;
@@ -576,21 +653,59 @@ export function ChatPage() {
     enabled: !!chatId,
     queryFn: async () => apiClient.getChat(chatId!),
   });
+  const chatData = chatQ.data as ChatWithMessages | undefined;
+
+  const chatAgentNamespace = chatData?.agent_namespace?.trim() ?? "";
+  const chatAgentName = chatData?.agent_name?.trim() ?? "";
+  const assistantAgentQ = useQuery({
+    queryKey: ["chat-agent", chatAgentNamespace, chatAgentName],
+    enabled: chatAgentNamespace.length > 0 && chatAgentName.length > 0,
+    queryFn: () => apiClient.getAgent(chatAgentNamespace, chatAgentName),
+  });
+  const assistantAgent = assistantAgentQ.data as AgentResponse | undefined;
+  const assistantAgentIconCandidates = useMemo(() => (assistantAgent ? [assistantAgent] : []), [assistantAgent]);
+  const { iconSrcByAgentId, onAgentIconError } = useAgentIconSources(assistantAgentIconCandidates, apiClient);
+  const assistantAvatarSrc = assistantAgent ? iconSrcByAgentId[assistantAgent.id] : undefined;
+  const assistantAvatarPlaceholder = useMemo(() => {
+    if (!chatAgentNamespace || !chatAgentName) return undefined;
+
+    const placeholderAgentId =
+      assistantAgent?.id ?? chatData?.agent_id ?? `${chatAgentNamespace.toLowerCase()}::${chatAgentName.toLowerCase()}`;
+    const placeholderByAgentId = buildAgentPlaceholderMetaById([
+      {
+        id: placeholderAgentId,
+        namespace: chatAgentNamespace,
+        name: chatAgentName,
+      },
+    ]);
+
+    return placeholderByAgentId[placeholderAgentId];
+  }, [assistantAgent?.id, chatAgentName, chatAgentNamespace, chatData?.agent_id]);
+  const onAssistantAvatarError = useMemo(() => {
+    if (!assistantAgent) return undefined;
+
+    return () => {
+      void onAgentIconError(assistantAgent.id);
+    };
+  }, [assistantAgent, onAgentIconError]);
 
   const messages: ChatMessageViewModel[] = useMemo(() => {
-    const data: any = chatQ.data;
-    if (!data) return [];
-    const rawMessages = Array.isArray(data.messages) ? (data.messages as ChatMessageViewModel[]) : [];
+    if (!chatData) return [];
+    const rawMessages = Array.isArray(chatData.messages) ? (chatData.messages as ChatMessageViewModel[]) : [];
     return rawMessages.filter(shouldRenderMessage);
-  }, [chatQ.data]);
+  }, [chatData]);
+  const hasUserMessages = useMemo(() => {
+    const rawMessages = Array.isArray(chatData?.messages) ? (chatData.messages as ChatMessageViewModel[]) : [];
+    return rawMessages.some((message) => message.role === "user");
+  }, [chatData]);
 
   const chatTitle = useMemo(() => {
-    const rawTitle = (chatQ.data as any)?.title;
+    const rawTitle = chatData?.title;
     if (typeof rawTitle !== "string") return "Chat";
 
     const trimmedTitle = rawTitle.trim();
     return trimmedTitle || "Chat";
-  }, [chatQ.data]);
+  }, [chatData]);
 
   useEffect(() => {
     document.title = `${chatTitle}`;
@@ -713,6 +828,21 @@ export function ChatPage() {
     streamHandleRef.current?.abort();
   }
 
+  function scrollLatestUserMessageToTop() {
+    const container = messagesContainerRef.current;
+    const latestUserMessage = latestUserMessageRef.current;
+    if (!container || !latestUserMessage) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const messageRect = latestUserMessage.getBoundingClientRect();
+    const nextScrollTop = container.scrollTop + (messageRect.top - containerRect.top) - 8;
+
+    container.scrollTo({
+      top: Math.max(0, nextScrollTop),
+      behavior: "auto",
+    });
+  }
+
   const sendMsgM = useMutation({
     mutationFn: async (vars: SendMessageVariables) => {
       if (!chatId) throw new Error("Missing chatId");
@@ -760,16 +890,32 @@ export function ChatPage() {
     setProcessingApproval(null);
   }, [chatId]);
 
+  useEffect(() => {
+    if (!shouldPinLatestUserMessageRef.current) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      scrollLatestUserMessageToTop();
+      shouldPinLatestUserMessageRef.current = false;
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [messages]);
+
   // Auto-send initial draft once
   useEffect(() => {
-      if (!chatId) return;
-      if (!initialDraft && initialAttachments.length === 0) return;
-      if (chatQ.isLoading || chatQ.isError) return;
+    if (!chatId) return;
+    if (!initialDraft && initialAttachments.length === 0) return;
+    if (chatQ.isLoading || chatQ.isError) return;
+    if (hasUserMessages) {
+      sentInitialDraftRef.current[chatId] = true;
+      return;
+    }
 
     if (sentInitialDraftRef.current[chatId]) return;
     sentInitialDraftRef.current[chatId] = true;
 
     const ts = Date.now();
+    shouldPinLatestUserMessageRef.current = true;
     sendMsgM.mutate({
       content:
         initialAttachments.length > 0
@@ -785,7 +931,7 @@ export function ChatPage() {
           : initialDraft,
       userTempId: `tmp-user-${ts}`,
     });
-  }, [chatId, initialDraft, initialAttachments, chatQ.isLoading, chatQ.isError, sendMsgM]);
+  }, [chatId, initialDraft, initialAttachments, chatQ.isLoading, chatQ.isError, hasUserMessages, sendMsgM]);
 
   async function addAttachment(file: File) {
     if (!chatId || isUploadingAttachment || sendMsgM.isPending || isStreaming || pendingApprovals.length > 0) return;
@@ -872,6 +1018,7 @@ export function ChatPage() {
           ];
 
     const ts = Date.now();
+    shouldPinLatestUserMessageRef.current = true;
     sendMsgM.mutate({
       content,
       userTempId: `tmp-user-${ts}`,
@@ -906,6 +1053,13 @@ export function ChatPage() {
             isPending={sendMsgM.isPending}
             isStreaming={isStreaming}
             streamingContent={streamingContent}
+            assistantAvatarSrc={assistantAvatarSrc}
+            assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+            onAssistantAvatarError={onAssistantAvatarError}
+            messagesContainerRef={messagesContainerRef}
+            onLatestUserMessageRef={(node) => {
+              latestUserMessageRef.current = node;
+            }}
           />
 
           {pendingApprovals.length > 0 ? (

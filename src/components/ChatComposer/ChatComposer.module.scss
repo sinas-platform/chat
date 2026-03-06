@@ -3,17 +3,17 @@
 }
 
 .dropActive {
-  outline: 2px dashed var(--color-border-muted);
-  outline-offset: 6px;
-  border-radius: 16px;
+  outline: 2px dashed #cfbfae;
+  outline-offset: 4px;
+  border-radius: 24px;
 }
 
 .dropOverlay {
   position: absolute;
-  inset: -4px;
-  border-radius: 16px;
-  background: var(--color-bg-overlay);
-  border: 1px solid var(--color-border-default);
+  inset: -3px;
+  border-radius: 24px;
+  background: rgba(250, 247, 242, 0.78);
+  border: 1px solid #dfd3c4;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,13 +22,13 @@
 }
 
 .dropOverlayText {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--color-text-primary);
-  padding: 8px 12px;
+  color: #5f5347;
+  padding: 8px 14px;
   border-radius: 999px;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-default);
+  background: #fff;
+  border: 1px solid #e6dbcf;
 }
 
 .attachmentArea {
@@ -38,7 +38,7 @@
 }
 
 .attachmentAreaWithItems {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .attachmentList {
@@ -48,13 +48,22 @@
 }
 
 .attachmentError {
-  color: var(--color-danger);
+  color: #9e2d20;
   font-size: 12px;
 }
 
 .textarea {
   width: 100%;
   background: transparent;
+  border: 0;
+  outline: 0;
+  font-size: 14px;
+  color: #4f473f;
+  line-height: 1.45;
+
+  &::placeholder {
+    color: #8d8378;
+  }
 
   &:disabled {
     background: transparent;
@@ -71,22 +80,21 @@
 .attachmentButton,
 .micButton {
   position: absolute;
-  bottom: 18px;
-  width: 32px;
-  height: 32px;
-  border: none;
+  bottom: 12px;
+  width: 36px;
+  height: 36px;
   border-radius: 999px;
-  background: transparent;
-  color: var(--color-text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   padding: 0;
-  transition: background-color 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease;
+  border: none;
+  background: transparent;
 
   &:hover:not(:disabled) {
-    background: var(--color-palette-neutral-100);
+    background-color: var(--color-palette-neutral-100);
   }
 
   &:disabled {
@@ -96,24 +104,27 @@
 }
 
 .attachmentButton {
-  right: 50px;
+  right: 54px;
 }
 
 .micButton {
-  right: 16px;
+  right: 12px;
 }
 
 .micButtonActive {
-  color: var(--color-success);
-  background: var(--color-success-bg);
+  color: #6a3d00;
+  background: #ffd493;
+  border-color: #ffc472;
 }
 
 .stopButton {
-  background: var(--color-bg-surface-muted);
-  color: var(--color-text-secondary);
+  background: #ffe8ca;
+  color: #71420a;
+  border-color: #f7cc8f;
 
   &:hover:not(:disabled) {
-    background: var(--color-palette-neutral-100);
+    background: #ffdfb4;
+    border-color: #f0be73;
   }
 }
 
@@ -127,7 +138,7 @@
 
 .attachmentIcon,
 .micIcon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   display: block;
 }
