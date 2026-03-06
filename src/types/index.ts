@@ -81,6 +81,21 @@ export interface ApprovalRequiredEvent {
   arguments: Record<string, any>;
 }
 
+export interface ToolStartEvent {
+  type: "tool_start";
+  tool_call_id: string;
+  name: string;
+  arguments?: string | Record<string, unknown> | null;
+  description?: string | null;
+}
+
+export interface ToolEndEvent {
+  type: "tool_end";
+  tool_call_id: string;
+  name?: string | null;
+  result?: unknown;
+}
+
 export interface ToolApprovalRequest {
   approved: boolean;
 }

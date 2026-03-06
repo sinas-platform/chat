@@ -351,6 +351,101 @@
   min-height: 180px;
 }
 
+.toolProgressList {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toolProgressCard {
+  display: flex;
+  gap: 10px;
+  border-radius: 12px;
+  border: 1px solid #e2d9cd;
+  background: #fcfaf7;
+  padding: 10px 12px;
+}
+
+.toolProgressRunning {
+  border-color: #c9b37f;
+  background: #fdf6e8;
+}
+
+.toolProgressDone {
+  border-color: #abd9b7;
+  background: #effaf3;
+}
+
+.toolProgressError {
+  border-color: #e5b0b0;
+  background: #fff4f4;
+}
+
+.toolProgressDot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: #8f8478;
+  flex: 0 0 10px;
+}
+
+.toolProgressDotRunning {
+  background: #c1881f;
+}
+
+.toolProgressDotDone {
+  background: #2f9a50;
+}
+
+.toolProgressDotError {
+  background: #bf3434;
+}
+
+.toolProgressContent {
+  min-width: 0;
+  flex: 1;
+}
+
+.toolProgressDescription {
+  margin: 0;
+  color: #433a2f;
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.toolProgressMeta {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolProgressName {
+  font-size: 11px;
+  color: #6b5a49;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(67, 58, 47, 0.08);
+}
+
+.toolProgressStatus {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #6b5a49;
+}
+
+.toolProgressErrorText {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #8f2020;
+}
+
 .approvalList {
   margin-top: 10px;
   display: flex;

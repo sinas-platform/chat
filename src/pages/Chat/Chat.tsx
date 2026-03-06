@@ -14,7 +14,7 @@ import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../
 import { apiClient, type ChatStreamHandle } from "../../lib/api";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
-import type { AgentResponse, ApprovalRequiredEvent, ChatWithMessages } from "../../types";
+import type { AgentResponse, ApprovalRequiredEvent, ChatWithMessages, ToolEndEvent, ToolStartEvent } from "../../types";
 
 type AudioAttachmentFormat = "wav" | "mp3" | "m4a" | "ogg";
 
@@ -42,6 +42,7 @@ type ChatMessagesProps = {
   isPending: boolean;
   isStreaming: boolean;
   streamingContent: string;
+  thinkingText: string;
   assistantAvatarSrc?: string;
   assistantAvatarPlaceholder?: AgentPlaceholderMeta;
   onAssistantAvatarError?: () => void;
@@ -62,6 +63,23 @@ type ParsedMessageContent = {
   attachments: RenderedMessageAttachment[];
 };
 
+type ToolRunStatus = "running" | "done" | "error";
+
+interface ToolRun {
+  id: string;
+  name: string;
+  description: string;
+  status: ToolRunStatus;
+  startedAt: string;
+  endedAt?: string;
+  result?: unknown;
+  error?: string | null;
+}
+
+type ToolProgressListProps = {
+  tools: ToolRun[];
+};
+
 const MARKDOWN_PLUGINS = [remarkGfm];
 const MemoizedAppSidebar = memo(AppSidebar);
 const DEFAULT_ATTACHMENT_ERROR = "File uploads aren’t configured on this Sinas instance. Ask admin to configure it.";
@@ -71,6 +89,7 @@ const AUDIO_ATTACHMENTS_DISABLED_ERROR = "Audio attachments are not supported ye
 const UNSUPPORTED_AUDIO_ERROR = "Unsupported audio format. Please use WAV, MP3, M4A, or OGG.";
 const SUPPORTED_AUDIO_FORMATS = new Set<AudioAttachmentFormat>(["wav", "mp3", "m4a", "ogg"]);
 const CHAT_ATTACHMENT_ACCEPT = "image/*,.pdf,.doc,.docx,.txt";
+const TOOL_RUN_AUTO_REMOVE_MS = 3000;
 
 type PendingChatAttachment =
   | {
@@ -178,6 +197,68 @@ function getAudioAttachmentErrorMessage(error: unknown): string {
     return error.message;
   }
   return "Could not process audio file.";
+}
+
+function normalizeToolName(name: string | null | undefined): string {
+  const trimmed = name?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : "tool";
+}
+
+function getToolDescription(description: string | null | undefined, toolName: string): string {
+  const trimmed = description?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : `Running ${toolName}`;
+}
+
+function extractToolCallId(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+
+  const directId = (value as { tool_call_id?: unknown }).tool_call_id;
+  if (typeof directId === "string" && directId.trim().length > 0) {
+    return directId;
+  }
+
+  const nestedError = (value as { error?: unknown }).error;
+  if (nestedError && typeof nestedError === "object") {
+    const nestedId = (nestedError as { tool_call_id?: unknown }).tool_call_id;
+    if (typeof nestedId === "string" && nestedId.trim().length > 0) {
+      return nestedId;
+    }
+  }
+
+  return null;
+}
+
+function extractErrorMessage(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (value instanceof Error) {
+    const trimmed = value.message.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (value && typeof value === "object") {
+    const directMessage = (value as { message?: unknown }).message;
+    if (typeof directMessage === "string" && directMessage.trim().length > 0) {
+      return directMessage.trim();
+    }
+
+    const directError = (value as { error?: unknown }).error;
+    if (typeof directError === "string" && directError.trim().length > 0) {
+      return directError.trim();
+    }
+
+    if (directError && typeof directError === "object") {
+      const nestedMessage = (directError as { message?: unknown }).message;
+      if (typeof nestedMessage === "string" && nestedMessage.trim().length > 0) {
+        return nestedMessage.trim();
+      }
+    }
+  }
+
+  return null;
 }
 
 function tryParseStructuredContentString(value: string): unknown | null {
@@ -532,6 +613,7 @@ const ChatMessages = memo(function ChatMessages({
   isPending,
   isStreaming,
   streamingContent,
+  thinkingText,
   assistantAvatarSrc,
   assistantAvatarPlaceholder,
   onAssistantAvatarError,
@@ -587,10 +669,10 @@ const ChatMessages = memo(function ChatMessages({
           message={{
             id: "streaming-assistant",
             role: "assistant",
-            content: streamingContent,
+            content: streamingContent.length > 0 ? streamingContent : thinkingText,
             created_at: new Date().toISOString(),
           }}
-          showAssistantAvatarLoading={isStreaming && streamingContent.length === 0}
+          showAssistantAvatarLoading={isStreaming && streamingContent.length === 0 && !thinkingText}
           showAssistantAvatarPulse={isStreaming}
           assistantAvatarSrc={assistantAvatarSrc}
           assistantAvatarPlaceholder={assistantAvatarPlaceholder}
@@ -602,6 +684,52 @@ const ChatMessages = memo(function ChatMessages({
 });
 
 ChatMessages.displayName = "ChatMessages";
+
+const ToolProgressList = memo(function ToolProgressList({ tools }: ToolProgressListProps) {
+  if (tools.length === 0) return null;
+
+  return (
+    <div className={styles.toolProgressList} role="status" aria-live="polite" aria-atomic="false">
+      {tools.map((tool) => {
+        const isRunning = tool.status === "running";
+        const isDone = tool.status === "done";
+        const statusText = isRunning ? "Running" : isDone ? "Completed" : "Failed";
+
+        return (
+          <div
+            key={tool.id}
+            className={joinClasses(
+              styles.toolProgressCard,
+              isRunning && styles.toolProgressRunning,
+              isDone && styles.toolProgressDone,
+              tool.status === "error" && styles.toolProgressError
+            )}
+          >
+            <span
+              className={joinClasses(
+                styles.toolProgressDot,
+                isRunning && styles.toolProgressDotRunning,
+                isDone && styles.toolProgressDotDone,
+                tool.status === "error" && styles.toolProgressDotError
+              )}
+              aria-hidden="true"
+            />
+            <div className={styles.toolProgressContent}>
+              <p className={styles.toolProgressDescription}>{tool.description}</p>
+              <p className={styles.toolProgressMeta}>
+                <code className={styles.toolProgressName}>{tool.name}</code>
+                <span className={styles.toolProgressStatus}>{statusText}</span>
+              </p>
+              {tool.status === "error" && tool.error ? <p className={styles.toolProgressErrorText}>{tool.error}</p> : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+ToolProgressList.displayName = "ToolProgressList";
 
 export function ChatPage() {
   const { chatId } = useParams<{ chatId: string }>();
@@ -628,10 +756,12 @@ export function ChatPage() {
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [activeTools, setActiveTools] = useState<Record<string, ToolRun>>({});
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequiredEvent[]>([]);
   const [processingApproval, setProcessingApproval] = useState<string | null>(null);
   const sentInitialDraftRef = useRef<Record<string, boolean>>({});
   const streamHandleRef = useRef<ChatStreamHandle | null>(null);
+  const toolCleanupTimeoutsRef = useRef<Record<string, number>>({});
   const composerAttachments = useMemo<ChatAttachment[]>(
     () =>
       pendingAttachments.map((item) => {
@@ -698,6 +828,24 @@ export function ChatPage() {
     const rawMessages = Array.isArray(chatData?.messages) ? (chatData.messages as ChatMessageViewModel[]) : [];
     return rawMessages.some((message) => message.role === "user");
   }, [chatData]);
+  const toolRuns = useMemo(() => {
+    return Object.values(activeTools).sort((left, right) => {
+      const rank = (status: ToolRunStatus): number => {
+        if (status === "running") return 0;
+        if (status === "error") return 1;
+        return 2;
+      };
+
+      const rankDiff = rank(left.status) - rank(right.status);
+      if (rankDiff !== 0) return rankDiff;
+      return left.startedAt.localeCompare(right.startedAt);
+    });
+  }, [activeTools]);
+  const thinkingText = useMemo(() => {
+    const latestRunning = [...toolRuns].reverse().find((tool) => tool.status === "running");
+    if (latestRunning?.description) return latestRunning.description;
+    return "Thinking...";
+  }, [toolRuns]);
 
   const chatTitle = useMemo(() => {
     const rawTitle = chatData?.title;
@@ -710,6 +858,149 @@ export function ChatPage() {
   useEffect(() => {
     document.title = `${chatTitle}`;
   }, [chatTitle]);
+
+  function clearToolCleanupTimeout(toolCallId: string) {
+    const timeoutId = toolCleanupTimeoutsRef.current[toolCallId];
+    if (timeoutId == null) return;
+
+    window.clearTimeout(timeoutId);
+    delete toolCleanupTimeoutsRef.current[toolCallId];
+  }
+
+  function clearAllToolCleanupTimeouts() {
+    Object.values(toolCleanupTimeoutsRef.current).forEach((timeoutId) => {
+      window.clearTimeout(timeoutId);
+    });
+    toolCleanupTimeoutsRef.current = {};
+  }
+
+  function resetToolRuns() {
+    clearAllToolCleanupTimeouts();
+    setActiveTools({});
+  }
+
+  function handleToolStart(event: ToolStartEvent) {
+    const now = new Date().toISOString();
+    const toolName = normalizeToolName(event.name);
+
+    clearToolCleanupTimeout(event.tool_call_id);
+    setActiveTools((prev) => {
+      const existing = prev[event.tool_call_id];
+      const description = event.description?.trim() || existing?.description || getToolDescription(null, toolName);
+      return {
+        ...prev,
+        [event.tool_call_id]: {
+          id: event.tool_call_id,
+          name: toolName,
+          description,
+          status: "running",
+          startedAt: existing?.startedAt ?? now,
+          endedAt: undefined,
+          result: undefined,
+          error: null,
+        },
+      };
+    });
+  }
+
+  function handleToolEnd(event: ToolEndEvent) {
+    const now = new Date().toISOString();
+    const toolName = normalizeToolName(event.name);
+
+    clearToolCleanupTimeout(event.tool_call_id);
+    setActiveTools((prev) => {
+      const existing = prev[event.tool_call_id];
+      const description = existing?.description ?? getToolDescription(null, toolName);
+
+      return {
+        ...prev,
+        [event.tool_call_id]: {
+          id: event.tool_call_id,
+          name: existing?.name ?? toolName,
+          description,
+          status: "done",
+          startedAt: existing?.startedAt ?? now,
+          endedAt: now,
+          result: event.result,
+          error: null,
+        },
+      };
+    });
+  }
+
+  function handleToolError(error: unknown) {
+    const now = new Date().toISOString();
+    const toolCallId = extractToolCallId(error);
+    const errorMessage = extractErrorMessage(error);
+
+    if (toolCallId) {
+      clearToolCleanupTimeout(toolCallId);
+      setActiveTools((prev) => {
+        const existing = prev[toolCallId];
+        const toolName = normalizeToolName(existing?.name);
+        return {
+          ...prev,
+          [toolCallId]: {
+            id: toolCallId,
+            name: toolName,
+            description: existing?.description ?? getToolDescription(null, toolName),
+            status: "error",
+            startedAt: existing?.startedAt ?? now,
+            endedAt: now,
+            result: existing?.result,
+            error: errorMessage,
+          },
+        };
+      });
+      return;
+    }
+
+    setActiveTools((prev) => {
+      let changed = false;
+      const next: Record<string, ToolRun> = {};
+
+      for (const [id, tool] of Object.entries(prev)) {
+        if (tool.status === "running") {
+          changed = true;
+          next[id] = {
+            ...tool,
+            status: "error",
+            endedAt: now,
+            error: errorMessage,
+          };
+        } else {
+          next[id] = tool;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }
+
+  function finalizeRunningTools(status: "done" | "error", errorMessage?: string | null) {
+    const now = new Date().toISOString();
+    setActiveTools((prev) => {
+      let changed = false;
+      const next: Record<string, ToolRun> = {};
+
+      for (const [id, tool] of Object.entries(prev)) {
+        if (tool.status !== "running") {
+          next[id] = tool;
+          continue;
+        }
+
+        changed = true;
+        next[id] = {
+          ...tool,
+          status,
+          endedAt: now,
+          ...(status === "error" ? { error: errorMessage ?? tool.error ?? "Stream error" } : { error: null }),
+        };
+      }
+
+      return changed ? next : prev;
+    });
+  }
 
   useEffect(() => {
     return () => {
@@ -764,18 +1055,27 @@ export function ChatPage() {
   async function sendStreamingMessage(content: SendMessageVariables["content"]) {
     if (!chatId) return;
 
+    resetToolRuns();
     const handle = apiClient.streamChatMessage(chatId, content, {
       onChunkContent: (text) => {
         setStreamingContent((prev) => prev + text);
+      },
+      onToolStart: (event) => {
+        handleToolStart(event);
+      },
+      onToolEnd: (event) => {
+        handleToolEnd(event);
       },
       onApprovalRequired: (approval) => {
         queueApproval(approval);
       },
       onDone: () => {
-        // State cleanup and chat refetch are centralized in `consumeActiveStream`.
+        finalizeRunningTools("done");
       },
       onError: (error) => {
         console.error("Streaming error:", error);
+        handleToolError(error);
+        finalizeRunningTools("error", extractErrorMessage(error));
       },
     });
 
@@ -789,14 +1089,22 @@ export function ChatPage() {
       onChunkContent: (text) => {
         setStreamingContent((prev) => prev + text);
       },
+      onToolStart: (event) => {
+        handleToolStart(event);
+      },
+      onToolEnd: (event) => {
+        handleToolEnd(event);
+      },
       onApprovalRequired: (approval) => {
         queueApproval(approval);
       },
       onDone: () => {
-        // State cleanup and chat refetch are centralized in `consumeActiveStream`.
+        finalizeRunningTools("done");
       },
       onError: (error) => {
         console.error("Approval stream error:", error);
+        handleToolError(error);
+        finalizeRunningTools("error", extractErrorMessage(error));
       },
     });
 
@@ -875,9 +1183,45 @@ export function ChatPage() {
   });
 
   useEffect(() => {
+    for (const [toolCallId, tool] of Object.entries(activeTools)) {
+      if (tool.status === "running") {
+        const timeoutId = toolCleanupTimeoutsRef.current[toolCallId];
+        if (timeoutId != null) {
+          window.clearTimeout(timeoutId);
+          delete toolCleanupTimeoutsRef.current[toolCallId];
+        }
+        continue;
+      }
+
+      if (toolCleanupTimeoutsRef.current[toolCallId] == null) {
+        toolCleanupTimeoutsRef.current[toolCallId] = window.setTimeout(() => {
+          setActiveTools((prev) => {
+            if (!prev[toolCallId]) return prev;
+            const next = { ...prev };
+            delete next[toolCallId];
+            return next;
+          });
+          delete toolCleanupTimeoutsRef.current[toolCallId];
+        }, TOOL_RUN_AUTO_REMOVE_MS);
+      }
+    }
+
+    for (const toolCallId of Object.keys(toolCleanupTimeoutsRef.current)) {
+      if (activeTools[toolCallId]) continue;
+
+      window.clearTimeout(toolCleanupTimeoutsRef.current[toolCallId]);
+      delete toolCleanupTimeoutsRef.current[toolCallId];
+    }
+  }, [activeTools]);
+
+  useEffect(() => {
     return () => {
       streamHandleRef.current?.abort();
       streamHandleRef.current = null;
+      Object.values(toolCleanupTimeoutsRef.current).forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+      toolCleanupTimeoutsRef.current = {};
     };
   }, []);
 
@@ -886,6 +1230,8 @@ export function ChatPage() {
     streamHandleRef.current = null;
     setIsStreaming(false);
     setStreamingContent("");
+    clearAllToolCleanupTimeouts();
+    setActiveTools({});
     setPendingApprovals([]);
     setProcessingApproval(null);
   }, [chatId]);
@@ -1053,6 +1399,7 @@ export function ChatPage() {
             isPending={sendMsgM.isPending}
             isStreaming={isStreaming}
             streamingContent={streamingContent}
+            thinkingText={thinkingText}
             assistantAvatarSrc={assistantAvatarSrc}
             assistantAvatarPlaceholder={assistantAvatarPlaceholder}
             onAssistantAvatarError={onAssistantAvatarError}
@@ -1061,6 +1408,8 @@ export function ChatPage() {
               latestUserMessageRef.current = node;
             }}
           />
+
+          {toolRuns.length > 0 ? <ToolProgressList tools={toolRuns} /> : null}
 
           {pendingApprovals.length > 0 ? (
             <div className={styles.approvalList}>
