@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Clock3, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { Button } from "../../components/Button/Button";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { Input } from "../../components/Input/Input";
 import SinasLoader from "../../components/Loader/Loader";
+import clockIcon from "../../icons/clock.svg";
+import crossIcon from "../../icons/cross.svg";
+import pencilIcon from "../../icons/pencil.svg";
 import searchIcon from "../../icons/search.svg";
+import threeDotsIcon from "../../icons/three-dots.svg";
+import TrashIcon from "../../icons/trash.svg?react";
+import trashIconSrc from "../../icons/trash.svg";
 import { apiClient } from "../../lib/api";
-import { getAgentByNamespaceAndName } from "../../lib/agents";
-import { getWorkspaceUrl } from "../../lib/workspace";
-import type { Chat } from "../../types";
+import { buildAgentPlaceholderMetaById } from "../../lib/agentPlaceholders";
+import { getApplicationId, getWorkspaceUrl } from "../../lib/workspace";
+import type { AgentResponse, Chat } from "../../types";
 import styles from "./AllChats.module.scss";
 
 function formatTimeAgo(isoDate: string) {
@@ -71,20 +77,13 @@ function joinClasses(...classNames: Array<string | undefined | false>) {
   return classNames.filter(Boolean).join(" ");
 }
 
-function getBadgeToneClass(chat: Chat): string {
-  const agent = getAgentByNamespaceAndName(chat.agent_namespace, chat.agent_name);
-  if (!agent) return styles.agentBadgeToneNeutral;
-  if (agent.tone === "yellow") return styles.agentBadgeToneYellow;
-  if (agent.tone === "blue") return styles.agentBadgeToneBlue;
-  if (agent.tone === "mint") return styles.agentBadgeToneMint;
-  return styles.agentBadgeToneNeutral;
+function toAgentKey(namespace?: string | null, name?: string | null): string | null {
+  if (!namespace || !name) return null;
+  return `${namespace.toLowerCase()}::${name.toLowerCase()}`;
 }
 
-function getBadgeLabel(chat: Chat): string {
-  const agent = getAgentByNamespaceAndName(chat.agent_namespace, chat.agent_name);
-  if (agent) return agent.displayName;
-  if (chat.agent_name) return chat.agent_name;
-  return "Unknown";
+function getAgentKey(agent: Pick<AgentResponse, "namespace" | "name">): string {
+  return `${agent.namespace.toLowerCase()}::${agent.name.toLowerCase()}`;
 }
 
 function getAgentFilterValue(chat: Chat): string {
@@ -107,6 +106,7 @@ export function AllChatsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const ws = getWorkspaceUrl();
+  const appId = getApplicationId();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -135,6 +135,12 @@ export function AllChatsPage() {
     enabled: Boolean(ws),
   });
 
+  const agentsQ = useQuery({
+    queryKey: ["config-agents", ws, appId ?? ""],
+    queryFn: () => apiClient.listAgents(appId),
+    enabled: Boolean(ws),
+  });
+
   const renameChatM = useMutation({
     mutationFn: ({ chatId, title }: { chatId: string; title: string }) => apiClient.updateChat(chatId, { title }),
     onSuccess: async (_updatedChat, variables) => {
@@ -155,12 +161,55 @@ export function AllChatsPage() {
     },
   });
 
+  const activeAgents = useMemo(() => (agentsQ.data ?? []).filter((agent) => agent.is_active), [agentsQ.data]);
+  const agentsById = useMemo(() => new Map(activeAgents.map((agent) => [agent.id, agent] as const)), [activeAgents]);
+  const agentsByKey = useMemo(
+    () => new Map(activeAgents.map((agent) => [getAgentKey(agent), agent] as const)),
+    [activeAgents],
+  );
+  const placeholderByAgentId = useMemo(() => buildAgentPlaceholderMetaById(activeAgents), [activeAgents]);
+
+  function getChatAgent(chat: Chat): AgentResponse | undefined {
+    const byId = chat.agent_id ? agentsById.get(chat.agent_id) : undefined;
+    if (byId) return byId;
+
+    const endpointKey = toAgentKey(chat.agent_namespace, chat.agent_name);
+    if (!endpointKey) return undefined;
+    return agentsByKey.get(endpointKey);
+  }
+
+  function getBadgeLabel(chat: Chat): string {
+    const agent = getChatAgent(chat);
+    if (agent) return agent.name;
+    if (chat.agent_name) return chat.agent_name;
+    return "Unknown";
+  }
+
+  function getBadgeColorStyle(chat: Chat): CSSProperties | undefined {
+    const agent = getChatAgent(chat);
+    if (!agent) return undefined;
+    const placeholder = placeholderByAgentId[agent.id];
+    if (!placeholder) return undefined;
+
+    return {
+      "--agent-icon-color": placeholder.color,
+      "--agent-icon-soft-color": placeholder.softColor,
+      "--agent-badge-icon": `url("${placeholder.iconSrc}")`,
+    } as CSSProperties;
+  }
+
   const agentFilterOptions = useMemo(() => {
     const map = new Map<string, string>();
 
     (chatsQ.data ?? []).forEach((chat) => {
       const value = getAgentFilterValue(chat);
-      if (!map.has(value)) map.set(value, getBadgeLabel(chat));
+      if (map.has(value)) return;
+
+      const byId = chat.agent_id ? agentsById.get(chat.agent_id) : undefined;
+      const endpointKey = toAgentKey(chat.agent_namespace, chat.agent_name);
+      const byEndpoint = endpointKey ? agentsByKey.get(endpointKey) : undefined;
+      const label = byId?.name ?? byEndpoint?.name ?? chat.agent_name ?? "Unknown";
+      map.set(value, label);
     });
 
     const options = Array.from(map.entries())
@@ -168,7 +217,7 @@ export function AllChatsPage() {
       .sort((a, b) => a.label.localeCompare(b.label));
 
     return [{ value: "all", label: "All" }, ...options];
-  }, [chatsQ.data]);
+  }, [agentsById, agentsByKey, chatsQ.data]);
 
   const effectiveCategoryFilter =
     categoryFilter === "all" || agentFilterOptions.some((option) => option.value === categoryFilter)
@@ -355,7 +404,7 @@ export function AllChatsPage() {
             />
 
             <div className={styles.controlsRow}>
-              <div className={styles.selectActions}>
+              <div className={joinClasses(styles.selectActions, isSelectMode && styles.selectActionsSelectMode)}>
                 {isSelectMode ? (
                   <>
                     <label
@@ -380,15 +429,17 @@ export function AllChatsPage() {
                     </label>
                     <span className={styles.selectCount}>{selectedCount} selected</span>
                     <span className={styles.selectIconActions}>
-                      <Button
-                        variant="minimal"
-                        className={joinClasses(styles.selectIconAction, styles.selectIconDanger)}
-                        onClick={onStartBulkDelete}
-                        disabled={!selectedCount || renameChatM.isPending || deleteChatsM.isPending}
-                        aria-label="Delete selected chats"
-                      >
-                        <Trash2 size={15} aria-hidden />
-                      </Button>
+                      {selectedCount > 0 ? (
+                        <Button
+                          variant="minimal"
+                          className={styles.selectIconAction}
+                          onClick={onStartBulkDelete}
+                          disabled={renameChatM.isPending || deleteChatsM.isPending}
+                          aria-label="Delete selected chats"
+                        >
+                          <img className={styles.selectActionIcon} src={trashIconSrc} alt="" aria-hidden />
+                        </Button>
+                      ) : null}
                       <Button
                         variant="minimal"
                         className={styles.selectIconAction}
@@ -396,7 +447,7 @@ export function AllChatsPage() {
                         disabled={renameChatM.isPending || deleteChatsM.isPending}
                         aria-label="Exit selection mode"
                       >
-                        <X size={15} aria-hidden />
+                        <X size={20} aria-hidden />
                       </Button>
                     </span>
                   </>
@@ -497,18 +548,18 @@ export function AllChatsPage() {
                   </Button>
 
                   <div className={styles.chatMeta}>
-                    <span className={joinClasses(styles.agentBadge, getBadgeToneClass(chat))}>
+                    <span className={styles.agentBadge} style={getBadgeColorStyle(chat)}>
                       {getBadgeLabel(chat)}
                     </span>
 
                     <span className={styles.chatTime}>
-                      <Clock3 size={14} />
+                      <img className={styles.chatTimeIcon} src={clockIcon} alt="" aria-hidden />
                       {formatTimeAgo(chat.updated_at ?? chat.created_at)}
                     </span>
 
                     {!isSelectMode ? (
                       <DropdownMenu
-                        trigger={<MoreHorizontal size={16} />}
+                        trigger={<img className={styles.rowMenuIcon} src={threeDotsIcon} alt="" aria-hidden />}
                         triggerAriaLabel="Open chat actions"
                         variant="icon"
                         triggerClassName={styles.rowMenuTrigger}
@@ -518,8 +569,8 @@ export function AllChatsPage() {
                             id: "rename",
                             label: (
                               <span className={styles.actionMenuLabel}>
+                                <img className={styles.actionMenuIcon} src={pencilIcon} alt="" aria-hidden />
                                 <span>Change title</span>
-                                <Pencil size={14} className={styles.actionMenuIcon} aria-hidden />
                               </span>
                             ),
                             onSelect: () => onStartRename(chat),
@@ -529,12 +580,11 @@ export function AllChatsPage() {
                             id: "delete",
                             label: (
                               <span className={styles.actionMenuLabel}>
+                                <img className={styles.actionMenuIcon} src={trashIconSrc} alt="" aria-hidden />
                                 <span>Delete</span>
-                                <Trash2 size={14} className={styles.actionMenuIcon} aria-hidden />
                               </span>
                             ),
                             onSelect: () => onStartDelete(chat),
-                            danger: true,
                             disabled: renameChatM.isPending || deleteChatsM.isPending,
                           },
                         ]}
@@ -551,16 +601,30 @@ export function AllChatsPage() {
       {renameDialog ? (
         <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Change chat title">
           <div
-            className={styles.modalBackdrop}
+            className={styles.renameModalBackdrop}
             onClick={() => {
               if (!renameChatM.isPending && !deleteChatsM.isPending) setRenameDialog(null);
             }}
           />
-          <div className={styles.modalPanel}>
-            <div className={styles.modalTitle}>Change chat title</div>
-            <div className={styles.modalSubTitle}>Choose a new name for this chat.</div>
-            <label className={styles.modalField}>
-              <span className={styles.modalLabel}>Title</span>
+          <div className={styles.renameModalPanel}>
+            <div className={styles.renameModalHeader}>
+              <div>
+                <div className={styles.renameModalTitle}>Change chat title</div>
+                <div className={styles.renameModalSubTitle}>Choose a new name for this chat.</div>
+              </div>
+              <Button
+                variant="minimal"
+                className={styles.renameModalCloseButton}
+                onClick={() => setRenameDialog(null)}
+                disabled={renameChatM.isPending || deleteChatsM.isPending}
+                aria-label="Close"
+              >
+                <img src={crossIcon} width={24} height={24} alt="" aria-hidden />
+              </Button>
+            </div>
+
+            <label className={styles.renameModalField}>
+              <span className={styles.renameModalLabel}>Title</span>
               <Input
                 value={renameDialog.nextTitle}
                 onChange={(e) =>
@@ -568,22 +632,22 @@ export function AllChatsPage() {
                 }
                 maxLength={120}
                 autoFocus
+                endActionClassName={styles.renameModalInputActionWrapper}
+                endAction={
+                  <Button
+                    variant="minimal"
+                    className={styles.renameModalInputAction}
+                    onClick={onConfirmRenameChat}
+                    disabled={!canSaveRename}
+                  >
+                    <span className={styles.renameModalInputActionContent}>Save</span>
+                  </Button>
+                }
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && canSaveRename) onConfirmRenameChat();
                 }}
               />
             </label>
-            <div className={styles.modalActions}>
-              <Button
-                onClick={() => setRenameDialog(null)}
-                disabled={renameChatM.isPending || deleteChatsM.isPending}
-              >
-                Cancel
-              </Button>
-              <Button variant="primary" onClick={onConfirmRenameChat} disabled={!canSaveRename}>
-                Save
-              </Button>
-            </div>
           </div>
         </div>
       ) : null}
@@ -617,7 +681,7 @@ export function AllChatsPage() {
                 onClick={onConfirmDeleteChat}
                 disabled={!canDelete}
               >
-                Delete <Trash2 size={14} aria-hidden />
+                Delete <TrashIcon className={styles.dangerButtonIcon} aria-hidden />
               </Button>
             </div>
           </div>

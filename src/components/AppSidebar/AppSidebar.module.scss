@@ -46,7 +46,7 @@
   padding: 0 8px;
 
   &:not(:disabled):hover {
-    background-color: var(--color-palette-neutral-100);
+    background-color: var(--color-hover-beige);
   }
 
   &:disabled {
@@ -93,7 +93,7 @@
   height: 34px;
 
   &:hover {
-    background-color: var(--color-palette-neutral-100); 
+    background-color: var(--color-hover-beige); 
   }
 }
 
@@ -180,7 +180,7 @@
   transition: background-color 140ms ease-in-out;
 
   &:not(:disabled):hover {
-    background-color: var(--color-palette-neutral-100);
+    background-color: var(--color-hover-beige);
   }
 }
 
@@ -216,7 +216,7 @@
   transition: background-color 140ms ease;
 
   &:hover {
-    background: var(--color-palette-neutral-100);
+    background: var(--color-hover-beige);
   }
 }
 .settingsIcon {

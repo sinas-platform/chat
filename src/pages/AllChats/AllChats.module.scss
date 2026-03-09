@@ -14,7 +14,7 @@
   width: min(863px, 100%);
   margin-inline: auto;
   display: grid;
-  gap: 18px;
+  gap: 24px;
   padding-top: 82px;
 }
 
@@ -69,29 +69,29 @@
   flex-wrap: wrap;
 }
 
-.selectActionButton {
-  height: 32px;
-  border-radius: 12px;
-  border: 1px solid var(--color-border-default);
-  color: var(--color-text-primary);
-  padding: 7px 12px;
-  font-size: 14px;
-  font-weight: 400;
+.selectActionsSelectMode {
+  padding-left: 12px;
 }
 
 .selectIconAction {
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  color: #746c64;
+  color: var(--color-text-primary);
   transition:
     background 120ms ease,
     color 120ms ease;
 
   &:hover:not(:disabled) {
-    background: #ece7e1;
-    color: #3b342f;
+    background: var(--color-hover-beige);
+    color: var(--color-text-primary);
   }
+}
+
+.selectActionIcon {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 .selectIconActions {
@@ -100,23 +100,17 @@
   gap: 4px;
 }
 
-.selectIconDanger {
-  color: #b42318;
-
-  &:hover:not(:disabled) {
-    background: #fff1f0;
-    color: #931c13;
-  }
-}
-
 .selectCount {
-  font-size: 12px;
-  color: #5f5750;
-  border: 1px solid #ddd8d2;
-  background: #f8f6f3;
-  border-radius: 999px;
-  padding: 6px 10px;
-  line-height: 1;
+  height: 32px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-primary);
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .selectAllToggle {
@@ -140,19 +134,17 @@
 }
 
 .filterTrigger {
-  min-height: 32px;
+  height: 32px;
   border-radius: 12px;
-  border: 1px solid #d8d2cc;
-  background: #f8f5f2;
-  color: #4f4640;
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-primary);
+  padding: 7px 12px;
   font-size: 14px;
-  padding: 0 12px;
-  gap: 7px;
-  white-space: nowrap;
+  font-weight: 400;
 
   &:hover {
-    background: #f2eeea;
-    border-color: #ccc5be;
+    background-color: var(--color-hover-beige);
+    border: 1px solid var(--color-border-default);
   }
 }
 
@@ -183,17 +175,20 @@
   width: 100%;
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 .actionMenuIcon {
   flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .list {
-  border-top: 1px solid #e2ddd8;
-  border-bottom: 1px solid #e2ddd8;
+  border-top: 1px solid var(--color-hover-beige);
+  border-bottom: 1px solid var(--color-hover-beige);
   background: transparent;
   display: grid;
   gap: 0;
@@ -204,14 +199,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  border-bottom: 1px solid #e7e2dd;
-  padding: 0 10px;
-  min-height: 48px;
+  border-bottom: 1px solid var(--color-hover-beige);
+  padding: 0 12px;
+  min-height: 50px;
   transition: background 120ms ease;
-
-  &:hover {
-    background: #f1eeea;
-  }
 }
 
 .chatRow:last-child {
@@ -221,12 +212,12 @@
 .selectCell {
   display: inline-flex;
   align-items: center;
-  padding-right: 8px;
+  padding-right: 10px;
 }
 
 .selectCheckbox {
-  width: 18px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -243,16 +234,15 @@
 }
 
 .selectCheckboxControl {
-  width: 18px;
-  height: 18px;
-  border: 1px solid #b8afa7;
-  border-radius: 5px;
-  background: #fbf9f7;
+  width: 16px;
+  height: 16px;
+  border: 1.2px solid var(--color-text-primary);
+  background: #fff;
+  border-radius: 1px;
   transition:
     border-color 120ms ease,
     background 120ms ease,
     box-shadow 120ms ease,
-    transform 120ms ease,
     opacity 120ms ease;
   position: relative;
 
@@ -261,14 +251,14 @@
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     transform: translate(-50%, -50%) scale(0.9);
     opacity: 0;
     background-repeat: no-repeat;
     background-position: center;
-    background-size: 12px 12px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2 6.3L4.7 9L10 3.7' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 10px;
+    background-image: url("../../icons/check.svg");
     transition:
       opacity 120ms ease,
       transform 120ms ease;
@@ -276,23 +266,22 @@
 }
 
 .selectCheckboxInput:hover + .selectCheckboxControl {
-  border-color: #8f8379;
+  border-color: #59514a;
 }
 
 .selectCheckboxInput:focus-visible + .selectCheckboxControl {
-  border-color: #6a5f56;
-  box-shadow: 0 0 0 3px rgba(120, 102, 85, 0.22);
+  border-color: #59514a;
+  box-shadow: 0 0 0 2px rgba(89, 81, 74, 0.18);
 }
 
 .selectCheckboxInput:checked + .selectCheckboxControl {
-  border-color: #e97203;
-  background: #e97203;
-  transform: translateY(-0.5px);
+  border-color: #5a524c;
+  background: #5a524c;
 }
 
 .selectCheckboxInput:indeterminate + .selectCheckboxControl {
-  border-color: #e97203;
-  background: #e97203;
+  border-color: #5a524c;
+  background: #5a524c;
 }
 
 .selectCheckboxInput:checked + .selectCheckboxControl::after {
@@ -303,8 +292,8 @@
 .selectCheckboxInput:indeterminate + .selectCheckboxControl::after {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
-  background-size: 10px 10px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 6h7' stroke='white' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: 8px;
+  background-image: url("../../icons/minus.svg");
 }
 
 .chatMain {
@@ -315,6 +304,10 @@
   align-items: center;
   justify-content: flex-start;
   min-height: 48px;
+
+  &:hover {
+    background-color: transparent;
+  }
 }
 
 .chatTitle {
@@ -324,13 +317,12 @@
   white-space: nowrap;
   font-weight: 400;
   font-size: 14px;
-  color: #3f3832;
+  color: var(--color-text-primary);
   line-height: 1.2;
 
   mark {
-    background: #fff0ba;
-    padding: 0;
-    border-radius: 2px;
+    background: #FFEAD6;
+    padding: 0 2px;
   }
 }
 
@@ -351,53 +343,47 @@
   font-size: 13px;
   line-height: 1;
   white-space: nowrap;
+}
 
-  svg {
-    width: 13px;
-    height: 13px;
-  }
+.chatTimeIcon {
+  width: 12px;
+  height: 12px;
+  display: block;
 }
 
 .agentBadge {
   max-width: 160px;
-  padding: 4px 10px;
-  border-radius: 999px;
+  padding: 2px 8px;
+  border-radius: 100px;
   border: 1px solid transparent;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 400;
   line-height: 1;
+  color: var(--agent-icon-color, var(--color-text-primary));
+  background: var(--agent-icon-soft-color, var(--color-badge-bg));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 
   &::before {
-    content: "\2727";
-    font-size: 12px;
-    line-height: 1;
+    content: "";
+    width: 14px;
+    height: 14px;
+    background: var(--agent-icon-color, currentColor);
+    display: inline-block;
+    -webkit-mask-image: var(--agent-badge-icon, url("../../icons/agentsPlaceholders/sparkle.svg"));
+    mask-image: var(--agent-badge-icon, url("../../icons/agentsPlaceholders/sparkle.svg"));
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    flex: 0 0 auto;
   }
-}
-
-.agentBadgeToneYellow {
-  background: #fff0ce;
-  color: #dd7904;
-}
-
-.agentBadgeToneBlue {
-  background: #dfe5ff;
-  color: #5a66d4;
-}
-
-.agentBadgeToneMint {
-  background: #e8f4ce;
-  color: #739a13;
-}
-
-.agentBadgeToneNeutral {
-  background: #ffd4eb;
-  color: #d64c9a;
 }
 
 .rowMenuTrigger {
@@ -412,16 +398,22 @@
   }
 }
 
+.rowMenuIcon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
 .rowMenu {
-  border: 1px solid #d8d2cc;
-  border-radius: 10px;
-  box-shadow: 0 12px 30px rgba(56, 45, 34, 0.12);
+  border: 1px solid var(--color-border-default);
 
   button {
-    background: #fcfbfa;
+    background: transparent;
+    color: var(--color-text-primary);
+    padding: 12px;
 
     &:hover {
-      background: #f3efea;
+      background: var(--color-hover-beige);
     }
   }
 }
@@ -455,6 +447,109 @@
   position: fixed;
   inset: 0;
   z-index: 50;
+}
+
+.renameModalBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(78, 71, 65, 0.4);
+}
+
+.renameModalPanel {
+  position: relative;
+  width: 596px;
+  max-width: calc(100vw - 32px);
+  margin: 12vh auto 0;
+  background: #fff;
+  border-radius: 32px;
+  border: 2px solid var(--color-border-default);
+  padding: 48px;
+}
+
+.renameModalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.renameModalTitle {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.renameModalSubTitle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 6px;
+}
+
+.renameModalCloseButton {
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  color: var(--color-text-primary);
+}
+
+.renameModalField {
+  display: grid;
+  gap: 6px;
+}
+
+.renameModalLabel {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.renameModalInputAction {
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  position: relative;
+  overflow: visible;
+
+  &::before {
+    position: absolute;
+    content: "";
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    right: -1px;
+    background-color: #4a4540;
+    border-radius: inherit;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+  }
+
+  &:not(:disabled):hover {
+    color: #fff;
+
+    &::before {
+      opacity: 1;
+    }
+  }
+}
+
+.renameModalInputActionContent {
+  position: relative;
+  z-index: 1;
+}
+
+.renameModalInputActionWrapper {
+  min-width: 86px;
+
+  > button {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    border-radius: 0 11px 11px 0;
+  }
 }
 
 .modalBackdrop {
@@ -507,9 +602,35 @@
 }
 
 .dangerButton {
-  border-color: #b42318;
-  background: #b42318;
-  color: #fff;
+  border-color: var(--color-text-primary);
+  background: var(--color-text-primary);
+  color: var(--color-palette-white);
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    border-color: var(--color-text-primary);
+    background: var(--color-palette-white);
+    color: var(--color-text-primary);
+  }
+
+  &:not(:disabled):hover {
+    color: var(--color-text-primary);
+    background: var(--color-hover-beige);
+    border-color: var(--color-border-default);
+  }
+}
+
+.dangerButtonIcon {
+  width: 14px;
+  height: 14px;
+  display: block;
+  flex: 0 0 auto;
+
+  path {
+    stroke: currentColor;
+    transition: stroke 120ms ease;
+  }
 }
 
 @media (max-width: 1260px) {
@@ -546,7 +667,7 @@
 
   .chatMeta {
     min-width: 210px;
-    gap: 10px;
+    gap: 16px;
   }
 
   .chatTime {

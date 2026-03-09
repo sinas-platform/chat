@@ -14,7 +14,7 @@
   --color-bg-overlay: rgba(0, 0, 0, 0.35);
   --color-bg-inverse: #111111;
 
-  $hoverColor: #F7F2EF;
+  --color-hover-beige: #f7f2ef;
 
   --color-text-primary: #4E4741;
   --color-text-secondary: #7e746b;
@@ -84,6 +84,7 @@ html[data-theme="light"] {
   --color-palette-neutral-200: #e4ded8;
   --color-palette-neutral-100: #f7f4ef;
   --color-palette-white: #ffffff;
+  --color-palette-black: #111111;
 
   --color-palette-orange-soft: #ffead6;
   --color-palette-pink-soft: #ffdef3;

@@ -15,6 +15,10 @@
     opacity: 0.55;
     cursor: not-allowed;
   }
+
+  &:hover {
+    background-color: var(--color-hover-beige);
+  }
 }
 
 .primary {
@@ -35,6 +39,20 @@
 
   &:hover {
     font-style: italic;
+  }
+}
+
+.default {
+  height: 32px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-primary);
+  padding: 7px 12px;
+  font-size: 14px;
+  font-weight: 400;
+
+  &:hover {
+    background-color: var(--color-hover-beige);
   }
 }
 

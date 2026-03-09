@@ -24,7 +24,7 @@
   border-radius: 8px;
 
   &:hover {
-    background: var(--color-bg-surface-hover);
+    background: var(--color-hover-beige);
   }
 }
 
@@ -45,7 +45,7 @@
   top: calc(100% + 6px);
   min-width: 150px;
   border: 2px solid rgba(255, 255, 255, 0.6);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--color-bg-surface);
   box-shadow: var(--color-shadow-soft);
   overflow: hidden;
@@ -65,8 +65,8 @@
   border: none;
   background: var(--color-bg-surface);
   text-align: left;
-  padding: 9px 11px;
-  font-size: 13px;
+  padding: 12px;
+  font-size: 14px;
   color: var(--color-text-primary);
   cursor: pointer;
 
