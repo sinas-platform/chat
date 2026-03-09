@@ -133,7 +133,7 @@
   background: transparent;
 
   &:hover:not(:disabled) {
-    background-color: var(--color-palette-neutral-100);
+    background-color: $hoverColor;
   }
 
   &:disabled {

@@ -11,6 +11,7 @@ import searchIcon from "../../icons/search.svg";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
+import { Input } from "../../components/Input/Input";
 import SinasLoader from "../../components/Loader/Loader";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { useVisibleAgentsPreference } from "../../hooks/useVisibleAgentsPreference";
@@ -578,16 +579,15 @@ export default function HomePage() {
           <section className={styles.allAgentsSection}>
             <div className={styles.allAgentsTitle}>All agents</div>
             <div className={styles.agentControls}>
-              <div className={styles.agentSearchField}>
-                <img className={styles.agentSearchIcon} src={searchIcon} alt="" aria-hidden />
-                <input
-                  className={styles.agentSearchInput}
-                  type="search"
-                  placeholder="Search agents..."
-                  value={agentSearch}
-                  onChange={(e) => setAgentSearch(e.target.value)}
-                />
-              </div>
+              <Input
+                wrapperClassName={styles.agentSearchField}
+                startAction={<img className={styles.agentSearchIcon} src={searchIcon} alt="" aria-hidden />}
+                className={styles.agentSearchInput}
+                type="search"
+                placeholder="Search agents..."
+                value={agentSearch}
+                onChange={(e) => setAgentSearch(e.target.value)}
+              />
               <div className={styles.agentControlActions}>
                 <div className={styles.agentViewToggle} role="group" aria-label="Agent card view mode">
                   <button

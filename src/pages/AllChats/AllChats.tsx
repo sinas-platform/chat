@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Clock3, MoreHorizontal, Pencil, Search, Trash2, X } from "lucide-react";
+import { ChevronDown, Clock3, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
 
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { Button } from "../../components/Button/Button";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { Input } from "../../components/Input/Input";
 import SinasLoader from "../../components/Loader/Loader";
+import searchIcon from "../../icons/search.svg";
 import { apiClient } from "../../lib/api";
 import { getAgentByNamespaceAndName } from "../../lib/agents";
 import { getWorkspaceUrl } from "../../lib/workspace";
@@ -342,15 +343,16 @@ export function AllChatsPage() {
       <main className={styles.main}>
         <div className={styles.shell}>
           <div className={styles.searchRow}>
-            <div className={styles.searchField}>
-              <Search size={16} />
-              <input
-                className={styles.searchInput}
-                placeholder="Search keywords..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+            <Input
+              wrapperClassName={styles.searchField}
+              startAction={<img className={styles.searchIcon} src={searchIcon} alt="" aria-hidden />}
+              startActionClassName={styles.searchStartAction}
+              className={styles.searchInput}
+              type="search"
+              placeholder="Search agents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
 
             <div className={styles.controlsRow}>
               <div className={styles.selectActions}>
@@ -420,6 +422,8 @@ export function AllChatsPage() {
                   }
                   triggerAriaLabel="Filter chats by category"
                   variant="text"
+                  triggerClassName={styles.filterTrigger}
+                  menuClassName={styles.filterMenu}
                   items={agentFilterOptions.map((option) => ({
                     id: `category-${option.value}`,
                     label: option.label,
@@ -436,6 +440,8 @@ export function AllChatsPage() {
                   }
                   triggerAriaLabel="Sort chats"
                   variant="text"
+                  triggerClassName={styles.filterTrigger}
+                  menuClassName={styles.filterMenu}
                   items={SORT_OPTIONS.map((option) => ({
                     id: `sort-${option.value}`,
                     label: option.label,
@@ -491,49 +497,49 @@ export function AllChatsPage() {
                   </Button>
 
                   <div className={styles.chatMeta}>
-                    <div className={styles.chatMetaTop}>
-                      <span className={joinClasses(styles.agentBadge, getBadgeToneClass(chat))}>
-                        {getBadgeLabel(chat)}
-                      </span>
-
-                      {!isSelectMode ? (
-                        <DropdownMenu
-                          trigger={<MoreHorizontal size={16} />}
-                          triggerAriaLabel="Open chat actions"
-                          variant="icon"
-                          items={[
-                            {
-                              id: "rename",
-                              label: (
-                                <span className={styles.actionMenuLabel}>
-                                  <span>Change title</span>
-                                  <Pencil size={14} className={styles.actionMenuIcon} aria-hidden />
-                                </span>
-                              ),
-                              onSelect: () => onStartRename(chat),
-                              disabled: renameChatM.isPending || deleteChatsM.isPending,
-                            },
-                            {
-                              id: "delete",
-                              label: (
-                                <span className={styles.actionMenuLabel}>
-                                  <span>Delete</span>
-                                  <Trash2 size={14} className={styles.actionMenuIcon} aria-hidden />
-                                </span>
-                              ),
-                              onSelect: () => onStartDelete(chat),
-                              danger: true,
-                              disabled: renameChatM.isPending || deleteChatsM.isPending,
-                            },
-                          ]}
-                        />
-                      ) : null}
-                    </div>
+                    <span className={joinClasses(styles.agentBadge, getBadgeToneClass(chat))}>
+                      {getBadgeLabel(chat)}
+                    </span>
 
                     <span className={styles.chatTime}>
                       <Clock3 size={14} />
                       {formatTimeAgo(chat.updated_at ?? chat.created_at)}
                     </span>
+
+                    {!isSelectMode ? (
+                      <DropdownMenu
+                        trigger={<MoreHorizontal size={16} />}
+                        triggerAriaLabel="Open chat actions"
+                        variant="icon"
+                        triggerClassName={styles.rowMenuTrigger}
+                        menuClassName={styles.rowMenu}
+                        items={[
+                          {
+                            id: "rename",
+                            label: (
+                              <span className={styles.actionMenuLabel}>
+                                <span>Change title</span>
+                                <Pencil size={14} className={styles.actionMenuIcon} aria-hidden />
+                              </span>
+                            ),
+                            onSelect: () => onStartRename(chat),
+                            disabled: renameChatM.isPending || deleteChatsM.isPending,
+                          },
+                          {
+                            id: "delete",
+                            label: (
+                              <span className={styles.actionMenuLabel}>
+                                <span>Delete</span>
+                                <Trash2 size={14} className={styles.actionMenuIcon} aria-hidden />
+                              </span>
+                            ),
+                            onSelect: () => onStartDelete(chat),
+                            danger: true,
+                            disabled: renameChatM.isPending || deleteChatsM.isPending,
+                          },
+                        ]}
+                      />
+                    ) : null}
                   </div>
                 </div>
               ))

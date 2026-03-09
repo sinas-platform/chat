@@ -179,25 +179,28 @@
 
 .agentSearchField {
   width: 100%;
-  border-radius: 12px;
-  padding: 8px 12px;
   height: 32px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  border-radius: 12px;
+  padding: 0;
   background: rgba(255, 255, 255, 0.60);
-
-  &::placeholder {
-    font-size: 14px;
-    color: var(--color-text-secondary);
-  }
+  --input-border-color: transparent;
+  --input-border-radius: 12px;
+  --input-min-height: 32px;
+  --input-bg: rgba(255, 255, 255, 0.60);
+  --input-padding: 0 12px 0 8px;
+  --input-font-size: 14px;
+  --input-text-color: var(--color-text-primary);
+  --input-placeholder-color: var(--color-text-secondary);
+  --input-start-action-padding-left: 12px;
 
   &:focus-within {
-    border-color: #ddb888;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.45),
-      0 0 0 2px rgba(221, 184, 136, 0.26);
+    --input-border-color:rgba(255, 255, 255, 0.6);
   }
+}
+
+.agentSearchStartAction {
+  min-width: auto;
+  padding-left: 12px;
 }
 
 .agentSearchIcon {
@@ -248,18 +251,12 @@
   display: block;
 }
 
-.agentSearchInput {
+.agentSearchField .agentSearchInput {
   width: 100%;
-  border: none;
-  background: transparent;
-  padding: 0;
-  font-size: 14px;
-  color: #5e4d39;
-  outline: none;
+}
 
-  &::placeholder {
-    color: #a28b70;
-  }
+.agentSearchInput::placeholder {
+  font-weight: 300;
 }
 
 .agentSortTrigger {
@@ -418,8 +415,8 @@
 
 .muted {
   margin-top: 10px;
-  color: var(--color-text-muted);
-  font-size: 13px;
+  color: var(--color-text-primary);
+  font-size: 14px;
 }
 
 .errorState {
