@@ -305,6 +305,11 @@
   min-height: 134px;
 }
 
+:global(html[data-theme="light"]) .agentCard:hover {
+  border: 2px solid var(--Border-hover-white, rgba(255, 234, 214, 0.80));
+  box-shadow: 0 4px 4px 0 rgba(233, 114, 3, 0.20);
+}
+
 .agentCardList {
   min-height: 0;
   padding: 16px 18px;
