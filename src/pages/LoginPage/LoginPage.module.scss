@@ -40,6 +40,14 @@
   position: relative;
 }
 
+:global(html[data-theme="dark"]) .card {
+  background: var(--Card-black, linear-gradient(180deg, rgba(46, 42, 38, 0.8) 0%, rgba(46, 42, 38, 0.7) 100%));
+}
+
+:global(html[data-theme="dark"]) .card::before {
+  background: var(--Border-black, linear-gradient(107deg, rgba(126, 116, 107, 0.8) 2.39%, rgba(78, 71, 65, 0.8) 97.89%));
+}
+
 .header {
   display: flex;
   align-items: center;
@@ -127,6 +135,10 @@
   gap: 8px;
 }
 
+.emailInputWrapper {
+  --input-bg: transparent;
+}
+
 .fieldLabel {
   font-size: 12px;
   color: var(--color-text-secondary);
@@ -151,6 +163,7 @@
 }
 
 .inputAction {
+  --login-input-action-hover-bg: var(--color-text-primary);
   border: none;
   background: transparent;
   color: rgba(0, 0, 0, 0.82);
@@ -165,7 +178,7 @@
     bottom: -1px;
     left: -1px;
     right: -1px;
-    background-color: #4a4540;
+    background-color: var(--login-input-action-hover-bg);
     border-radius: inherit;
     z-index: 0;
     opacity: 0;
@@ -184,11 +197,30 @@
     &::before {
       opacity: 1;
     }
-
-    img {
-      filter: brightness(0) invert(1);
-    }
   }
+}
+
+.inputActionIcon {
+  width: 24px;
+  height: 24px;
+  display: block;
+  color: currentColor;
+}
+
+:global(html[data-theme="dark"]) .inputAction {
+  --login-input-action-hover-bg: var(--color-accent);
+
+  &::before {
+    background-color: var(--login-input-action-hover-bg);
+  }
+
+  &:not(:disabled):hover {
+    color: #fff;
+  }
+}
+
+:global(html[data-theme="dark"]) .inputActionIcon {
+  color: #fff;
 }
 
 .inputActionLoading {

@@ -69,6 +69,8 @@
     rgba(255, 255, 255, 0.9) 9.47%,
     rgba(255, 255, 255, 0.8) 93.75%
   );
+  --Border-black: linear-gradient(107deg, rgba(126, 116, 107, 0.8) 2.39%, rgba(78, 71, 65, 0.8) 97.89%);
+  --Card-black: linear-gradient(180deg, rgba(46, 42, 38, 0.8) 0%, rgba(46, 42, 38, 0.7) 100%);
 }
 
 :root:not([data-theme]),
@@ -169,6 +171,8 @@ html[data-theme="dark"] {
     rgba(78, 71, 65, 0.9) 9.47%,
     rgba(46, 42, 38, 0.85) 93.75%
   );
+  --Border-black: linear-gradient(107deg, rgba(126, 116, 107, 0.8) 2.39%, rgba(78, 71, 65, 0.8) 97.89%);
+  --Card-black: linear-gradient(180deg, rgba(46, 42, 38, 0.8) 0%, rgba(46, 42, 38, 0.7) 100%);
 
   /* Palette tokens (dark theme) */
   --color-palette-orange: #FF7B00;

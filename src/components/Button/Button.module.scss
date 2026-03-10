@@ -16,7 +16,7 @@
     cursor: not-allowed;
   }
 
-  &:hover {
+  &:not(:disabled):hover {
     background-color: var(--color-hover-beige);
   }
 }
@@ -37,8 +37,9 @@
   border-radius: 0;
   transition: font-style 0.15s ease-in-out;
 
-  &:hover {
+  &:not(:disabled):hover {
     font-style: italic;
+    background-color: transparent;
   }
 }
 
@@ -51,7 +52,7 @@
   font-size: 14px;
   font-weight: 400;
 
-  &:hover {
+  &:not(:disabled):hover {
     background-color: var(--color-hover-beige);
   }
 }

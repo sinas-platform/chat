@@ -4,9 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../lib/authContext.tsx";
 import { getWorkspaceUrl, setWorkspaceUrl } from "../../lib/workspace";
 import { apiClient } from "../../lib/api";
+import { useTheme } from "../../lib/useTheme";
 import { emailSchema, otpSchema } from "../../lib/validation";
-import rightArrowIcon from "../../icons/right-arrow.svg";
+import RightArrowIcon from "../../icons/right-arrow.svg?react";
 import sinasLogo from "../../icons/sinas-logo.svg";
+import sinasLogoWhite from "../../icons/sinas-logo-white.svg";
 import { Input } from "../../components/Input/Input.tsx";
 import { Button } from "../../components/Button/Button.tsx";
 import SinasLoader from "../../components/Loader/Loader.tsx";
@@ -30,6 +32,7 @@ function prettyHost(url: string) {
 export function LoginPage() {
   const navigate = useNavigate();
   const { login, verifyOTP } = useAuth();
+  const { theme } = useTheme();
 
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -47,6 +50,7 @@ export function LoginPage() {
   // refresh label after save by depending on modal open state
   const workspaceUrl = useMemo(() => getWorkspaceUrl(), [workspaceModalOpen]);
   const workspaceLabel = useMemo(() => prettyHost(workspaceUrl), [workspaceUrl]);
+  const logoSrc = theme === "dark" ? sinasLogoWhite : sinasLogo;
 
   const submitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,7 +135,7 @@ export function LoginPage() {
     <div className={styles.login}>
       <div className={styles.card}>
         <div className={styles.header}>
-          <img className={styles.logo} src={sinasLogo} alt="Sinas" />
+          <img className={styles.logo} src={logoSrc} alt="Sinas" />
         </div>
 
         {step === "email" ? (
@@ -145,6 +149,7 @@ export function LoginPage() {
                   id="login-email"
                   type="email"
                   value={email}
+                  wrapperClassName={styles.emailInputWrapper}
                   onChange={(e) => {
                     setEmail(e.target.value);
                     if (emailError) setEmailError("");
@@ -167,7 +172,7 @@ export function LoginPage() {
                       {isEmailActionLoading ? (
                         <SinasLoader size={32} />
                       ) : (
-                        <img src={rightArrowIcon} width={24} height={24} alt="" aria-hidden="true" />
+                        <RightArrowIcon className={styles.inputActionIcon} aria-hidden="true" />
                       )}
                     </Button>
                   }

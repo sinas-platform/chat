@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "../../../components/Input/Input.tsx";
 import { Button } from "../../../components/Button/Button.tsx";
-import crossIcon from "../../../icons/cross.svg";
+import CrossIcon from "../../../icons/cross.svg?react";
 import { workspaceUrlSchema } from "../../../lib/validation";
 import styles from "./WorkspaceModal.module.scss";
 
@@ -51,7 +51,7 @@ export function WorkspaceModal({ open, initialValue, onClose, onSave }: Props) {
           </div>
 
           <Button variant="minimal" className={styles.closeButton} onClick={onClose} aria-label="Close">
-            <img src={crossIcon} width={24} height={24} alt="" aria-hidden="true" />
+            <CrossIcon className={styles.closeIcon} aria-hidden="true" />
           </Button>
         </div>
 

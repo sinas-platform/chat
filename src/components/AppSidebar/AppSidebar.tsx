@@ -15,6 +15,7 @@ import {
 } from "@floating-ui/react";
 
 import sinasLogo from "../../icons/sinas-logo.svg";
+import sinasLogoWhite from "../../icons/sinas-logo-white.svg";
 import plusIcon from "../../icons/plus.svg";
 import linkIcon from "../../icons/link.svg";
 import settingsIcon from "../../icons/settings.svg";
@@ -23,6 +24,7 @@ import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { apiClient } from "../../lib/api";
 import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { useAuth } from "../../lib/authContext";
+import { useTheme } from "../../lib/useTheme";
 import { getApplicationId, getWorkspaceUrl } from "../../lib/workspace";
 import type { AgentResponse, Chat } from "../../types";
 import { Button } from "../Button/Button";
@@ -194,8 +196,10 @@ function SidebarChatTitle({ title }: { title: string }) {
 export function AppSidebar({ activeChatId }: AppSidebarProps) {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { theme } = useTheme();
   const ws = getWorkspaceUrl();
   const appId = getApplicationId();
+  const logoSrc = theme === "dark" ? sinasLogoWhite : sinasLogo;
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLogoutTooltipOpen, setIsLogoutTooltipOpen] = useState(false);
@@ -266,7 +270,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
     <aside className={styles.sidebar}>
       <div className={styles.sidebarTop}>
         <div className={styles.sidebarLogoWrap}>
-          <img className={styles.sidebarLogo} src={sinasLogo} alt="Sinas" />
+          <img className={styles.sidebarLogo} src={logoSrc} alt="Sinas" />
         </div>
 
         <Button
