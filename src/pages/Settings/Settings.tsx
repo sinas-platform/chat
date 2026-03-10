@@ -5,6 +5,7 @@ import styles from "./Settings.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { Button } from "../../components/Button/Button";
 import { Input } from "../../components/Input/Input";
+import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import eyeIcon from "../../icons/eye.svg";
 import eyeOffIcon from "../../icons/eye-off.svg";
@@ -269,6 +270,8 @@ export function SettingsPage() {
       <AppSidebar />
 
       <main className={styles.main}>
+        <ThemeSwitch />
+
         <section className={styles.shell}>
           <header className={styles.pageHeader}>
             <h1 className={styles.title}>Settings</h1>

@@ -8,6 +8,7 @@ import { Button } from "../../components/Button/Button";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { Input } from "../../components/Input/Input";
 import SinasLoader from "../../components/Loader/Loader";
+import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
 import clockIcon from "../../icons/clock.svg";
 import crossIcon from "../../icons/cross.svg";
 import pencilIcon from "../../icons/pencil.svg";
@@ -390,6 +391,8 @@ export function AllChatsPage() {
       <AppSidebar />
 
       <main className={styles.main}>
+        <ThemeSwitch />
+
         <div className={styles.shell}>
           <div className={styles.searchRow}>
             <Input

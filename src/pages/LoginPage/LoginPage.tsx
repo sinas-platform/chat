@@ -12,6 +12,7 @@ import sinasLogoWhite from "../../icons/sinas-logo-white.svg";
 import { Input } from "../../components/Input/Input.tsx";
 import { Button } from "../../components/Button/Button.tsx";
 import SinasLoader from "../../components/Loader/Loader.tsx";
+import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch.tsx";
 
 import { OTPInput } from "../OTPInput/OTPInput.tsx";
 import { WorkspaceModal } from "./WorkspaceModal/WorkspaceModal.tsx";
@@ -133,6 +134,8 @@ export function LoginPage() {
 
   return (
     <div className={styles.login}>
+      <ThemeSwitch />
+
       <div className={styles.card}>
         <div className={styles.header}>
           <img className={styles.logo} src={logoSrc} alt="Sinas" />

@@ -13,6 +13,7 @@ import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { Input } from "../../components/Input/Input";
 import SinasLoader from "../../components/Loader/Loader";
+import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { useVisibleAgentsPreference } from "../../hooks/useVisibleAgentsPreference";
 import { apiClient } from "../../lib/api";
@@ -456,6 +457,8 @@ export default function HomePage() {
       <AppSidebar />
 
       <main className={styles.main}>
+        <ThemeSwitch />
+
         <div className={styles.mainContent}>
           {!hasWorkspaceUrl ? (
             <section className={styles.agentPicker}>

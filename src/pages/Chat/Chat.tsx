@@ -9,6 +9,7 @@ import styles from "./Chat.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import SinasLoader from "../../components/Loader/Loader";
+import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { apiClient, type ChatStreamHandle } from "../../lib/api";
@@ -1544,6 +1545,8 @@ export function ChatPage() {
       <div className={styles.layout}>
         <MemoizedAppSidebar />
         <main className={styles.main}>
+          <ThemeSwitch />
+
           <div className={styles.chatShell}>
             <p>Missing chat id</p>
           </div>
@@ -1556,6 +1559,8 @@ export function ChatPage() {
     <div className={styles.layout}>
       <MemoizedAppSidebar activeChatId={chatId} />
       <main className={styles.main}>
+        <ThemeSwitch />
+
         <div className={styles.chatShell}>
           <ChatMessages
             messages={messages}
