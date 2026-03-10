@@ -2,74 +2,47 @@
   height: 100vh;
   display: grid;
   grid-template-columns: 290px 1fr;
-  background: var(--color-palette-white);
+  background: var(--color-bg-surface);
 }
 
 .main {
   overflow: auto;
-  padding: 42px 44px 56px;
+  padding: 32px 56px 72px;
 }
 
 .shell {
-  width: min(980px, 100%);
+  width: min(863px, 100%);
+  margin: 88px auto 0;
   display: grid;
-  gap: 18px;
+  gap: 24px;
 }
 
-.headerRow {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  column-gap: 12px;
-  gap: 8px;
+.pageHeader {
+  display: grid;
+  gap: 6px;
 }
 
 .title {
   margin: 0;
   font-size: 32px;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--color-text-primary);
+  font-weight: 500;
 }
 
 .subtitle {
-  margin: 8px 0 0;
+  margin: 0;
+  font-size: 14px;
   color: var(--color-text-secondary);
 }
 
-.themeToggle {
-  border: 1px solid var(--color-border-default);
-  border-radius: 999px;
-  background: var(--color-bg-surface);
-  color: var(--color-text-primary);
-  height: 34px;
-  padding: 0 12px;
-  font-size: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  cursor: pointer;
-  transition: border-color 140ms ease, background-color 140ms ease;
-
-  &:hover:not(:disabled) {
-    border-color: var(--color-border-muted);
-    background: var(--color-bg-surface-hover);
-  }
-
-  &:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-  }
-}
-
 .card {
-  border: 1px solid var(--color-border-soft);
-  border-radius: 20px;
+  border: 1px solid var(--color-hover-beige);
+  border-radius: 12px;
   background: var(--color-bg-surface);
-  backdrop-filter: blur(8px);
-  padding: 18px;
+  padding: 30px;
   display: grid;
-  gap: 14px;
+  gap: 20px;
 }
 
 .cardHeader {
@@ -77,46 +50,30 @@
   gap: 8px;
 }
 
-.cardTitleRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.cardIcon {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-  background: var(--color-warning-bg);
-  border: 1px solid var(--color-warning-border);
-  color: var(--color-warning);
-}
-
 .cardTitle {
   margin: 0;
-  font-size: 20px;
-  line-height: 1.2;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-text-primary);
 }
 
 .cardDescription {
   margin: 0;
-  color: var(--color-text-secondary);
-  max-width: 70ch;
   font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .errorBox,
 .successBox,
 .noticeBox {
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   font-size: 14px;
+  line-height: 1.3;
 }
 
 .errorBox {
@@ -140,62 +97,68 @@
 .inlineAction {
   color: inherit;
   text-decoration: underline;
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
 }
 
-.summaryRow {
+.searchField {
+  width: 100%;
+  height: 32px;
+  border-radius: 12px;
+  padding: 0;
+  --input-border-color: var(--color-border-default);
+  --input-border-radius: 12px;
+  --input-min-height: 32px;
+  --input-bg: rgba(255, 255, 255, 0.60);
+  --input-padding: 0 12px 0 8px;
+  --input-font-size: 14px;
+  --input-text-color: var(--color-text-primary);
+  --input-placeholder-color: var(--color-text-secondary);
+  --input-start-action-padding-left: 12px;
+
+  ::placeholder {
+    font-weight: 300;
+}
+}
+
+.searchStartAction {
+  min-width: auto;
+  padding-left: 12px;
+}
+
+.searchIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+
+.searchField .searchInput {
+  width: 100%;
+}
+
+.group {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.groupHeader {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 10px;
 }
 
-.summaryPill {
-  border-radius: 999px;
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
-  border: 1px solid var(--color-warning-border);
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 600;
+.groupTitle {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  font-weight: 500;
 }
 
-.summaryText {
-  color: var(--color-text-secondary);
-  font-size: 13px;
-}
-
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-
-.actionGroup {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.actionGroup :global(button) {
-  min-height: 34px;
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 12px;
-}
-
-.listShell {
-  border: 1px solid var(--color-border-soft);
-  border-radius: 16px;
-  background: linear-gradient(180deg, var(--color-bg-surface), var(--color-bg-surface-subtle));
-  min-height: 180px;
-  overflow: hidden;
-}
-
-.emptyState {
-  padding: 18px;
+.groupMeta {
+  margin: 0;
+  font-size: 14px;
   color: var(--color-text-secondary);
 }
 
@@ -204,163 +167,73 @@
   margin: 0;
   padding: 0;
   display: grid;
-}
-
-.agentRow {
-  border-top: 1px solid var(--color-border-subtle);
-}
-
-.agentRow:first-child {
-  border-top: none;
-}
-
-.agentLabel {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: center;
-  padding: 12px 14px;
-  cursor: pointer;
-  transition: background 120ms ease;
 }
 
-.agentLabelToneYellow {
-  background: var(--color-tone-yellow);
-}
-
-.agentLabelToneBlue {
-  background: var(--color-tone-blue);
-}
-
-.agentLabelToneMint {
-  background: var(--color-tone-mint);
-}
-
-.agentLabel:hover {
-  filter: brightness(0.99);
-}
-
-.selectCheckbox {
-  width: 18px;
-  height: 18px;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex: 0 0 auto;
-}
-
-.selectCheckboxInput {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.selectCheckboxControl {
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--color-border-muted);
-  border-radius: 5px;
+.agentRowButton {
+  width: 100%;
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
   background: var(--color-bg-surface);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
   transition:
-    border-color 120ms ease,
-    background 120ms ease,
-    box-shadow 120ms ease,
-    transform 120ms ease,
-    opacity 120ms ease;
-  position: relative;
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
 
-  &::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 12px;
-    height: 12px;
-    transform: translate(-50%, -50%) scale(0.9);
-    opacity: 0;
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 12px 12px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2 6.3L4.7 9L10 3.7' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    transition:
-      opacity 120ms ease,
-      transform 120ms ease;
+  &:hover:not(:disabled) {
+    border-color: var(--color-border-muted);
+    background: var(--color-bg-surface-hover);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-focus-ring);
+  }
+
+  &:disabled {
+    opacity: 0.62;
+    cursor: not-allowed;
   }
 }
 
-.selectCheckboxInput:hover + .selectCheckboxControl {
-  border-color: var(--color-border-muted);
+.agentRowButtonHidden {
+  background: var(--color-bg-soft-rose);
+
+  .agentName {
+    color: var(--color-text-secondary);
+  }
+
+  .agentDescription {
+    color: var(--color-text-muted);
+  }
 }
 
-.selectCheckboxInput:focus-visible + .selectCheckboxControl {
-  border-color: var(--color-border-strong);
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
-}
-
-.selectCheckboxInput:checked + .selectCheckboxControl {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  transform: translateY(-0.5px);
-}
-
-.selectCheckboxInput:checked + .selectCheckboxControl::after {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-}
-
-.selectCheckboxInput:disabled + .selectCheckboxControl {
-  opacity: 0.6;
-}
-
-.agentMeta {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.agentTopRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-
-.agentIdentity {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.agentIconWrap {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  border: 1px solid var(--color-badge-border-soft);
-  background: var(--color-badge-bg-strong);
-  color: var(--color-text-primary);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.agentIcon {
+  width: 20px;
+  height: 20px;
+  color: var(--agent-icon-color, var(--color-text-primary));
   flex: 0 0 auto;
 }
 
-.agentIconWrapPlaceholder {
-  background: var(--color-bg-surface);
-  border-color: var(--agent-icon-soft-color);
-  box-shadow: 0 0 0 2px var(--agent-icon-soft-color);
+.agentIconHidden {
+  color: var(--color-text-secondary);
 }
 
 .agentPlaceholderGlyph {
-  width: 12px;
-  height: 12px;
-  background: var(--agent-icon-color);
+  width: 20px;
+  height: 20px;
+  color: var(--agent-icon-color, var(--color-text-primary));
+  background: currentColor;
   display: block;
+  flex: 0 0 auto;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
@@ -369,74 +242,131 @@
   mask-size: contain;
 }
 
-.agentIconImage {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  object-fit: cover;
-  display: block;
+.agentIcon.agentIconHidden,
+.agentPlaceholderGlyph.agentIconHidden {
+  color: var(--color-text-secondary);
 }
 
-.agentName {
-  font-weight: 600;
-  color: var(--color-text-primary);
+.agentCustomIcon {
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.agentCustomIconHidden {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+.agentMeta {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.agentHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
 
-.agentBadge {
-  width: fit-content;
-  font-size: 11px;
+.agentName {
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 500;
   color: var(--color-text-primary);
-  border: 1px solid var(--color-badge-border-soft);
-  border-radius: 999px;
-  padding: 2px 7px;
-  background: var(--color-badge-bg-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.agentRef {
-  color: var(--color-text-muted);
+.agentTag {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid var(--agent-icon-soft-color, var(--color-border-default));
+  background: var(--agent-icon-soft-color, #e3f2b6);
+  color: var(--agent-icon-color, #6f8c12);
+  padding: 2px 8px;
   font-size: 12px;
+  line-height: 1;
+}
+
+.agentTagHidden {
+  border: none;
+  background: var(--color-hover-beige);
+  color: var(--color-text-secondary);
 }
 
 .agentDescription {
+  display: block;
+  font-size: 12px;
   color: var(--color-text-secondary);
-  font-size: 13px;
-  line-height: 1.35;
 }
 
-.visibilityPillVisible,
-.visibilityPillHidden {
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 5px 8px;
-  border: 1px solid transparent;
-  white-space: nowrap;
-  align-self: flex-start;
-}
-
-.visibilityPillVisible {
-  background: var(--color-badge-bg-strong);
-  border-color: var(--color-badge-border-soft);
+.agentAction {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 16px;
+  line-height: 1.1;
   color: var(--color-text-primary);
+  white-space: nowrap;
 }
 
-.visibilityPillHidden {
-  background: var(--color-badge-bg-muted);
-  border-color: var(--color-badge-border-soft);
-  color: var(--color-text-muted);
+.agentActionIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+
+.agentActionText {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.emptyListState {
+  border: 1px dashed var(--color-border-default);
+  border-radius: 14px;
+  padding: 20px;
+  color: var(--color-text-secondary);
+  font-size: 15px;
 }
 
 .footerActions {
+  margin-top: 4px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
 }
 
 .footerHint {
-  font-size: 13px;
   color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.saveButton {
+  height: 40px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0 24px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: var(--color-text-primary);
+  }
+
+  &:disabled:hover {
+    background: var(--color-bg-inverse);
+    border-color: var(--color-bg-inverse);
+    color: var(--color-text-inverse);
+  }
 }
 
 @media (max-width: 920px) {
@@ -448,21 +378,83 @@
     padding: 20px 14px 28px;
   }
 
-  .headerRow {
-    gap: 6px;
+  .shell {
+    width: 100%;
+    gap: 16px;
   }
 
-  .toolbar {
+  .title {
+    font-size: 30px;
+  }
+
+  .subtitle {
+    font-size: 15px;
+  }
+
+  .card {
+    border-radius: 16px;
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .cardTitle {
+    font-size: 19px;
+  }
+
+  .cardDescription {
+    font-size: 16px;
+  }
+
+  .errorBox,
+  .successBox,
+  .noticeBox,
+  .inlineAction {
+    font-size: 14px;
+  }
+
+  .groupHeader {
+    align-items: flex-start;
     flex-direction: column;
-    align-items: stretch;
+    gap: 4px;
   }
 
-  .actionGroup {
+  .groupTitle {
+    font-size: 17px;
+  }
+
+  .groupMeta {
+    font-size: 15px;
+  }
+
+  .agentRowButton {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .agentMeta {
     width: 100%;
   }
 
-  .actionGroup > * {
-    flex: 1 1 auto;
+  .agentName {
+    font-size: 16px;
+  }
+
+  .agentTag {
+    font-size: 13px;
+  }
+
+  .agentDescription {
+    font-size: 14px;
+  }
+
+  .agentAction {
+    font-size: 15px;
+    align-self: flex-end;
+  }
+
+  .emptyListState {
+    font-size: 15px;
+    padding: 14px;
   }
 
   .footerActions {
@@ -470,15 +462,14 @@
     align-items: stretch;
   }
 
-  .agentLabel {
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: flex-start;
+  .footerHint {
+    font-size: 15px;
   }
 
-  .visibilityPillVisible,
-  .visibilityPillHidden {
-    grid-column: 2;
-    justify-self: start;
-    margin-top: 2px;
+  .saveButton {
+    width: 100%;
+    height: 40px;
+    font-size: 14px;
+    font-weight: 500;
   }
 }

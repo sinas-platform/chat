@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Bot, Moon, Settings2, Sun } from "lucide-react";
+import { Bot } from "lucide-react";
 
 import styles from "./Settings.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { Button } from "../../components/Button/Button";
+import { Input } from "../../components/Input/Input";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
+import eyeIcon from "../../icons/eye.svg";
+import eyeOffIcon from "../../icons/eye-off.svg";
+import searchIcon from "../../icons/search.svg";
+import { apiClient } from "../../lib/api";
 import {
   DEFAULT_VISIBLE_AGENTS_PREFERENCE,
   getAgentRef,
@@ -12,31 +17,18 @@ import {
   useVisibleAgentsPreference,
   type VisibleAgentsPreferenceValue,
 } from "../../hooks/useVisibleAgentsPreference";
-import { apiClient } from "../../lib/api";
 import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
-import { useTheme } from "../../lib/useTheme";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import type { AgentResponse } from "../../types";
-
-const AGENT_TONES = ["yellow", "blue", "mint"] as const;
 
 function joinClasses(...classNames: Array<string | undefined | false>) {
   return classNames.filter(Boolean).join(" ");
 }
 
-function getAgentTone(agent: Pick<AgentResponse, "id" | "namespace" | "name">): (typeof AGENT_TONES)[number] {
-  const source = `${agent.id}:${agent.namespace}:${agent.name}`;
-  let hash = 0;
-  for (let index = 0; index < source.length; index += 1) {
-    hash = (hash * 31 + source.charCodeAt(index)) >>> 0;
-  }
-  return AGENT_TONES[hash % AGENT_TONES.length] ?? "yellow";
-}
-
 function sortAgentsForSettings<T extends { namespace: string; name: string }>(agents: T[]): T[] {
   return [...agents].sort((left, right) => {
-    const leftLabel = `${left.namespace} / ${left.name}`;
-    const rightLabel = `${right.namespace} / ${right.name}`;
+    const leftLabel = `${left.name} ${left.namespace}`;
+    const rightLabel = `${right.name} ${right.namespace}`;
     return leftLabel.localeCompare(rightLabel);
   });
 }
@@ -70,11 +62,17 @@ function getPlaceholderGlyphStyle(placeholder: AgentPlaceholderMeta | undefined)
   } as CSSProperties;
 }
 
+function formatNamespaceLabel(namespace: string): string {
+  const clean = namespace.trim().replace(/[_-]+/g, " ");
+  if (!clean) return "Agent";
+
+  return clean.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export function SettingsPage() {
   const workspaceUrl = getWorkspaceUrl();
   const hasWorkspaceUrl = workspaceUrl.length > 0;
   const visibleAgentsPreference = useVisibleAgentsPreference();
-  const { theme, toggleTheme, isSavingTheme, themeErrorMessage } = useTheme();
   const { agentsQuery, statesQuery } = visibleAgentsPreference;
 
   const sortedAgents = useMemo(
@@ -89,6 +87,7 @@ export function SettingsPage() {
   const [isDirty, setIsDirty] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
+  const [searchValue, setSearchValue] = useState("");
 
   useEffect(() => {
     document.title = "Sinas - Settings";
@@ -121,6 +120,7 @@ export function SettingsPage() {
   const effectiveVisibleRefSet = useMemo(() => new Set(effectiveVisibleRefs), [effectiveVisibleRefs]);
   const selectedCount = effectiveVisibleRefs.length;
   const totalAgentCount = sortedAgents.length;
+  const hiddenCount = Math.max(0, totalAgentCount - selectedCount);
   const hasUnsavedChanges = isDirty && !preferenceEquals(draftPreference, visibleAgentsPreference.preference);
   const hasInvalidEmptyCustomSelection = draftPreference.mode === "custom" && selectedCount === 0 && totalAgentCount > 0;
   const saveDisabled =
@@ -132,6 +132,25 @@ export function SettingsPage() {
     visibleAgentsPreference.isSavingPreference ||
     hasInvalidEmptyCustomSelection ||
     !hasUnsavedChanges;
+
+  const filteredAgents = useMemo(() => {
+    const query = searchValue.trim().toLowerCase();
+    if (!query) return sortedAgents;
+
+    return sortedAgents.filter((agent) => {
+      const haystack = `${agent.name} ${agent.namespace} ${agent.description ?? ""}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [searchValue, sortedAgents]);
+
+  const visibleAgents = useMemo(
+    () => filteredAgents.filter((agent) => effectiveVisibleRefSet.has(getAgentRef(agent))),
+    [effectiveVisibleRefSet, filteredAgents],
+  );
+  const hiddenAgents = useMemo(
+    () => filteredAgents.filter((agent) => !effectiveVisibleRefSet.has(getAgentRef(agent))),
+    [effectiveVisibleRefSet, filteredAgents],
+  );
 
   function updateDraft(next: VisibleAgentsPreferenceValue) {
     visibleAgentsPreference.resetSavePreferenceError();
@@ -164,10 +183,6 @@ export function SettingsPage() {
     setCustomVisibleRefs(Array.from(currentSet));
   }
 
-  function resetToDefault() {
-    updateDraft(DEFAULT_VISIBLE_AGENTS_PREFERENCE);
-  }
-
   async function save() {
     if (saveDisabled) return;
 
@@ -180,47 +195,93 @@ export function SettingsPage() {
     }
   }
 
+  function renderAgentList(agents: AgentResponse[], visibility: "visible" | "hidden") {
+    if (agents.length === 0) {
+      return (
+        <div className={styles.emptyListState}>
+          {searchValue.trim() ? "No agents match this search." : `No ${visibility} agents.`}
+        </div>
+      );
+    }
+
+    return (
+      <ul className={styles.agentList}>
+        {agents.map((agent) => {
+          const agentRef = getAgentRef(agent);
+          const isVisible = draftPreference.mode === "all" || effectiveVisibleRefSet.has(agentRef);
+          const description = agent.description?.trim() || "No description available.";
+          const placeholderCssVars = getPlaceholderCssVars(placeholderByAgentId[agent.id]);
+          const placeholderGlyphStyle = getPlaceholderGlyphStyle(placeholderByAgentId[agent.id]);
+          const iconSrc = iconSrcByAgentId[agent.id];
+
+          return (
+            <li key={agent.id}>
+              <button
+                type="button"
+                className={joinClasses(styles.agentRowButton, !isVisible && styles.agentRowButtonHidden)}
+                onClick={() => toggleAgent(agentRef)}
+                disabled={visibleAgentsPreference.isSavingPreference}
+                style={placeholderCssVars}
+              >
+                <span className={styles.agentMeta}>
+                  <span className={styles.agentHeader}>
+                    {iconSrc ? (
+                      <img
+                        className={joinClasses(styles.agentCustomIcon, !isVisible && styles.agentCustomIconHidden)}
+                        src={iconSrc}
+                        alt=""
+                        loading="lazy"
+                        aria-hidden
+                        onError={() => {
+                          void onAgentIconError(agent.id);
+                        }}
+                      />
+                    ) : placeholderGlyphStyle ? (
+                      <span
+                        className={joinClasses(styles.agentPlaceholderGlyph, !isVisible && styles.agentIconHidden)}
+                        style={placeholderGlyphStyle}
+                        aria-hidden
+                      />
+                    ) : (
+                      <Bot className={joinClasses(styles.agentIcon, !isVisible && styles.agentIconHidden)} size={20} aria-hidden />
+                    )}
+                    <span className={styles.agentName}>{agent.name}</span>
+                    <span className={joinClasses(styles.agentTag, !isVisible && styles.agentTagHidden)}>
+                      {formatNamespaceLabel(agent.namespace)}
+                    </span>
+                  </span>
+                  <span className={styles.agentDescription}>{description}</span>
+                </span>
+                <span className={styles.agentAction}>
+                  <img className={styles.agentActionIcon} src={isVisible ? eyeOffIcon : eyeIcon} alt="" aria-hidden />
+                  <span className={styles.agentActionText}>{isVisible ? "Hide" : "Show"}</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
   return (
     <div className={styles.layout}>
       <AppSidebar />
 
       <main className={styles.main}>
         <section className={styles.shell}>
-          <div className={styles.headerRow}>
-            <div>
-              <h1 className={styles.title}>Settings</h1>
-              <p className={styles.subtitle}>Manage what appears on your homepage.</p>
-            </div>
-            <button
-              type="button"
-              className={styles.themeToggle}
-              onClick={() => void toggleTheme()}
-              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-              title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-              disabled={isSavingTheme}
-            >
-              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-              <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
-            </button>
-          </div>
-          {themeErrorMessage ? (
-            <div className={styles.errorBox} role="alert">
-              <span>{themeErrorMessage}</span>
-            </div>
-          ) : null}
+          <header className={styles.pageHeader}>
+            <h1 className={styles.title}>Settings</h1>
+            <p className={styles.subtitle}>Manage what appears on your homepage</p>
+          </header>
 
           <section className={styles.card} aria-labelledby="homepage-agents-title">
             <div className={styles.cardHeader}>
-              <div className={styles.cardTitleRow}>
-                <span className={styles.cardIcon} aria-hidden>
-                  <Settings2 size={16} />
-                </span>
-                <h2 id="homepage-agents-title" className={styles.cardTitle}>
-                  Homepage Agents
-                </h2>
-              </div>
+              <h2 id="homepage-agents-title" className={styles.cardTitle}>
+                Homepage Agents
+              </h2>
               <p className={styles.cardDescription}>
-                Choose which active agents are shown on the homepage.
+                Choose which active agents are shown on the homepage
               </p>
             </div>
 
@@ -265,120 +326,60 @@ export function SettingsPage() {
               </div>
             ) : null}
 
-            <div className={styles.summaryRow}>
-              <div className={styles.summaryPill}>
-                {draftPreference.mode === "all" ? "Default: show all agents" : `Custom: ${selectedCount} selected`}
-              </div>
-              <div className={styles.summaryText}>
-                {totalAgentCount} active agent{totalAgentCount === 1 ? "" : "s"} available
-              </div>
-            </div>
+            <Input
+              type="search"
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              placeholder="Search agents..."
+              wrapperClassName={styles.searchField}
+              className={styles.searchInput}
+              startAction={<img className={styles.searchIcon} src={searchIcon} alt="" aria-hidden />}
+              startActionClassName={styles.searchStartAction}
+            />
 
-            <div className={styles.toolbar}>
-              <div className={styles.actionGroup}>
+            {agentsQuery.isLoading ? (
+              <div className={styles.emptyListState}>Loading agents...</div>
+            ) : agentsQuery.isError ? (
+              <div className={styles.errorBox} role="alert">
+                <span>Could not load agents. Please try again.</span>
                 <Button
-                  variant="default"
-                  onClick={resetToDefault}
-                  disabled={draftPreference.mode === "all" || agentsQuery.isLoading || statesQuery.isLoading}
+                  variant="minimal"
+                  className={styles.inlineAction}
+                  onClick={() => void agentsQuery.refetch()}
+                  disabled={agentsQuery.isFetching}
                 >
-                  Reset to default (show all)
+                  Retry
                 </Button>
               </div>
-            </div>
+            ) : sortedAgents.length === 0 ? (
+              <div className={styles.emptyListState}>No active agents available.</div>
+            ) : (
+              <>
+                <section className={styles.group} aria-labelledby="visible-homepage-agents-title">
+                  <header className={styles.groupHeader}>
+                    <h3 id="visible-homepage-agents-title" className={styles.groupTitle}>
+                      Visible Homepage Agents
+                    </h3>
+                    <p className={styles.groupMeta}>
+                      {selectedCount} visible agent{selectedCount === 1 ? "" : "s"} available
+                    </p>
+                  </header>
+                  {renderAgentList(visibleAgents, "visible")}
+                </section>
 
-            <div className={styles.listShell}>
-              {agentsQuery.isLoading ? (
-                <div className={styles.emptyState}>Loading agents...</div>
-              ) : agentsQuery.isError ? (
-                <div className={styles.errorBox} role="alert">
-                  <span>Could not load agents. Please try again.</span>
-                  <Button
-                    variant="minimal"
-                    className={styles.inlineAction}
-                    onClick={() => void agentsQuery.refetch()}
-                    disabled={agentsQuery.isFetching}
-                  >
-                    Retry
-                  </Button>
-                </div>
-              ) : sortedAgents.length === 0 ? (
-                <div className={styles.emptyState}>No active agents available.</div>
-              ) : (
-                <ul className={styles.agentList}>
-                  {sortedAgents.map((agent) => {
-                    const agentRef = getAgentRef(agent);
-                    const checked = draftPreference.mode === "all" || effectiveVisibleRefSet.has(agentRef);
-                    const description = agent.description?.trim() || "No description available.";
-                    const statusLabel = checked ? "Visible" : "Hidden";
-                    const tone = getAgentTone(agent);
-                    const placeholderCssVars = getPlaceholderCssVars(placeholderByAgentId[agent.id]);
-                    const placeholderGlyphStyle = getPlaceholderGlyphStyle(placeholderByAgentId[agent.id]);
-                    const shouldShowPlaceholder = !iconSrcByAgentId[agent.id] && Boolean(placeholderCssVars);
-
-                    return (
-                      <li key={agent.id} className={styles.agentRow}>
-                        <label
-                          className={joinClasses(
-                            styles.agentLabel,
-                            styles[`agentLabelTone${tone[0].toUpperCase()}${tone.slice(1)}`],
-                          )}
-                        >
-                          <span className={styles.selectCheckbox}>
-                            <input
-                              className={styles.selectCheckboxInput}
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleAgent(agentRef)}
-                              disabled={visibleAgentsPreference.isSavingPreference}
-                            />
-                            <span className={styles.selectCheckboxControl} aria-hidden />
-                          </span>
-                          <span className={styles.agentMeta}>
-                            <span className={styles.agentTopRow}>
-                              <span className={styles.agentIdentity}>
-                                <span
-                                  className={joinClasses(
-                                    styles.agentIconWrap,
-                                    shouldShowPlaceholder && styles.agentIconWrapPlaceholder,
-                                  )}
-                                  style={shouldShowPlaceholder ? placeholderCssVars : undefined}
-                                  aria-hidden
-                                >
-                                  {iconSrcByAgentId[agent.id] ? (
-                                    <img
-                                      className={styles.agentIconImage}
-                                      src={iconSrcByAgentId[agent.id]}
-                                      alt=""
-                                      loading="lazy"
-                                      onError={() => {
-                                        void onAgentIconError(agent.id);
-                                      }}
-                                    />
-                                  ) : shouldShowPlaceholder ? (
-                                    <span className={styles.agentPlaceholderGlyph} style={placeholderGlyphStyle} />
-                                  ) : (
-                                    <Bot size={12} />
-                                  )}
-                                </span>
-                                <span className={styles.agentName}>
-                                  {agent.namespace} / {agent.name}
-                                </span>
-                              </span>
-                              {agent.is_default ? <span className={styles.agentBadge}>Default</span> : null}
-                            </span>
-                            <span className={styles.agentRef}>{agentRef}</span>
-                            <span className={styles.agentDescription}>{description}</span>
-                          </span>
-                          <span className={checked ? styles.visibilityPillVisible : styles.visibilityPillHidden}>
-                            {statusLabel}
-                          </span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
+                <section className={styles.group} aria-labelledby="hidden-homepage-agents-title">
+                  <header className={styles.groupHeader}>
+                    <h3 id="hidden-homepage-agents-title" className={styles.groupTitle}>
+                      Hidden Homepage Agents
+                    </h3>
+                    <p className={styles.groupMeta}>
+                      {hiddenCount} hidden agent{hiddenCount === 1 ? "" : "s"}
+                    </p>
+                  </header>
+                  {renderAgentList(hiddenAgents, "hidden")}
+                </section>
+              </>
+            )}
 
             <div className={styles.footerActions}>
               <div className={styles.footerHint}>
@@ -388,7 +389,7 @@ export function SettingsPage() {
                     ? "You have unsaved changes."
                     : "Changes are saved."}
               </div>
-              <Button variant="primary" onClick={() => void save()} disabled={saveDisabled}>
+              <Button variant="primary" className={styles.saveButton} onClick={() => void save()} disabled={saveDisabled}>
                 {visibleAgentsPreference.isSavingPreference ? "Saving..." : "Save"}
               </Button>
             </div>
