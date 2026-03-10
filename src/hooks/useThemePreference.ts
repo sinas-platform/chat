@@ -161,9 +161,10 @@ export function useThemePreference() {
   }, [savePreferenceM.error, savePreferenceM.isError]);
 
   return {
+    canUsePreferencesState,
     statesQuery,
     preference,
-    hasStoredPreference: Boolean(preferenceState?.id),
+    hasStoredPreference: canUsePreferencesState && Boolean(preferenceState?.id),
     savePreference,
     isSavingPreference: savePreferenceM.isPending,
     resetSavePreferenceError: savePreferenceM.reset,

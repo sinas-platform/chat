@@ -50,7 +50,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [localTheme, setLocalThemeState] = useState<ThemeMode>(getInitialTheme);
 
   const persistedTheme =
-    themePreference.statesQuery.isSuccess && themePreference.hasStoredPreference
+    themePreference.canUsePreferencesState &&
+    themePreference.statesQuery.isSuccess &&
+    themePreference.hasStoredPreference
       ? themePreference.preference.theme
       : null;
   const theme: ThemeMode =
@@ -65,6 +67,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     themePreference.resetSavePreferenceError();
     setLocalThemeState(nextTheme);
     writeStoredTheme(nextTheme);
+
+    if (!themePreference.canUsePreferencesState) return;
 
     try {
       await themePreference.savePreference({

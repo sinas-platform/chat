@@ -3,6 +3,9 @@
   display: grid;
   place-items: center;
   padding: 24px;
+  background: var(--color-bg-auth, var(--color-bg-app));
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .card {

@@ -7,6 +7,7 @@
     radial-gradient(110% 86% at 92% 102%, rgba(233, 114, 3, 0.44) 0%, rgba(233, 114, 3, 0.2) 42%, rgba(233, 114, 3, 0) 74%),
     radial-gradient(60% 46% at 58% 88%, rgba(255, 199, 140, 0.52) 0%, rgba(255, 199, 140, 0) 80%),
     linear-gradient(180deg, #fffdf9 0%, #fff3e4 47%, #ffe1c1 100%);
+  --color-bg-auth: var(--color-bg-app);
   --color-bg-surface: #ffffff;
   --color-bg-surface-subtle: #f8f8f8;
   --color-bg-surface-muted: #f4f4f4;
@@ -103,6 +104,11 @@ html[data-theme="dark"] {
   --color-bg-app:
     radial-gradient(88% 68% at 18% -8%, rgba(78, 71, 65, 0.52) 0%, rgba(78, 71, 65, 0) 70%),
     linear-gradient(180deg, #2E2A26 0%, #2E2A26 100%);
+  --color-bg-auth:
+    radial-gradient(108% 78% at 78% 96%, rgba(255, 172, 64, 0.97) 0%, rgba(255, 123, 0, 0.9) 32%, rgba(125, 61, 0, 0.52) 58%, rgba(10, 10, 12, 0) 82%),
+    radial-gradient(124% 74% at 24% 116%, rgba(255, 123, 0, 0.62) 0%, rgba(125, 61, 0, 0.42) 42%, rgba(10, 10, 12, 0) 78%),
+    radial-gradient(82% 56% at 70% 80%, rgba(255, 123, 0, 0.24) 0%, rgba(255, 123, 0, 0) 70%),
+    linear-gradient(180deg, #05070b 0%, #0b0e14 36%, #171311 63%, #2E2A26 100%);
   --color-bg-surface: #2E2A26;
   --color-bg-surface-subtle: #4E4741;
   --color-bg-surface-muted: #4E4741;
