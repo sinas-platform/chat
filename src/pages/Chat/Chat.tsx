@@ -11,6 +11,7 @@ import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import SinasLoader from "../../components/Loader/Loader";
 import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
+import { useChatScrollBehavior } from "../../hooks/useChatScrollBehavior";
 import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { apiClient, type ChatStreamHandle } from "../../lib/api";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
@@ -52,8 +53,7 @@ type ChatMessagesProps = {
   assistantAvatarPlaceholder?: AgentPlaceholderMeta;
   onAssistantAvatarError?: () => void;
   messagesContainerRef?: RefObject<HTMLDivElement | null>;
-  messagesEndRef?: RefObject<HTMLDivElement | null>;
-  onLatestUserMessageRef?: (node: HTMLDivElement | null) => void;
+  onLastUserMessageRef?: (node: HTMLDivElement | null) => void;
 };
 
 type RenderedMessageAttachment = {
@@ -97,6 +97,8 @@ const UNSUPPORTED_AUDIO_ERROR = "Unsupported audio format. Please use WAV, MP3, 
 const SUPPORTED_AUDIO_FORMATS = new Set<AudioAttachmentFormat>(["wav", "mp3", "m4a", "ogg"]);
 const CHAT_ATTACHMENT_ACCEPT = "image/*,.pdf,.doc,.docx,.txt";
 const TOOL_RUN_AUTO_REMOVE_MS = 3000;
+const CHAT_SCROLL_TOP_OFFSET = 16;
+const CHAT_NEAR_BOTTOM_THRESHOLD = 72;
 
 type PendingChatAttachment =
   | {
@@ -792,8 +794,7 @@ const ChatMessages = memo(function ChatMessages({
   assistantAvatarPlaceholder,
   onAssistantAvatarError,
   messagesContainerRef,
-  messagesEndRef,
-  onLatestUserMessageRef,
+  onLastUserMessageRef,
 }: ChatMessagesProps) {
   const lastMessage = messages[messages.length - 1];
   const latestUserMessageIndex = [...messages].map((message) => message.role).lastIndexOf("user");
@@ -842,7 +843,7 @@ const ChatMessages = memo(function ChatMessages({
               assistantAvatarSrc={assistantAvatarSrc}
               assistantAvatarPlaceholder={assistantAvatarPlaceholder}
               onAssistantAvatarError={onAssistantAvatarError}
-              rowRef={index === latestUserMessageIndex ? onLatestUserMessageRef : undefined}
+              rowRef={index === latestUserMessageIndex ? onLastUserMessageRef : undefined}
             />
           );
         })
@@ -891,7 +892,6 @@ const ChatMessages = memo(function ChatMessages({
         />
       ) : null}
 
-      <div ref={messagesEndRef} aria-hidden="true" />
     </div>
   );
 });
@@ -903,9 +903,7 @@ export function ChatPage() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const latestUserMessageRef = useRef<HTMLDivElement | null>(null);
-  const shouldPinLatestUserMessageRef = useRef(false);
+  const lastUserMessageRef = useRef<HTMLDivElement | null>(null);
 
   const initialDraft = useMemo(() => {
     const state = location.state as LocationState | null;
@@ -1014,6 +1012,22 @@ export function ChatPage() {
     if (latestRunning?.description) return latestRunning.description;
     return "Thinking...";
   }, [toolRuns]);
+  const userMessageCount = useMemo(() => messages.filter((message) => message.role === "user").length, [messages]);
+  const hasRunningTool = useMemo(() => toolRuns.some((tool) => tool.status === "running"), [toolRuns]);
+  const hasPendingApproval = pendingApprovals.length > 0;
+  const { requestPinLatestUserMessage } = useChatScrollBehavior({
+    chatId,
+    scrollContainerRef: messagesContainerRef,
+    lastUserMessageRef,
+    messageCount: messages.length,
+    userMessageCount,
+    isStreaming,
+    streamingContentLength: streamingContent.length,
+    hasRunningTool,
+    hasPendingApproval,
+    topOffset: CHAT_SCROLL_TOP_OFFSET,
+    nearBottomThreshold: CHAT_NEAR_BOTTOM_THRESHOLD,
+  });
 
   const chatTitle = useMemo(() => {
     const rawTitle = chatData?.title;
@@ -1295,25 +1309,6 @@ export function ChatPage() {
     streamHandleRef.current?.abort();
   }
 
-  function scrollLatestUserMessageToTop() {
-    const container = messagesContainerRef.current;
-    const latestUserMessage = latestUserMessageRef.current;
-    if (!container || !latestUserMessage) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const messageRect = latestUserMessage.getBoundingClientRect();
-    const nextScrollTop = container.scrollTop + (messageRect.top - containerRect.top) - 8;
-
-    container.scrollTo({
-      top: Math.max(0, nextScrollTop),
-      behavior: "auto",
-    });
-  }
-
-  function scrollToBottom(behavior: ScrollBehavior = "auto") {
-    messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
-  }
-
   const sendMsgM = useMutation({
     mutationFn: async (vars: SendMessageVariables) => {
       if (!chatId) throw new Error("Missing chatId");
@@ -1399,30 +1394,6 @@ export function ChatPage() {
     setProcessingApproval(null);
   }, [chatId]);
 
-  useEffect(() => {
-    if (!shouldPinLatestUserMessageRef.current) return;
-
-    const frameId = window.requestAnimationFrame(() => {
-      scrollLatestUserMessageToTop();
-      shouldPinLatestUserMessageRef.current = false;
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [messages]);
-
-  useEffect(() => {
-    const hasRunningTool = toolRuns.some((tool) => tool.status === "running");
-    const hasPendingApproval = pendingApprovals.length > 0;
-    const shouldAutoScroll = isStreaming || streamingContent.length > 0 || hasRunningTool || hasPendingApproval;
-    if (!shouldAutoScroll) return;
-
-    const frameId = window.requestAnimationFrame(() => {
-      scrollToBottom("auto");
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [isStreaming, streamingContent, toolRuns, pendingApprovals]);
-
   // Auto-send initial draft once
   useEffect(() => {
     if (!chatId) return;
@@ -1437,7 +1408,7 @@ export function ChatPage() {
     sentInitialDraftRef.current[chatId] = true;
 
     const ts = Date.now();
-    shouldPinLatestUserMessageRef.current = true;
+    requestPinLatestUserMessage();
     sendMsgM.mutate({
       content:
         initialAttachments.length > 0
@@ -1453,7 +1424,7 @@ export function ChatPage() {
           : initialDraft,
       userTempId: `tmp-user-${ts}`,
     });
-  }, [chatId, initialDraft, initialAttachments, chatQ.isLoading, chatQ.isError, hasUserMessages, sendMsgM]);
+  }, [chatId, initialDraft, initialAttachments, chatQ.isLoading, chatQ.isError, hasUserMessages, requestPinLatestUserMessage, sendMsgM]);
 
   async function addAttachment(file: File) {
     if (!chatId || isUploadingAttachment || sendMsgM.isPending || isStreaming || pendingApprovals.length > 0) return;
@@ -1540,7 +1511,7 @@ export function ChatPage() {
           ];
 
     const ts = Date.now();
-    shouldPinLatestUserMessageRef.current = true;
+    requestPinLatestUserMessage();
     sendMsgM.mutate({
       content,
       userTempId: `tmp-user-${ts}`,
@@ -1590,9 +1561,8 @@ export function ChatPage() {
             assistantAvatarPlaceholder={assistantAvatarPlaceholder}
             onAssistantAvatarError={onAssistantAvatarError}
             messagesContainerRef={messagesContainerRef}
-            messagesEndRef={messagesEndRef}
-            onLatestUserMessageRef={(node) => {
-              latestUserMessageRef.current = node;
+            onLastUserMessageRef={(node) => {
+              lastUserMessageRef.current = node;
             }}
           />
 
