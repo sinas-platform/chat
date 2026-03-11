@@ -11,7 +11,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className={styles.loadingState} role="status" aria-live="polite">
-        <SinasLoader size={32} />
+        <SinasLoader size={88} />
         <span className={styles.loadingText}>Checking your session...</span>
       </div>
     );
