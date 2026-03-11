@@ -189,6 +189,16 @@
   width: 18px;
   height: 18px;
   display: block;
+  color: var(--color-text-primary);
+
+  path {
+    stroke: currentColor;
+  }
+}
+
+:global(html[data-theme="dark"]) .attachmentIcon,
+:global(html[data-theme="dark"]) .micIcon {
+  color: #fff;
 }
 
 @media (prefers-reduced-motion: reduce) {

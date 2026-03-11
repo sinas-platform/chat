@@ -16,10 +16,10 @@ import {
 
 import sinasLogo from "../../icons/sinas-logo.svg";
 import sinasLogoWhite from "../../icons/sinas-logo-white.svg";
-import plusIcon from "../../icons/plus.svg";
-import linkIcon from "../../icons/link.svg";
-import settingsIcon from "../../icons/settings.svg";
-import logoutIcon from "../../icons/logout.svg";
+import PlusIcon from "../../icons/plus.svg?react";
+import LinkIcon from "../../icons/link.svg?react";
+import SettingsIcon from "../../icons/settings.svg?react";
+import LogoutIcon from "../../icons/logout.svg?react";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { apiClient } from "../../lib/api";
 import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
@@ -278,7 +278,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
           className={styles.newChatBtn}
           onClick={onCreateNewChat}
         >
-          <img className={styles.newChatIcon} src={plusIcon} alt="" aria-hidden />
+          <PlusIcon className={styles.newChatIcon} aria-hidden />
           <span>New chat</span>
         </Button>
 
@@ -322,7 +322,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
           className={styles.allChatsBtn}
           onClick={() => navigate("/chats")}
         >
-          <img className={styles.allChatsIcon} src={linkIcon} alt="" aria-hidden />
+          <LinkIcon className={styles.allChatsIcon} aria-hidden />
           <span>All chats</span>
         </Button>
 
@@ -334,7 +334,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
           className={styles.settingsBtn}
           onClick={() => navigate("/settings")}
         >
-          <img className={styles.settingsIcon} src={settingsIcon} alt="" aria-hidden />
+          <SettingsIcon className={styles.settingsIcon} aria-hidden />
           <span>Settings</span>
         </Button>
 
@@ -348,7 +348,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
             disabled={isLoggingOut}
             aria-label="Log out"
           >
-            <img className={styles.logoutIcon} src={logoutIcon} alt="" aria-hidden />
+            <LogoutIcon className={styles.logoutIcon} aria-hidden />
           </Button>
           {isLogoutTooltipOpen ? (
             <FloatingPortal>

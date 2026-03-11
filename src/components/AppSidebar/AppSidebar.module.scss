@@ -59,6 +59,12 @@
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
+  display: block;
+  color: var(--color-text-primary);
+
+  path {
+    stroke: currentColor;
+  }
 }
 
 .sidebarSectionTitle {
@@ -104,7 +110,7 @@
 .chatAgentIconWrap {
   width: 18px;
   height: 18px;
-  color: var(--agent-icon-color, var(--color-text-primary));
+  color: var(--agent-icon-color, var(--color-palette-violet));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -112,13 +118,13 @@
 }
 
 .chatAgentIconWrapPlaceholder {
-  color: var(--agent-icon-color, var(--color-text-primary));
+  color: var(--agent-icon-color, var(--color-palette-violet));
 }
 
 .chatAgentPlaceholderGlyph {
   width: 18px;
   height: 18px;
-  background: var(--agent-icon-color);
+  background: var(--agent-icon-color, var(--color-palette-violet));
   display: block;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
@@ -188,6 +194,12 @@
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
+  display: block;
+  color: var(--color-text-primary);
+
+  path {
+    stroke: currentColor;
+  }
 }
 
 .sidebarBottom {
@@ -223,6 +235,12 @@
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
+  display: block;
+  color: var(--color-text-primary);
+
+  path {
+    stroke: currentColor;
+  }
 }
 
 .userRow {
@@ -247,6 +265,19 @@
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
+  display: block;
+  color: var(--color-text-primary);
+
+  path {
+    stroke: currentColor;
+  }
+}
+
+:global(html[data-theme="dark"]) .newChatIcon,
+:global(html[data-theme="dark"]) .allChatsIcon,
+:global(html[data-theme="dark"]) .settingsIcon,
+:global(html[data-theme="dark"]) .logoutIcon {
+  color: #fff;
 }
 
 .iconTooltip {

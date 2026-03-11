@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent } from "react";
 
-import attachmentIcon from "../../icons/attachment.svg";
-import microphoneIcon from "../../icons/microphone.svg";
+import AttachmentIcon from "../../icons/attachment.svg?react";
+import MicrophoneIcon from "../../icons/microphone.svg?react";
 import type { ChatAttachment } from "../../lib/files/types";
 import { useSpeechToText } from "../../lib/useSpeechToText";
 import { AttachmentChip } from "../AttachmentChip/AttachmentChip";
@@ -288,7 +288,7 @@ export function ChatComposer({
             aria-label="Attach file"
             title="Attach file"
           >
-            <img className={styles.attachmentIcon} src={attachmentIcon} alt="" aria-hidden />
+            <AttachmentIcon className={styles.attachmentIcon} aria-hidden />
           </button>
         </>
       ) : null}
@@ -326,7 +326,7 @@ export function ChatComposer({
               : "Voice input is not supported in this browser"
           }
         >
-          <img className={styles.micIcon} src={microphoneIcon} alt="" aria-hidden />
+          <MicrophoneIcon className={styles.micIcon} aria-hidden />
         </button>
       )}
     </form>

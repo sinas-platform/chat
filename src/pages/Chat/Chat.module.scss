@@ -86,17 +86,14 @@
   background: transparent;
   padding: 0;
   flex: 0 0 48px;
-  color: var(--agent-icon-color, var(--color-text-primary));
+  color: var(--agent-icon-color, var(--color-palette-violet));
   position: relative;
   isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  --assistant-avatar-ring-color: #7f3fd9;
-  --assistant-avatar-ring-soft-color: var(
-    --agent-icon-soft-color,
-    color-mix(in srgb, var(--assistant-avatar-ring-color) 24%, white)
-  );
+  --assistant-avatar-ring-color: var(--agent-icon-color, var(--color-palette-violet));
+  --assistant-avatar-ring-soft-color: var(--agent-icon-soft-color, var(--color-palette-violet-soft));
   --assistant-avatar-ring-color-fade: color-mix(in srgb, var(--assistant-avatar-ring-color) 22%, transparent);
   --assistant-avatar-pulse-color: var(--assistant-avatar-ring-color);
 
@@ -140,11 +137,11 @@
 }
 
 .assistantAvatarPlaceholder {
-  --assistant-avatar-ring-color: var(--agent-icon-color);
+  --assistant-avatar-ring-color: var(--agent-icon-color, var(--color-palette-violet));
 }
 
 .assistantAvatarCustomIcon {
-  --assistant-avatar-ring-color: var(--agent-icon-color);
+  --assistant-avatar-ring-color: var(--agent-icon-color, var(--color-palette-violet));
 }
 
 .assistantAvatarImage {
@@ -158,7 +155,7 @@
 .assistantAvatarPlaceholderGlyph {
   width: 24px;
   height: 24px;
-  background: var(--agent-icon-color);
+  background: var(--agent-icon-color, var(--color-palette-violet));
   display: block;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;

@@ -360,8 +360,8 @@
   font-size: 12px;
   font-weight: 400;
   line-height: 1;
-  color: var(--agent-icon-color, var(--color-text-primary));
-  background: var(--agent-icon-soft-color, var(--color-badge-bg));
+  color: var(--agent-icon-color, var(--color-palette-violet));
+  background: var(--agent-icon-soft-color, var(--color-palette-violet-soft));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -373,7 +373,7 @@
     content: "";
     width: 14px;
     height: 14px;
-    background: var(--agent-icon-color, currentColor);
+    background: var(--agent-icon-color, var(--color-palette-violet));
     display: inline-block;
     -webkit-mask-image: var(--agent-badge-icon, url("../../icons/agentsPlaceholders/sparkle.svg"));
     mask-image: var(--agent-badge-icon, url("../../icons/agentsPlaceholders/sparkle.svg"));

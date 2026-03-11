@@ -82,20 +82,20 @@
 }
 
 .heroIconWrapPlaceholder {
-  background: var(--color-palette-white);
+  background: transparent;
   border-color: transparent;
-  --hero-pulse-color: var(--agent-icon-color);
+  --hero-pulse-color: var(--agent-icon-color, var(--color-palette-violet));
 }
 
 .heroIconWrapCustomIcon {
   border-color: transparent;
-  --hero-pulse-color: var(--agent-icon-color);
+  --hero-pulse-color: var(--agent-icon-color, var(--color-palette-violet));
 }
 
 .heroPlaceholderGlyph {
   width: 32px;
   height: 32px;
-  background: var(--agent-icon-color);
+  background: var(--agent-icon-color, var(--color-palette-violet));
   display: block;
   position: relative;
   z-index: 1;
@@ -318,9 +318,6 @@
 }
 
 :global(html[data-theme="dark"]) .agentCard:hover {
-  background:
-    linear-gradient(180deg, rgba(64, 54, 42, 0.64) 0%, rgba(50, 46, 40, 0.54) 100%) padding-box,
-    linear-gradient(135deg, rgba(180, 162, 96, 0.54) 0%, rgba(120, 108, 76, 0.45) 40%, rgba(90, 82, 72, 0.60) 100%) border-box;
   box-shadow: 0 4px 4px 0 rgba(125, 61, 0, 0.60);
 }
 
@@ -365,7 +362,7 @@
 .agentIconWrap {
   width: 28px;
   height: 28px;
-  color: var(--agent-icon-color, var(--color-text-primary));
+  color: var(--agent-icon-color, var(--color-palette-violet));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -373,14 +370,14 @@
 }
 
 .agentIconWrapPlaceholder {
-  color: var(--agent-icon-color, var(--color-text-primary));
+  color: var(--agent-icon-color, var(--color-palette-violet));
   height: fit-content;
 }
 
 .agentPlaceholderGlyph {
   width: 20px;
   height: 20px;
-  background: var(--agent-icon-color);
+  background: var(--agent-icon-color, var(--color-palette-violet));
   display: block;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
@@ -411,11 +408,11 @@
   justify-content: center;
   height: 17px;
   font-size: 12px;
-  color: var(--agent-icon-color, var(--color-text-primary));
+  color: var(--agent-icon-color, var(--color-palette-violet));
   border-radius: 100px;
   padding: 0 8px;
   border: none;
-  background: var(--agent-icon-soft-color, var(--color-badge-bg));
+  background: var(--agent-icon-soft-color, var(--color-palette-violet-soft));
 }
 
 .agentDescription {

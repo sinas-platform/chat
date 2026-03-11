@@ -220,7 +220,7 @@
 .agentIcon {
   width: 20px;
   height: 20px;
-  color: var(--agent-icon-color, var(--color-text-primary));
+  color: var(--agent-icon-color, var(--color-palette-violet));
   flex: 0 0 auto;
 }
 
@@ -231,7 +231,7 @@
 .agentPlaceholderGlyph {
   width: 20px;
   height: 20px;
-  color: var(--agent-icon-color, var(--color-text-primary));
+  color: var(--agent-icon-color, var(--color-palette-violet));
   background: currentColor;
   display: block;
   flex: 0 0 auto;
@@ -289,9 +289,9 @@
 .agentTag {
   flex: 0 0 auto;
   border-radius: 999px;
-  border: 1px solid var(--agent-icon-soft-color, var(--color-border-default));
-  background: var(--agent-icon-soft-color, #e3f2b6);
-  color: var(--agent-icon-color, #6f8c12);
+  border: 1px solid var(--agent-icon-soft-color, var(--color-palette-violet-soft));
+  background: var(--agent-icon-soft-color, var(--color-palette-violet-soft));
+  color: var(--agent-icon-color, var(--color-palette-violet));
   padding: 2px 8px;
   font-size: 12px;
   line-height: 1;
