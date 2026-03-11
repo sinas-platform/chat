@@ -282,6 +282,22 @@
   border: none;
 }
 
+.agentSortMenu {
+  border: 1px solid #d8d2cc;
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(56, 45, 34, 0.12);
+  min-width: 190px;
+
+  button {
+    background: #fcfbfa;
+    color: #443b34;
+
+    &:hover {
+      background: #f3efea;
+    }
+  }
+}
+
 :global(html[data-theme="dark"]) .agentSearchField {
   background: rgba(46, 42, 38, 0.80);
   --input-bg: rgba(46, 42, 38, 0.80);
@@ -293,6 +309,20 @@
 
 :global(html[data-theme="dark"]) .agentSortTrigger {
   background: rgba(46, 42, 38, 0.80);
+}
+
+:global(html[data-theme="dark"]) .agentSortMenu {
+  background: #2E2A26;
+  border: 1px solid #7E746B;
+
+  button {
+    background: #2E2A26;
+    color: var(--color-text-primary);
+
+    &:hover {
+      background: #4E4741;
+    }
+  }
 }
 
 .agentSortIcon {

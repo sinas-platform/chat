@@ -623,6 +623,7 @@ export default function HomePage() {
                   triggerAriaLabel="Sort agents"
                   variant="text"
                   triggerClassName={styles.agentSortTrigger}
+                  menuClassName={styles.agentSortMenu}
                   items={[
                     {
                       id: "sort-alphabetical",

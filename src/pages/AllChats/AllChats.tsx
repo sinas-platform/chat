@@ -9,13 +9,12 @@ import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { Input } from "../../components/Input/Input";
 import SinasLoader from "../../components/Loader/Loader";
 import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
-import clockIcon from "../../icons/clock.svg";
-import crossIcon from "../../icons/cross.svg";
-import pencilIcon from "../../icons/pencil.svg";
+import ClockIcon from "../../icons/clock.svg?react";
+import CrossIcon from "../../icons/cross.svg?react";
+import PencilIcon from "../../icons/pencil.svg?react";
 import SearchIcon from "../../icons/search.svg?react";
-import threeDotsIcon from "../../icons/three-dots.svg";
+import ThreeDotsIcon from "../../icons/three-dots.svg?react";
 import TrashIcon from "../../icons/trash.svg?react";
-import trashIconSrc from "../../icons/trash.svg";
 import { apiClient } from "../../lib/api";
 import { buildAgentPlaceholderMetaById } from "../../lib/agentPlaceholders";
 import { getApplicationId, getWorkspaceUrl } from "../../lib/workspace";
@@ -440,7 +439,7 @@ export function AllChatsPage() {
                           disabled={renameChatM.isPending || deleteChatsM.isPending}
                           aria-label="Delete selected chats"
                         >
-                          <img className={styles.selectActionIcon} src={trashIconSrc} alt="" aria-hidden />
+                          <TrashIcon className={styles.selectActionIcon} aria-hidden />
                         </Button>
                       ) : null}
                       <Button
@@ -556,13 +555,13 @@ export function AllChatsPage() {
                     </span>
 
                     <span className={styles.chatTime}>
-                      <img className={styles.chatTimeIcon} src={clockIcon} alt="" aria-hidden />
+                      <ClockIcon className={styles.chatTimeIcon} aria-hidden />
                       {formatTimeAgo(chat.updated_at ?? chat.created_at)}
                     </span>
 
                     {!isSelectMode ? (
                       <DropdownMenu
-                        trigger={<img className={styles.rowMenuIcon} src={threeDotsIcon} alt="" aria-hidden />}
+                        trigger={<ThreeDotsIcon className={styles.rowMenuIcon} aria-hidden />}
                         triggerAriaLabel="Open chat actions"
                         variant="icon"
                         triggerClassName={styles.rowMenuTrigger}
@@ -572,7 +571,7 @@ export function AllChatsPage() {
                             id: "rename",
                             label: (
                               <span className={styles.actionMenuLabel}>
-                                <img className={styles.actionMenuIcon} src={pencilIcon} alt="" aria-hidden />
+                                <PencilIcon className={styles.actionMenuIcon} aria-hidden />
                                 <span>Change title</span>
                               </span>
                             ),
@@ -583,7 +582,7 @@ export function AllChatsPage() {
                             id: "delete",
                             label: (
                               <span className={styles.actionMenuLabel}>
-                                <img className={styles.actionMenuIcon} src={trashIconSrc} alt="" aria-hidden />
+                                <TrashIcon className={styles.actionMenuIcon} aria-hidden />
                                 <span>Delete</span>
                               </span>
                             ),
@@ -622,7 +621,7 @@ export function AllChatsPage() {
                 disabled={renameChatM.isPending || deleteChatsM.isPending}
                 aria-label="Close"
               >
-                <img src={crossIcon} width={24} height={24} alt="" aria-hidden />
+                <CrossIcon className={styles.renameModalCloseIcon} aria-hidden />
               </Button>
             </div>
 
@@ -674,6 +673,7 @@ export function AllChatsPage() {
             </div>
             <div className={styles.modalActions}>
               <Button
+                className={styles.cancelButton}
                 onClick={() => setDeleteDialog(null)}
                 disabled={renameChatM.isPending || deleteChatsM.isPending}
               >

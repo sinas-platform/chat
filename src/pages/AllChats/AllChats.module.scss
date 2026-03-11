@@ -32,7 +32,7 @@
   --input-border-color: var(--color-border-default);
   --input-border-radius: 12px;
   --input-min-height: 32px;
-  --input-bg: rgba(255, 255, 255, 0.60);
+  --input-bg: transparent;
   --input-padding: 0 12px 0 8px;
   --input-font-size: 14px;
   --input-text-color: var(--color-text-primary);
@@ -103,6 +103,11 @@
   width: 20px;
   height: 20px;
   display: block;
+  color: inherit;
+
+  path {
+    stroke: currentColor;
+  }
 }
 
 .selectIconActions {
@@ -175,6 +180,20 @@
   }
 }
 
+:global(html[data-theme="dark"]) .filterMenu {
+  background: #2E2A26;
+  border: 1px solid #7E746B;
+
+  button {
+    background: #2E2A26;
+    color: var(--color-text-primary);
+
+    &:hover {
+      background: #4E4741;
+    }
+  }
+}
+
 .filterLabel {
   max-width: 180px;
   overflow: hidden;
@@ -195,6 +214,11 @@
   width: 16px;
   height: 16px;
   display: block;
+  color: inherit;
+
+  path {
+    stroke: currentColor;
+  }
 }
 
 .list {
@@ -307,6 +331,30 @@
   background-image: url("../../icons/minus.svg");
 }
 
+:global(html[data-theme="dark"]) .selectCheckboxControl {
+  background: #2E2A26;
+  border-color: #FFFFFF;
+}
+
+:global(html[data-theme="dark"]) .selectCheckboxInput:hover + .selectCheckboxControl,
+:global(html[data-theme="dark"]) .selectCheckboxInput:focus-visible + .selectCheckboxControl {
+  border-color: #FFFFFF;
+}
+
+:global(html[data-theme="dark"]) .selectCheckboxInput:focus-visible + .selectCheckboxControl {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+:global(html[data-theme="dark"]) .selectCheckboxInput:checked + .selectCheckboxControl,
+:global(html[data-theme="dark"]) .selectCheckboxInput:indeterminate + .selectCheckboxControl {
+  background: #E97203;
+  border-color: #E97203;
+}
+
+:global(html[data-theme="dark"]) .selectIconAction {
+  color: #FFFFFF;
+}
+
 .chatMain {
   flex: 1;
   min-width: 0;
@@ -316,8 +364,9 @@
   justify-content: flex-start;
   min-height: 48px;
 
-  &:hover {
-    background-color: transparent;
+  &:hover,
+  &:not(:disabled):hover {
+    background-color: transparent !important;
   }
 }
 
@@ -335,6 +384,11 @@
     background: #FFEAD6;
     padding: 0 2px;
   }
+}
+
+:global(html[data-theme="dark"]) .chatTitle mark {
+  background: #7D3D00;
+  color: #FFFFFF;
 }
 
 .chatMeta {
@@ -360,6 +414,11 @@
   width: 12px;
   height: 12px;
   display: block;
+  color: inherit;
+
+  path {
+    stroke: currentColor;
+  }
 }
 
 .agentBadge {
@@ -413,6 +472,11 @@
   width: 20px;
   height: 20px;
   display: block;
+  color: inherit;
+
+  path {
+    stroke: currentColor;
+  }
 }
 
 .rowMenu {
@@ -427,6 +491,23 @@
       background: var(--color-hover-beige);
     }
   }
+}
+
+:global(html[data-theme="dark"]) .chatTime {
+  color: #E4DED8;
+}
+
+:global(html[data-theme="dark"]) .rowMenuTrigger {
+  color: #FFFFFF;
+
+  &:hover {
+    background: #4E4741;
+    color: #FFFFFF;
+  }
+}
+
+:global(html[data-theme="dark"]) .rowMenu .actionMenuIcon {
+  color: #E4DED8;
 }
 
 .loadingState {
@@ -467,11 +548,12 @@
 }
 
 .renameModalPanel {
+  --rename-modal-panel-bg: #fff;
   position: relative;
   width: 596px;
   max-width: calc(100vw - 32px);
   margin: 12vh auto 0;
-  background: #fff;
+  background: var(--rename-modal-panel-bg);
   border-radius: 32px;
   border: 2px solid var(--color-border-default);
   padding: 48px;
@@ -501,9 +583,24 @@
   border: none;
   background: transparent;
   padding: 0;
-  width: 24px;
-  height: 24px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--color-text-primary);
+}
+
+.renameModalCloseIcon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  color: currentColor;
+
+  path {
+    stroke: currentColor;
+  }
 }
 
 .renameModalField {
@@ -517,6 +614,7 @@
 }
 
 .renameModalInputAction {
+  --rename-input-action-hover-bg: var(--color-text-primary);
   border: none;
   background: transparent;
   color: var(--color-text-primary);
@@ -530,7 +628,7 @@
     bottom: -1px;
     left: -1px;
     right: -1px;
-    background-color: #4a4540;
+    background-color: var(--rename-input-action-hover-bg);
     border-radius: inherit;
     z-index: 0;
     opacity: 0;
@@ -561,6 +659,42 @@
     color: var(--color-text-primary);
     border-radius: 0 11px 11px 0;
   }
+}
+
+:global(html[data-theme="dark"]) .renameModalBackdrop {
+  background: var(--color-dim-overlay);
+}
+
+:global(html[data-theme="dark"]) .renameModalPanel {
+  --rename-modal-panel-bg: #2E2A26;
+  background: var(--rename-modal-panel-bg);
+  border: none;
+}
+
+:global(html[data-theme="dark"]) .renameModalPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: var(--Border-black, linear-gradient(107deg, rgba(126, 116, 107, 0.8) 2.39%, rgba(78, 71, 65, 0.8) 97.89%));
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+:global(html[data-theme="dark"]) .renameModalPanel > * {
+  position: relative;
+}
+
+:global(html[data-theme="dark"]) .renameModalCloseButton {
+  color: #fff;
+}
+
+:global(html[data-theme="dark"]) .renameModalInputAction {
+  --rename-input-action-hover-bg: var(--color-accent);
 }
 
 .modalBackdrop {
@@ -612,6 +746,11 @@
   gap: 10px;
 }
 
+.cancelButton {
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
 .dangerButton {
   border-color: var(--color-text-primary);
   background: var(--color-text-primary);
@@ -642,6 +781,76 @@
     stroke: currentColor;
     transition: stroke 120ms ease;
   }
+}
+
+:global(html[data-theme="dark"]) .modalBackdrop {
+  background: var(--color-dim-overlay);
+}
+
+:global(html[data-theme="dark"]) .modalPanel {
+  --delete-modal-panel-bg: #2E2A26;
+  background: var(--delete-modal-panel-bg);
+  border: none;
+  box-shadow: var(--color-shadow-soft);
+}
+
+:global(html[data-theme="dark"]) .modalPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: var(--Border-black, linear-gradient(107deg, rgba(126, 116, 107, 0.8) 2.39%, rgba(78, 71, 65, 0.8) 97.89%));
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+:global(html[data-theme="dark"]) .modalPanel > * {
+  position: relative;
+}
+
+:global(html[data-theme="dark"]) .modalTitle {
+  color: var(--color-text-primary);
+}
+
+:global(html[data-theme="dark"]) .modalSubTitle {
+  color: var(--color-text-secondary);
+}
+
+:global(html[data-theme="dark"]) .cancelButton {
+  background: #2E2A26;
+  border-color: #7E746B;
+  color: var(--color-text-primary);
+
+  &:not(:disabled):hover {
+    background: #4E4741;
+    border-color: #7E746B;
+  }
+}
+
+:global(html[data-theme="dark"]) .dangerButton {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+
+  &:disabled {
+    border-color: #7E746B;
+    background: #4E4741;
+    color: #ADA59C;
+  }
+
+  &:not(:disabled):hover {
+    background: #E97203;
+    border-color: #E97203;
+    color: var(--color-text-primary);
+  }
+}
+
+:global(html[data-theme="dark"]) .dangerButtonIcon {
+  color: #FFFFFF;
 }
 
 @media (max-width: 1260px) {
