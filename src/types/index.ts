@@ -107,9 +107,13 @@ export interface ToolApprovalResponse {
   message?: string;
 }
 
-export interface RuntimeStateRecord<TValue = unknown> {
-  id: string;
-  namespace: string;
+export interface PreferenceStateRecord<TValue = unknown> {
+  id?: string;
+  user_id?: string | null;
+  namespace?: string;
+  store_id?: string;
+  store_namespace?: string;
+  store_name?: string;
   key: string;
   value: TValue;
   visibility: string;
@@ -121,12 +125,7 @@ export interface RuntimeStateRecord<TValue = unknown> {
   updated_at?: string;
 }
 
-export interface ListStatesParams {
-  namespace?: string;
-}
-
-export interface CreateStateRequest<TValue = unknown> {
-  namespace: string;
+export interface CreatePreferenceStateRequest<TValue = unknown> {
   key: string;
   value: TValue;
   visibility: string;
@@ -136,7 +135,8 @@ export interface CreateStateRequest<TValue = unknown> {
   expires_at?: string | null;
 }
 
-export interface UpdateStateRequest<TValue = unknown> {
+export interface UpdatePreferenceStateRequest<TValue = unknown> {
+  key?: string;
   value?: TValue;
   visibility?: string;
   description?: string | null;
@@ -144,6 +144,9 @@ export interface UpdateStateRequest<TValue = unknown> {
   relevance_score?: number | null;
   expires_at?: string | null;
 }
+
+// Backwards-compatible alias for existing imports in the codebase.
+export type RuntimeStateRecord<TValue = unknown> = PreferenceStateRecord<TValue>;
   
 export interface AgentResponse {
     id: string;

@@ -9,20 +9,19 @@ import type {
   Chat,
   ChatCreate,
   ChatWithMessages,
-  CreateStateRequest,
-  ListStatesParams,
+  CreatePreferenceStateRequest,
   LoginRequest,
   LoginResponse,
   Message,
   MessageSendRequest,
   OTPVerifyRequest,
   OTPVerifyResponse,
-  RuntimeStateRecord,
+  PreferenceStateRecord,
   ToolApprovalRequest,
   ToolApprovalResponse,
   ToolEndEvent,
   ToolStartEvent,
-  UpdateStateRequest,
+  UpdatePreferenceStateRequest,
   User,
 } from "../types";
 
@@ -875,32 +874,32 @@ class APIClient {
   }
 
   // --------------------
-  // States (runtime)
+  // Preference states
   // --------------------
-  async listStates<TValue = unknown>(params: ListStatesParams = {}): Promise<Array<RuntimeStateRecord<TValue>>> {
-    const res = await this.client.get("/states", {
-      params: params.namespace ? { namespace: params.namespace } : undefined,
-    });
-    return res.data as Array<RuntimeStateRecord<TValue>>;
+  async listPreferenceStates<TValue = unknown>(): Promise<Array<PreferenceStateRecord<TValue>>> {
+    const res = await this.client.get("/stores/default/preferences/states");
+    return res.data as Array<PreferenceStateRecord<TValue>>;
   }
 
-  async createState<TValue = unknown>(payload: CreateStateRequest<TValue>): Promise<RuntimeStateRecord<TValue>> {
-    const res = await this.client.post("/states", payload);
-    return res.data as RuntimeStateRecord<TValue>;
+  async createPreferenceState<TValue = unknown>(
+    payload: CreatePreferenceStateRequest<TValue>
+  ): Promise<PreferenceStateRecord<TValue>> {
+    const res = await this.client.post("/stores/default/preferences/states", payload);
+    return res.data as PreferenceStateRecord<TValue>;
   }
 
-  async updateState<TValue = unknown>(
-    stateId: string,
-    payload: UpdateStateRequest<TValue>
-  ): Promise<RuntimeStateRecord<TValue>> {
-    const encodedStateId = encodeURIComponent(stateId);
-    const res = await this.client.put(`/states/${encodedStateId}`, payload);
-    return res.data as RuntimeStateRecord<TValue>;
+  async updatePreferenceState<TValue = unknown>(
+    key: string,
+    payload: UpdatePreferenceStateRequest<TValue>
+  ): Promise<PreferenceStateRecord<TValue>> {
+    const encodedKey = encodeURIComponent(key);
+    const res = await this.client.put(`/stores/default/preferences/states/${encodedKey}`, payload);
+    return res.data as PreferenceStateRecord<TValue>;
   }
 
-  async deleteState(stateId: string): Promise<void> {
-    const encodedStateId = encodeURIComponent(stateId);
-    await this.client.delete(`/states/${encodedStateId}`);
+  async deletePreferenceState(key: string): Promise<void> {
+    const encodedKey = encodeURIComponent(key);
+    await this.client.delete(`/stores/default/preferences/states/${encodedKey}`);
   }
 
   // --------------------

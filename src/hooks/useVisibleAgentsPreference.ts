@@ -1,15 +1,26 @@
-import axios from "axios";
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "../lib/api";
 import { useAuth } from "../lib/authContext";
+import {
+  buildPreferenceStateMap,
+  filterPreferenceStatesForUser,
+  getPreferenceErrorMessage,
+  isPreferenceAlreadyExistsError,
+  isPreferencePermissionError,
+  PREFERENCES_PERMISSION_ERROR,
+  PREFERENCES_STORE_ID,
+  upsertPreferenceStateInList,
+} from "../lib/preferenceStates";
 import { getApplicationId, getWorkspaceUrl } from "../lib/workspace";
-import type { AgentResponse, RuntimeStateRecord } from "../types";
+import type { AgentResponse, PreferenceStateRecord } from "../types";
 
-export const VISIBLE_AGENTS_PREFERENCES_NAMESPACE = "preferences";
 export const VISIBLE_AGENTS_PREFERENCES_KEY = "visible_agents";
 export const VISIBLE_AGENTS_PREFERENCES_VISIBILITY = "private";
+const VISIBLE_AGENTS_PREFERENCE_DESCRIPTION = "Homepage agent visibility preferences";
+const VISIBLE_AGENTS_PREFERENCE_TAGS = ["user", "preferences", "agents"] as const;
+const VISIBLE_AGENTS_PREFERENCE_RELEVANCE_SCORE = 1.0;
 
 export type VisibleAgentsPreferenceMode = "all" | "custom";
 
@@ -61,63 +72,6 @@ export function normalizeVisibleAgentsPreferenceValue(value: unknown): VisibleAg
   };
 }
 
-function findVisibleAgentsState(
-  states: Array<RuntimeStateRecord<unknown>> | undefined,
-): RuntimeStateRecord<unknown> | null {
-  if (!Array.isArray(states)) return null;
-
-  return (
-    states.find(
-      (state) =>
-        state.namespace === VISIBLE_AGENTS_PREFERENCES_NAMESPACE && state.key === VISIBLE_AGENTS_PREFERENCES_KEY,
-    ) ?? null
-  );
-}
-
-function upsertStateInList<TValue>(
-  current: Array<RuntimeStateRecord<TValue>> | undefined,
-  next: RuntimeStateRecord<TValue>,
-): Array<RuntimeStateRecord<TValue>> {
-  if (!Array.isArray(current) || current.length === 0) return [next];
-
-  let replaced = false;
-  const updated = current.map((state) => {
-    if (state.id !== next.id) return state;
-    replaced = true;
-    return next;
-  });
-
-  return replaced ? updated : [...updated, next];
-}
-
-function getHttpStatus(error: unknown): number | null {
-  if (!axios.isAxiosError(error)) return null;
-  return error.response?.status ?? null;
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (!axios.isAxiosError(error)) {
-    if (error instanceof Error && error.message) return error.message;
-    return fallback;
-  }
-
-  const data = error.response?.data;
-  if (typeof data === "string" && data.trim()) return data;
-  if (data && typeof data === "object") {
-    const detail = (data as Record<string, unknown>).detail;
-    if (typeof detail === "string" && detail.trim()) return detail;
-    const message = (data as Record<string, unknown>).message;
-    if (typeof message === "string" && message.trim()) return message;
-  }
-
-  return error.message || fallback;
-}
-
-function isPermissionError(error: unknown): boolean {
-  const status = getHttpStatus(error);
-  return status === 401 || status === 403;
-}
-
 function filterAgentsByPreference(
   agents: AgentResponse[],
   preference: VisibleAgentsPreferenceValue,
@@ -130,12 +84,13 @@ function filterAgentsByPreference(
 
 export function useVisibleAgentsPreference() {
   const queryClient = useQueryClient();
-  const { token, loading: authLoading } = useAuth();
+  const { token, user, loading: authLoading } = useAuth();
   const ws = getWorkspaceUrl();
   const appId = getApplicationId();
+  const currentUserId = user?.id ?? null;
   const hasWorkspaceUrl = ws.length > 0;
-  const canUsePreferencesState = hasWorkspaceUrl && !authLoading && Boolean(token);
-  const statesQueryKey = ["states", ws, VISIBLE_AGENTS_PREFERENCES_NAMESPACE] as const;
+  const canUsePreferencesState = hasWorkspaceUrl && !authLoading && Boolean(token) && Boolean(currentUserId);
+  const statesQueryKey = ["preference-states", ws, PREFERENCES_STORE_ID, currentUserId ?? "anonymous"] as const;
 
   const agentsQuery = useQuery({
     queryKey: ["config-agents", ws, appId ?? ""],
@@ -145,11 +100,18 @@ export function useVisibleAgentsPreference() {
 
   const statesQuery = useQuery({
     queryKey: statesQueryKey,
-    queryFn: () => apiClient.listStates({ namespace: VISIBLE_AGENTS_PREFERENCES_NAMESPACE }),
+    queryFn: async () => {
+      const states = await apiClient.listPreferenceStates();
+      return filterPreferenceStatesForUser(states, currentUserId);
+    },
     enabled: canUsePreferencesState,
   });
 
-  const preferenceState = useMemo(() => findVisibleAgentsState(statesQuery.data), [statesQuery.data]);
+  const preferenceStatesByKey = useMemo(
+    () => buildPreferenceStateMap(statesQuery.data),
+    [statesQuery.data],
+  );
+  const preferenceState = preferenceStatesByKey[VISIBLE_AGENTS_PREFERENCES_KEY] ?? null;
   const preference = useMemo(
     () => normalizeVisibleAgentsPreferenceValue(preferenceState?.value),
     [preferenceState?.value],
@@ -172,28 +134,42 @@ export function useVisibleAgentsPreference() {
       }
 
       const normalizedValue = normalizeVisibleAgentsPreferenceValue(nextPreference);
+      const payload = {
+        value: normalizedValue,
+        visibility: VISIBLE_AGENTS_PREFERENCES_VISIBILITY,
+        description: VISIBLE_AGENTS_PREFERENCE_DESCRIPTION,
+        tags: [...VISIBLE_AGENTS_PREFERENCE_TAGS],
+        relevance_score: VISIBLE_AGENTS_PREFERENCE_RELEVANCE_SCORE,
+        expires_at: null,
+      };
 
-      if (preferenceState?.id) {
-        return apiClient.updateState(preferenceState.id, {
-          value: normalizedValue,
-          visibility: VISIBLE_AGENTS_PREFERENCES_VISIBILITY,
+      if (preferenceState) {
+        return apiClient.updatePreferenceState(VISIBLE_AGENTS_PREFERENCES_KEY, {
+          ...payload,
         });
       }
 
-      return apiClient.createState({
-        namespace: VISIBLE_AGENTS_PREFERENCES_NAMESPACE,
-        key: VISIBLE_AGENTS_PREFERENCES_KEY,
-        value: normalizedValue,
-        visibility: VISIBLE_AGENTS_PREFERENCES_VISIBILITY,
-        description: "Homepage agent visibility preferences",
-        tags: ["user", "preferences", "agents"],
-        relevance_score: 1.0,
-        expires_at: null,
-      });
+      try {
+        return await apiClient.createPreferenceState({
+          key: VISIBLE_AGENTS_PREFERENCES_KEY,
+          ...payload,
+        });
+      } catch (error) {
+        if (!isPreferenceAlreadyExistsError(error, VISIBLE_AGENTS_PREFERENCES_KEY)) {
+          throw error;
+        }
+
+        return apiClient.updatePreferenceState(VISIBLE_AGENTS_PREFERENCES_KEY, payload);
+      }
     },
     onSuccess: (savedState) => {
-      queryClient.setQueryData<Array<RuntimeStateRecord<unknown>>>(statesQueryKey, (current) =>
-        upsertStateInList(current, savedState as RuntimeStateRecord<unknown>),
+      const nextState =
+        savedState.user_id == null && currentUserId
+          ? ({ ...savedState, user_id: currentUserId } as PreferenceStateRecord<unknown>)
+          : (savedState as PreferenceStateRecord<unknown>);
+
+      queryClient.setQueryData<Array<PreferenceStateRecord<unknown>>>(statesQueryKey, (current) =>
+        upsertPreferenceStateInList(current, nextState),
       );
     },
   });
@@ -205,18 +181,18 @@ export function useVisibleAgentsPreference() {
 
   const preferenceReadErrorMessage = useMemo(() => {
     if (!statesQuery.isError) return null;
-    if (isPermissionError(statesQuery.error)) {
-      return "Missing permissions to read/write preferences state";
+    if (isPreferencePermissionError(statesQuery.error)) {
+      return PREFERENCES_PERMISSION_ERROR;
     }
-    return getErrorMessage(statesQuery.error, "Could not load homepage agent preferences.");
+    return getPreferenceErrorMessage(statesQuery.error, "Could not load homepage agent preferences.");
   }, [statesQuery.error, statesQuery.isError]);
 
   const preferenceWriteErrorMessage = useMemo(() => {
     if (!savePreferenceM.isError) return null;
-    if (isPermissionError(savePreferenceM.error)) {
-      return "Missing permissions to read/write preferences state";
+    if (isPreferencePermissionError(savePreferenceM.error)) {
+      return PREFERENCES_PERMISSION_ERROR;
     }
-    return getErrorMessage(savePreferenceM.error, "Could not save homepage agent preferences.");
+    return getPreferenceErrorMessage(savePreferenceM.error, "Could not save homepage agent preferences.");
   }, [savePreferenceM.error, savePreferenceM.isError]);
 
   return {
@@ -225,8 +201,7 @@ export function useVisibleAgentsPreference() {
     activeAgents,
     visibleActiveAgents,
     preference,
-    hasStoredPreference: Boolean(preferenceState?.id),
-    preferenceStateId: preferenceState?.id ?? null,
+    hasStoredPreference: Boolean(preferenceState),
     savePreference,
     isSavingPreference: savePreferenceM.isPending,
     resetSavePreferenceError: savePreferenceM.reset,

@@ -1,15 +1,26 @@
-import axios from "axios";
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "../lib/api";
 import { useAuth } from "../lib/authContext";
+import {
+  buildPreferenceStateMap,
+  filterPreferenceStatesForUser,
+  getPreferenceErrorMessage,
+  isPreferenceAlreadyExistsError,
+  isPreferencePermissionError,
+  PREFERENCES_PERMISSION_ERROR,
+  PREFERENCES_STORE_ID,
+  upsertPreferenceStateInList,
+} from "../lib/preferenceStates";
 import { getWorkspaceUrl } from "../lib/workspace";
-import type { RuntimeStateRecord } from "../types";
+import type { PreferenceStateRecord } from "../types";
 
-export const THEME_PREFERENCES_NAMESPACE = "preferences";
 export const THEME_PREFERENCES_KEY = "theme";
 export const THEME_PREFERENCES_VISIBILITY = "private";
+const THEME_PREFERENCE_DESCRIPTION = "User theme preference";
+const THEME_PREFERENCE_TAGS = ["user", "preferences", "theme"] as const;
+const THEME_PREFERENCE_RELEVANCE_SCORE = 1.0;
 
 export type ThemeMode = "light" | "dark";
 
@@ -29,81 +40,37 @@ export function normalizeThemePreferenceValue(value: unknown): ThemePreferenceVa
   }
 
   const record = value as Record<string, unknown>;
+  const normalizedTheme = record.theme === "dark" || record.mode === "dark" ? "dark" : "light";
+
   return {
     version: 1,
-    theme: record.theme === "dark" ? "dark" : "light",
+    theme: normalizedTheme,
   };
-}
-
-function findThemeState(
-  states: Array<RuntimeStateRecord<unknown>> | undefined,
-): RuntimeStateRecord<unknown> | null {
-  if (!Array.isArray(states)) return null;
-
-  return (
-    states.find((state) => state.namespace === THEME_PREFERENCES_NAMESPACE && state.key === THEME_PREFERENCES_KEY) ?? null
-  );
-}
-
-function upsertStateInList<TValue>(
-  current: Array<RuntimeStateRecord<TValue>> | undefined,
-  next: RuntimeStateRecord<TValue>,
-): Array<RuntimeStateRecord<TValue>> {
-  if (!Array.isArray(current) || current.length === 0) return [next];
-
-  let replaced = false;
-  const updated = current.map((state) => {
-    if (state.id !== next.id) return state;
-    replaced = true;
-    return next;
-  });
-
-  return replaced ? updated : [...updated, next];
-}
-
-function getHttpStatus(error: unknown): number | null {
-  if (!axios.isAxiosError(error)) return null;
-  return error.response?.status ?? null;
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (!axios.isAxiosError(error)) {
-    if (error instanceof Error && error.message) return error.message;
-    return fallback;
-  }
-
-  const data = error.response?.data;
-  if (typeof data === "string" && data.trim()) return data;
-  if (data && typeof data === "object") {
-    const detail = (data as Record<string, unknown>).detail;
-    if (typeof detail === "string" && detail.trim()) return detail;
-    const message = (data as Record<string, unknown>).message;
-    if (typeof message === "string" && message.trim()) return message;
-  }
-
-  return error.message || fallback;
-}
-
-function isPermissionError(error: unknown): boolean {
-  const status = getHttpStatus(error);
-  return status === 401 || status === 403;
 }
 
 export function useThemePreference() {
   const queryClient = useQueryClient();
-  const { token, loading: authLoading } = useAuth();
+  const { token, user, loading: authLoading } = useAuth();
   const ws = getWorkspaceUrl();
+  const currentUserId = user?.id ?? null;
   const hasWorkspaceUrl = ws.length > 0;
-  const canUsePreferencesState = hasWorkspaceUrl && !authLoading && Boolean(token);
-  const statesQueryKey = ["states", ws, THEME_PREFERENCES_NAMESPACE] as const;
+  const canUsePreferencesState = hasWorkspaceUrl && !authLoading && Boolean(token) && Boolean(currentUserId);
+  const statesQueryKey = ["preference-states", ws, PREFERENCES_STORE_ID, currentUserId ?? "anonymous"] as const;
 
   const statesQuery = useQuery({
     queryKey: statesQueryKey,
-    queryFn: () => apiClient.listStates({ namespace: THEME_PREFERENCES_NAMESPACE }),
+    queryFn: async () => {
+      const states = await apiClient.listPreferenceStates();
+      return filterPreferenceStatesForUser(states, currentUserId);
+    },
     enabled: canUsePreferencesState,
   });
 
-  const preferenceState = useMemo(() => findThemeState(statesQuery.data), [statesQuery.data]);
+  const preferenceStatesByKey = useMemo(
+    () => buildPreferenceStateMap(statesQuery.data),
+    [statesQuery.data],
+  );
+  const preferenceState = preferenceStatesByKey[THEME_PREFERENCES_KEY] ?? null;
   const preference = useMemo(() => normalizeThemePreferenceValue(preferenceState?.value), [preferenceState?.value]);
 
   const savePreferenceM = useMutation({
@@ -113,28 +80,42 @@ export function useThemePreference() {
       }
 
       const normalizedValue = normalizeThemePreferenceValue(nextPreference);
+      const payload = {
+        value: normalizedValue,
+        visibility: THEME_PREFERENCES_VISIBILITY,
+        description: THEME_PREFERENCE_DESCRIPTION,
+        tags: [...THEME_PREFERENCE_TAGS],
+        relevance_score: THEME_PREFERENCE_RELEVANCE_SCORE,
+        expires_at: null,
+      };
 
-      if (preferenceState?.id) {
-        return apiClient.updateState(preferenceState.id, {
-          value: normalizedValue,
-          visibility: THEME_PREFERENCES_VISIBILITY,
+      if (preferenceState) {
+        return apiClient.updatePreferenceState(THEME_PREFERENCES_KEY, {
+          ...payload,
         });
       }
 
-      return apiClient.createState({
-        namespace: THEME_PREFERENCES_NAMESPACE,
-        key: THEME_PREFERENCES_KEY,
-        value: normalizedValue,
-        visibility: THEME_PREFERENCES_VISIBILITY,
-        description: "User theme preference",
-        tags: ["user", "preferences", "theme"],
-        relevance_score: 1.0,
-        expires_at: null,
-      });
+      try {
+        return await apiClient.createPreferenceState({
+          key: THEME_PREFERENCES_KEY,
+          ...payload,
+        });
+      } catch (error) {
+        if (!isPreferenceAlreadyExistsError(error, THEME_PREFERENCES_KEY)) {
+          throw error;
+        }
+
+        return apiClient.updatePreferenceState(THEME_PREFERENCES_KEY, payload);
+      }
     },
     onSuccess: (savedState) => {
-      queryClient.setQueryData<Array<RuntimeStateRecord<unknown>>>(statesQueryKey, (current) =>
-        upsertStateInList(current, savedState as RuntimeStateRecord<unknown>),
+      const nextState =
+        savedState.user_id == null && currentUserId
+          ? ({ ...savedState, user_id: currentUserId } as PreferenceStateRecord<unknown>)
+          : (savedState as PreferenceStateRecord<unknown>);
+
+      queryClient.setQueryData<Array<PreferenceStateRecord<unknown>>>(statesQueryKey, (current) =>
+        upsertPreferenceStateInList(current, nextState),
       );
     },
   });
@@ -146,25 +127,25 @@ export function useThemePreference() {
 
   const preferenceReadErrorMessage = useMemo(() => {
     if (!statesQuery.isError) return null;
-    if (isPermissionError(statesQuery.error)) {
-      return "Missing permissions to read/write preferences state";
+    if (isPreferencePermissionError(statesQuery.error)) {
+      return PREFERENCES_PERMISSION_ERROR;
     }
-    return getErrorMessage(statesQuery.error, "Could not load theme preference.");
+    return getPreferenceErrorMessage(statesQuery.error, "Could not load theme preference.");
   }, [statesQuery.error, statesQuery.isError]);
 
   const preferenceWriteErrorMessage = useMemo(() => {
     if (!savePreferenceM.isError) return null;
-    if (isPermissionError(savePreferenceM.error)) {
-      return "Missing permissions to read/write preferences state";
+    if (isPreferencePermissionError(savePreferenceM.error)) {
+      return PREFERENCES_PERMISSION_ERROR;
     }
-    return getErrorMessage(savePreferenceM.error, "Could not save theme preference.");
+    return getPreferenceErrorMessage(savePreferenceM.error, "Could not save theme preference.");
   }, [savePreferenceM.error, savePreferenceM.isError]);
 
   return {
     canUsePreferencesState,
     statesQuery,
     preference,
-    hasStoredPreference: canUsePreferencesState && Boolean(preferenceState?.id),
+    hasStoredPreference: canUsePreferencesState && Boolean(preferenceState),
     savePreference,
     isSavingPreference: savePreferenceM.isPending,
     resetSavePreferenceError: savePreferenceM.reset,
