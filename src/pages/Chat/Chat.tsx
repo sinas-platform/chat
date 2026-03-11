@@ -803,8 +803,18 @@ const ChatMessages = memo(function ChatMessages({
     getMessageText(lastMessage.content).length === 0;
   const showStreamingRow = isStreaming || streamingContent.length > 0;
 
+  const [isScrolled, setIsScrolled] = useState(false);
+  useEffect(() => {
+    const el = messagesContainerRef?.current;
+    if (!el) return;
+    const onScroll = () => setIsScrolled(el.scrollTop > 0);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [messagesContainerRef]);
+
   return (
-    <div className={styles.messages} ref={messagesContainerRef}>
+    <div className={`${styles.messages} ${isScrolled ? styles.messagesScrolled : ""}`} ref={messagesContainerRef}>
       {isError ? <div className={styles.error}>Could not load chat</div> : null}
 
       {isLoading && messages.length === 0 ? (

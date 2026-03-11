@@ -9,6 +9,12 @@
   overflow: hidden;
 }
 
+:global(html[data-theme="dark"]) .layout {
+  background: var(--color-bg-auth, var(--color-bg-app));
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
 .main {
   position: relative;
   min-width: 0;
@@ -33,10 +39,15 @@
   overflow-x: hidden;
   border: none;
   border-radius: 0;
-  padding: 6px 10px 24px;
+  padding: 6px 10px 40px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 16px;
+}
+
+.messagesScrolled {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 40px);
+  mask-image: linear-gradient(to bottom, transparent, black 40px);
 }
 
 .messages:focus,
@@ -49,7 +60,7 @@
 .message {
   max-width: min(80%, 760px);
   border-radius: 24px;
-  padding: 14px 18px;
+  padding: 16px 24px;
 }
 
 .messageRow {
@@ -178,6 +189,13 @@
     linear-gradient(#fff, #fff) padding-box,
     var(--Border-white, linear-gradient(114deg, #fbf9f5 16.43%, #fff 98.66%)) border-box;
   color: var(--color-text-primary);
+}
+
+:global(html[data-theme="dark"]) .assistantMsg {
+  border: 1px solid rgba(46, 42, 38, 0.8);
+  background:
+    linear-gradient(#2e2a26, #2e2a26) padding-box,
+    var(--Card-black, linear-gradient(180deg, rgba(46, 42, 38, 0.8) 0%, rgba(46, 42, 38, 0.7) 100%)) border-box;
 }
 
 .messageBody {
@@ -341,6 +359,9 @@
 }
 
 .composer {
+  position: relative;
+  z-index: 1;
+  margin-top: -16px;
   border: 1px solid var(--color-palette-neutral-200);
   border-radius: 32px;
   padding: 22px 24px 20px;
@@ -631,6 +652,10 @@
     outline: none;
     box-shadow: none;
   }
+}
+
+:global(html[data-theme="dark"]) .input {
+  color: #fff;
 }
 
 .loadingState {

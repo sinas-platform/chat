@@ -9,7 +9,7 @@ import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import eyeIcon from "../../icons/eye.svg";
 import eyeOffIcon from "../../icons/eye-off.svg";
-import searchIcon from "../../icons/search.svg";
+import SearchIcon from "../../icons/search.svg?react";
 import { apiClient } from "../../lib/api";
 import {
   DEFAULT_VISIBLE_AGENTS_PREFERENCE,
@@ -336,7 +336,7 @@ export function SettingsPage() {
               placeholder="Search agents..."
               wrapperClassName={styles.searchField}
               className={styles.searchInput}
-              startAction={<img className={styles.searchIcon} src={searchIcon} alt="" aria-hidden />}
+              startAction={<SearchIcon className={styles.searchIcon} aria-hidden />}
               startActionClassName={styles.searchStartAction}
             />
 

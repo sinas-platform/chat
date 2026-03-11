@@ -73,6 +73,11 @@
   }
 }
 
+:global(html[data-theme="dark"]) .textarea::placeholder {
+  color: #fff;
+  opacity: 1;
+}
+
 .voiceStatus {
   margin-top: 8px;
   display: inline-flex;

@@ -73,6 +73,10 @@
   color: var(--color-text-muted);
 }
 
+:global(html[data-theme="dark"]) .sidebarSectionTitle {
+  color: #E4DED8;
+}
+
 .chatList {
   display: flex;
   flex-direction: column;

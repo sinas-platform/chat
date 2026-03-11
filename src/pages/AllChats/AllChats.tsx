@@ -12,7 +12,7 @@ import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
 import clockIcon from "../../icons/clock.svg";
 import crossIcon from "../../icons/cross.svg";
 import pencilIcon from "../../icons/pencil.svg";
-import searchIcon from "../../icons/search.svg";
+import SearchIcon from "../../icons/search.svg?react";
 import threeDotsIcon from "../../icons/three-dots.svg";
 import TrashIcon from "../../icons/trash.svg?react";
 import trashIconSrc from "../../icons/trash.svg";
@@ -397,7 +397,7 @@ export function AllChatsPage() {
           <div className={styles.searchRow}>
             <Input
               wrapperClassName={styles.searchField}
-              startAction={<img className={styles.searchIcon} src={searchIcon} alt="" aria-hidden />}
+              startAction={<SearchIcon className={styles.searchIcon} aria-hidden />}
               startActionClassName={styles.searchStartAction}
               className={styles.searchInput}
               type="search"

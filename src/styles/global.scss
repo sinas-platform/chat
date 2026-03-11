@@ -42,3 +42,8 @@ textarea,
 select {
   font-family: inherit;
 }
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea {
+  caret-color: #fff;
+}

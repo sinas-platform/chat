@@ -4,10 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Bot } from "lucide-react";
 
 import styles from "./HomePage.module.scss";
-import downArrowIcon from "../../icons/down-arrow.svg";
-import gridLayoutIcon from "../../icons/grid-layout.svg";
-import listLayoutIcon from "../../icons/list-layout.svg";
-import searchIcon from "../../icons/search.svg";
+import DownArrowIcon from "../../icons/down-arrow.svg?react";
+import GridLayoutIcon from "../../icons/grid-layout.svg?react";
+import ListLayoutIcon from "../../icons/list-layout.svg?react";
+import SearchIcon from "../../icons/search.svg?react";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
@@ -584,7 +584,7 @@ export default function HomePage() {
             <div className={styles.agentControls}>
               <Input
                 wrapperClassName={styles.agentSearchField}
-                startAction={<img className={styles.agentSearchIcon} src={searchIcon} alt="" aria-hidden />}
+                startAction={<SearchIcon className={styles.agentSearchIcon} aria-hidden />}
                 className={styles.agentSearchInput}
                 type="search"
                 placeholder="Search agents..."
@@ -600,7 +600,7 @@ export default function HomePage() {
                     aria-label="Show agents as list"
                     aria-pressed={agentView === "list"}
                   >
-                    <img className={styles.agentViewIcon} src={listLayoutIcon} alt="" aria-hidden />
+                    <ListLayoutIcon className={styles.agentViewIcon} aria-hidden />
                   </button>
                   <button
                     type="button"
@@ -609,7 +609,7 @@ export default function HomePage() {
                     aria-label="Show agents as grid"
                     aria-pressed={agentView === "grid"}
                   >
-                    <img className={styles.agentViewIcon} src={gridLayoutIcon} alt="" aria-hidden />
+                    <GridLayoutIcon className={styles.agentViewIcon} aria-hidden />
                   </button>
                 </div>
 
@@ -617,7 +617,7 @@ export default function HomePage() {
                   trigger={
                     <>
                       {agentSortLabel}
-                      <img className={styles.agentSortIcon} src={downArrowIcon} alt="" aria-hidden />
+                      <DownArrowIcon className={styles.agentSortIcon} aria-hidden />
                     </>
                   }
                   triggerAriaLabel="Sort agents"
