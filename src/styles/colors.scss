@@ -3,10 +3,10 @@
 
   /* App background (layered gradient based on Figma background treatment) */
   --color-bg-app:
-    radial-gradient(125% 82% at 12% -6%, #ffffff 0%, rgba(255, 255, 255, 0.92) 34%, rgba(255, 243, 228, 0) 74%),
-    radial-gradient(110% 86% at 92% 102%, rgba(233, 114, 3, 0.44) 0%, rgba(233, 114, 3, 0.2) 42%, rgba(233, 114, 3, 0) 74%),
-    radial-gradient(60% 46% at 58% 88%, rgba(255, 199, 140, 0.52) 0%, rgba(255, 199, 140, 0) 80%),
-    linear-gradient(180deg, #fffdf9 0%, #fff3e4 47%, #ffe1c1 100%);
+    radial-gradient(170% 110% at 10% -6%, #ffffff 0%, rgba(255, 255, 255, 0.95) 42%, rgba(255, 243, 228, 0) 82%),
+    radial-gradient(170% 110% at 92% 102%, rgba(233, 114, 3, 0.58) 0%, rgba(233, 114, 3, 0.32) 42%, rgba(233, 114, 3, 0) 82%),
+    radial-gradient(60% 46% at 58% 88%, rgba(255, 199, 140, 0.30) 0%, rgba(255, 199, 140, 0) 80%),
+    linear-gradient(180deg, #ffffff 0%, #fffaf2 47%, #ffe1c1 100%);
   --color-bg-auth: var(--color-bg-app);
   --color-bg-surface: #ffffff;
   --color-bg-surface-subtle: #f8f8f8;
