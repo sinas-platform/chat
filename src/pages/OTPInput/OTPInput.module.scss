@@ -1,7 +1,40 @@
 .otp {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+  width: min(100%, 396px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.digit {
+  width: 100%;
+  max-width: 56px;
+  justify-self: center;
+}
+
+@media (max-width: 700px) {
+  .otp {
+    gap: 8px;
+    margin-top: 12px;
   }
-  
+
+  .digit {
+    max-width: none;
+    height: 56px;
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 420px) {
+  .otp {
+    gap: 6px;
+  }
+
+  .digit {
+    height: 50px;
+    font-size: 18px;
+    border-radius: 10px;
+  }
+}

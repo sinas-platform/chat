@@ -86,3 +86,17 @@
   -webkit-mask-image: url("../../icons/moon.svg");
   mask-image: url("../../icons/moon.svg");
 }
+
+@media (max-width: 700px) {
+  .switch {
+    top: max(12px, env(safe-area-inset-top));
+    right: 12px;
+    height: 30px;
+  }
+
+  .option {
+    gap: 6px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
+}
