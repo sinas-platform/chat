@@ -53,6 +53,10 @@ export function LoginPage() {
   const workspaceLabel = useMemo(() => prettyHost(workspaceUrl), [workspaceUrl]);
   const logoSrc = theme === "dark" ? sinasLogoWhite : sinasLogo;
 
+  useEffect(() => {
+    apiClient.setWorkspaceBaseUrl(workspaceUrl);
+  }, [workspaceUrl]);
+
   const submitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isEmailActionLoading) return;

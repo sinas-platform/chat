@@ -28,6 +28,11 @@ import type {
 type RefreshResponse = { access_token: string; expires_in: number };
 type StreamChunkMode = "append" | "replace";
 
+function normalizeBaseUrl(baseUrl?: string): string | undefined {
+  const normalized = (baseUrl ?? "").trim().replace(/\/+$/, "");
+  return normalized || getWorkspaceUrl() || undefined;
+}
+
 function redirectToLoginIfNeeded(): void {
   if (typeof window === "undefined") return;
   if (window.location.pathname === "/login") return;
@@ -76,15 +81,15 @@ class APIClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: getWorkspaceUrl() || undefined,
+      baseURL: normalizeBaseUrl(),
       headers: { "Content-Type": "application/json" },
     });
 
     this.setupInterceptors();
   }
 
-  setWorkspaceBaseUrl(baseUrl: string) {
-    this.client.defaults.baseURL = baseUrl.trim().replace(/\/+$/, "") || undefined;
+  setWorkspaceBaseUrl(baseUrl?: string) {
+    this.client.defaults.baseURL = normalizeBaseUrl(baseUrl);
   }
 
   private setupInterceptors() {
