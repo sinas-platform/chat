@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent } from "react";
-import { Mic, MicOff, Paperclip } from "lucide-react";
 
+import AttachmentIcon from "../../icons/attachment.svg?react";
+import MicrophoneIcon from "../../icons/microphone.svg?react";
 import type { ChatAttachment } from "../../lib/files/types";
 import { useSpeechToText } from "../../lib/useSpeechToText";
 import { AttachmentChip } from "../AttachmentChip/AttachmentChip";
@@ -75,7 +76,9 @@ export function ChatComposer({
 
   const {
     isSupported: isSpeechSupported,
+    isStarting,
     isListening,
+    error: speechError,
     startListening,
     stopListening,
   } = useSpeechToText({
@@ -87,8 +90,17 @@ export function ChatComposer({
 
   const canSubmit = !disabled && !isUploadingAttachment && (value.trim().length > 0 || attachments.length > 0);
   const isMicDisabled = disabled || !isSpeechSupported;
+  const isMicActive = isListening || isStarting;
   const isAttachmentEnabled = typeof onAddAttachment === "function";
   const showStopButton = typeof onStop === "function";
+  const hasAttachmentItems = attachments.length > 0 || isUploadingAttachment;
+  const hasAttachmentMeta = hasAttachmentItems || Boolean(attachmentError);
+  const micStatusMessage = isStarting
+    ? "Starting microphone…"
+    : isListening
+      ? "Recording… speak now"
+      : speechError;
+  const hasMicStatus = Boolean(micStatusMessage);
   const computedTextareaStyle: CSSProperties = {
     ...textareaStyle,
     paddingRight: isAttachmentEnabled ? "94px" : "54px",
@@ -193,9 +205,9 @@ export function ChatComposer({
         </div>
       ) : null}
 
-      {isAttachmentEnabled || attachments.length > 0 || isUploadingAttachment || attachmentError ? (
-        <div className={styles.attachmentArea}>
-          {attachments.length > 0 || isUploadingAttachment ? (
+      {hasAttachmentMeta ? (
+        <div className={joinClasses(styles.attachmentArea, hasAttachmentItems && styles.attachmentAreaWithItems)}>
+          {hasAttachmentItems ? (
             <div className={styles.attachmentList}>
               {attachments.map((attachment, index) => (
                 <AttachmentChip
@@ -239,6 +251,23 @@ export function ChatComposer({
         style={computedTextareaStyle}
       />
 
+      {hasMicStatus ? (
+        <div
+          className={joinClasses(
+            styles.voiceStatus,
+            isListening && styles.voiceStatusListening,
+            isStarting && styles.voiceStatusStarting,
+            Boolean(speechError) && styles.voiceStatusError,
+          )}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <span className={styles.voiceStatusDot} aria-hidden="true" />
+          <span>{micStatusMessage}</span>
+        </div>
+      ) : null}
+
       {isAttachmentEnabled ? (
         <>
           <input
@@ -259,7 +288,7 @@ export function ChatComposer({
             aria-label="Attach file"
             title="Attach file"
           >
-            <Paperclip size={16} />
+            <AttachmentIcon className={styles.attachmentIcon} aria-hidden />
           </button>
         </>
       ) : null}
@@ -277,14 +306,27 @@ export function ChatComposer({
       ) : (
         <button
           type="button"
-          className={joinClasses(styles.micButton, isListening && styles.micButtonActive)}
-          onClick={isListening ? stopListening : startListening}
+          className={joinClasses(
+            styles.micButton,
+            isMicActive && styles.micButtonActive,
+            isListening && styles.micButtonListening,
+            isStarting && styles.micButtonStarting,
+          )}
+          onClick={isMicActive ? stopListening : startListening}
           disabled={isMicDisabled}
-          aria-label={isListening ? "Stop voice input" : "Start voice input"}
-          aria-pressed={isListening}
-          title={isSpeechSupported ? "Voice input" : "Voice input is not supported in this browser"}
+          aria-label={isMicActive ? "Stop voice input" : "Start voice input"}
+          aria-pressed={isMicActive}
+          title={
+            isSpeechSupported
+              ? isStarting
+                ? "Starting microphone"
+                : isListening
+                  ? "Recording voice input"
+                  : "Start voice input"
+              : "Voice input is not supported in this browser"
+          }
         >
-          {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+          <MicrophoneIcon className={styles.micIcon} aria-hidden />
         </button>
       )}
     </form>

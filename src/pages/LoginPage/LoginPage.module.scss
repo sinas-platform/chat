@@ -1,53 +1,88 @@
 .login {
   min-height: 100vh;
+  position: relative;
   display: grid;
   place-items: center;
   padding: 24px;
-  background: #fff;
+  background: var(--color-bg-auth, var(--color-bg-app));
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .card {
-  width: 520px;
+  width: 596px;
   max-width: calc(100vw - 48px);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 24px;
-  padding: 40px 36px;
+  border-radius: 32px;
+  padding: 40px 48px 32px;
+  position: relative;
+  background: var(
+    --Card-white,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9) 9.47%, rgba(255, 255, 255, 0.8) 93.75%)
+  );
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: var(--Border-white, linear-gradient(114deg, #fbf9f5 16.43%, #fff 98.66%));
+  pointer-events: none;
+
+  /* Cut out the center so the (semi-transparent) card background shows the page behind it. */
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.card > * {
+  position: relative;
+}
+
+:global(html[data-theme="dark"]) .card {
+  background: var(--Card-black, linear-gradient(180deg, rgba(46, 42, 38, 0.8) 0%, rgba(46, 42, 38, 0.7) 100%));
+}
+
+:global(html[data-theme="dark"]) .card::before {
+  background: var(--Border-black, linear-gradient(107deg, rgba(126, 116, 107, 0.8) 2.39%, rgba(78, 71, 65, 0.8) 97.89%));
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .logo {
-  width: min(180px, 100%);
+  width: min(177px, 100%);
   height: auto;
   display: block;
 }
 
 .title {
-  margin: 0 0 14px 0;
+  margin-bottom: 6px;
   text-align: center;
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 500;
 }
 
 .subTitle {
   text-align: center;
-  margin: 0 0 18px 0;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--color-text-secondary);
+  font-size: 12px;
 }
 
 .form {
   display: grid;
-  gap: 14px;
+  gap: 20px;
 }
 
 .hint {
-  color: rgba(0, 0, 0, 0.55);
-  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
   text-align: left;
 }
 
@@ -56,12 +91,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-top: 6px;
+  padding-top: 16px;
 }
 
 .workspaceLabel {
-  color: rgba(0, 0, 0, 0.65);
-  font-size: 13px;
+  color: var(--color-text-primary);
+  font-size: 14px;
 }
 
 .error {
@@ -78,24 +113,36 @@
   justify-content: space-between;
   gap: 12px;
   margin-top: 4px;
+
+  &:has(> :only-child) {
+    justify-content: center;
+  }
 }
 
 .footer {
-  margin-top: 22px;
+  margin-top: 48px;
   text-align: center;
-  color: rgba(0, 0, 0, 0.45);
+  color: var(--color-text-muted);
   font-size: 12px;
+}
+
+.footerOtp {
+  margin-top: 24px;
 }
 
 /* Field */
 .field {
   display: grid;
-  gap: 6px;
+  gap: 8px;
+}
+
+.emailInputWrapper {
+  --input-bg: transparent;
 }
 
 .fieldLabel {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.65);
+  font-size: 12px;
+  color: var(--color-text-secondary);
 }
 
 .fieldError {
@@ -107,6 +154,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  justify-content: center;
 }
 
 .loadingText {
@@ -116,12 +164,72 @@
 }
 
 .inputAction {
+  --login-input-action-hover-bg: var(--color-text-primary);
   border: none;
   background: transparent;
   color: rgba(0, 0, 0, 0.82);
+  position: relative;
+  overflow: visible;
+  border-radius: 0 11px 11px 0;
+
+  &::before {
+    position: absolute;
+    content: "";
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    right: -1px;
+    background-color: var(--login-input-action-hover-bg);
+    border-radius: inherit;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  &:not(:disabled):hover {
+    color: #fff;
+
+    &::before {
+      opacity: 1;
+    }
+  }
+}
+
+.inputActionIcon {
+  width: 24px;
+  height: 24px;
+  display: block;
+  color: currentColor;
+}
+
+:global(html[data-theme="dark"]) .inputAction {
+  --login-input-action-hover-bg: var(--color-accent);
+
+  &::before {
+    background-color: var(--login-input-action-hover-bg);
+  }
+
+  &:not(:disabled):hover {
+    color: #fff;
+  }
+}
+
+:global(html[data-theme="dark"]) .inputActionIcon {
+  color: #fff;
+}
+
+.inputActionLoading {
+  pointer-events: none;
+  cursor: default;
+  opacity: 1;
 }
 
 .mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    monospace;
+  font-weight: 700;
 }

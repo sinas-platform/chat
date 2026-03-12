@@ -9,18 +9,19 @@ import type {
   Chat,
   ChatCreate,
   ChatWithMessages,
-  CreateStateRequest,
-  ListStatesParams,
+  CreatePreferenceStateRequest,
   LoginRequest,
   LoginResponse,
   Message,
   MessageSendRequest,
   OTPVerifyRequest,
   OTPVerifyResponse,
-  RuntimeStateRecord,
+  PreferenceStateRecord,
   ToolApprovalRequest,
   ToolApprovalResponse,
-  UpdateStateRequest,
+  ToolEndEvent,
+  ToolStartEvent,
+  UpdatePreferenceStateRequest,
   User,
 } from "../types";
 
@@ -48,6 +49,8 @@ export type MessageStreamChunk = {
 export type ChatStreamHandlers = {
   onChunkContent?: (text: string) => void;
   onApprovalRequired?: (event: ApprovalRequiredEvent) => void;
+  onToolStart?: (event: ToolStartEvent) => void;
+  onToolEnd?: (event: ToolEndEvent) => void;
   onDone?: () => void;
   onError?: (error: unknown) => void;
 };
@@ -236,7 +239,7 @@ class APIClient {
     return "";
   }
 
-  private extractStreamChunk(data: unknown, _eventName: string): Omit<MessageStreamChunk, "event" | "raw"> | null {
+  private extractStreamChunk(data: unknown): Omit<MessageStreamChunk, "event" | "raw"> | null {
     if (typeof data === "string") {
       if (!data.trim() || data.trim() === "[DONE]") return null;
       return { text: data, mode: "append" };
@@ -379,10 +382,104 @@ class APIClient {
     );
   }
 
+  private isToolStartEvent(value: unknown): value is ToolStartEvent {
+    if (!value || typeof value !== "object") return false;
+
+    const event = value as Record<string, unknown>;
+    return (
+      (event.type === undefined || event.type === "tool_start") &&
+      typeof event.tool_call_id === "string" &&
+      typeof event.name === "string"
+    );
+  }
+
+  private isToolEndEvent(value: unknown): value is ToolEndEvent {
+    if (!value || typeof value !== "object") return false;
+
+    const event = value as Record<string, unknown>;
+    return (
+      typeof event.tool_call_id === "string" &&
+      (event.type === undefined || event.type === "tool_end" || "result" in event)
+    );
+  }
+
+  private handleChatStreamEvent(eventType: string, parsed: unknown, handlers: ChatStreamHandlers): boolean {
+    if (eventType === "message") {
+      if (typeof parsed === "string") {
+        handlers.onChunkContent?.(parsed);
+        return false;
+      }
+
+      if (parsed && typeof parsed === "object") {
+        const payload = parsed as Record<string, unknown>;
+        const contentText = this.extractText(payload.content);
+        if (contentText) handlers.onChunkContent?.(contentText);
+
+        if (this.isApprovalRequiredEvent(parsed)) handlers.onApprovalRequired?.(parsed);
+        if (this.isToolStartEvent(parsed)) handlers.onToolStart?.(parsed);
+        if (this.isToolEndEvent(parsed)) handlers.onToolEnd?.(parsed);
+      }
+      return false;
+    }
+
+    if (eventType === "tool_start") {
+      if (this.isToolStartEvent(parsed)) handlers.onToolStart?.(parsed);
+      return false;
+    }
+
+    if (eventType === "tool_end") {
+      if (this.isToolEndEvent(parsed)) handlers.onToolEnd?.(parsed);
+      return false;
+    }
+
+    if (eventType === "approval_required") {
+      if (this.isApprovalRequiredEvent(parsed)) handlers.onApprovalRequired?.(parsed);
+      return false;
+    }
+
+    if (eventType === "done") {
+      handlers.onDone?.();
+      return true;
+    }
+
+    if (eventType === "error") {
+      if (parsed && typeof parsed === "object" && "error" in (parsed as Record<string, unknown>)) {
+        handlers.onError?.((parsed as { error?: unknown }).error ?? parsed);
+      } else {
+        handlers.onError?.(parsed);
+      }
+      return true;
+    }
+
+    return false;
+  }
+
   private async consumeChatSSEStream(body: ReadableStream<Uint8Array>, handlers: ChatStreamHandlers) {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let currentEvent = "message";
+    let dataLines: string[] = [];
+
+    const flushEvent = (): boolean => {
+      if (dataLines.length === 0) {
+        currentEvent = "message";
+        return false;
+      }
+
+      const rawData = dataLines.join("\n");
+      dataLines = [];
+
+      const parsed = this.parseSSEData(rawData);
+      if (parsed == null) {
+        currentEvent = "message";
+        return false;
+      }
+
+      const shouldStop = this.handleChatStreamEvent(currentEvent, parsed, handlers);
+      currentEvent = "message";
+      return shouldStop;
+    };
 
     try {
       while (true) {
@@ -390,53 +487,51 @@ class APIClient {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        while (true) {
+          const nlIndex = buffer.indexOf("\n");
+          if (nlIndex === -1) break;
 
-        let eventType = "";
-        for (const line of lines) {
+          let line = buffer.slice(0, nlIndex);
+          buffer = buffer.slice(nlIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+
+          if (!line) {
+            if (flushEvent()) return;
+            continue;
+          }
+
+          if (line.startsWith(":")) continue;
           if (line.startsWith("event:")) {
-            eventType = line.substring(6).trim();
-          } else if (line.startsWith("data:")) {
-            const data = line.substring(5).trim();
-            if (!data) continue;
-
-            try {
-              const parsed = this.parseSSEData(data);
-              if (parsed == null) continue;
-
-              if (eventType === "message") {
-                if (typeof parsed === "string") {
-                  handlers.onChunkContent?.(parsed);
-                  continue;
-                }
-
-                if (parsed && typeof parsed === "object") {
-                  const payload = parsed as Record<string, unknown>;
-                  const contentText = this.extractText(payload.content);
-                  if (contentText) handlers.onChunkContent?.(contentText);
-
-                  if (this.isApprovalRequiredEvent(parsed)) {
-                    handlers.onApprovalRequired?.(parsed);
-                  }
-                }
-              } else if (eventType === "done") {
-                handlers.onDone?.();
-                return;
-              } else if (eventType === "error") {
-                if (parsed && typeof parsed === "object" && "error" in (parsed as Record<string, unknown>)) {
-                  handlers.onError?.((parsed as { error?: unknown }).error ?? parsed);
-                } else {
-                  handlers.onError?.(parsed);
-                }
-                return;
-              }
-            } catch (error) {
-              handlers.onError?.(error);
-            }
+            currentEvent = line.slice(6).trim() || "message";
+            continue;
+          }
+          if (line.startsWith("data:")) {
+            dataLines.push(line.slice(5).trimStart());
           }
         }
       }
+
+      buffer += decoder.decode();
+      if (buffer) {
+        const lines = buffer.split(/\r?\n/);
+        for (const line of lines) {
+          if (!line) {
+            if (flushEvent()) return;
+            continue;
+          }
+          if (line.startsWith(":")) continue;
+          if (line.startsWith("event:")) {
+            currentEvent = line.slice(6).trim() || "message";
+            continue;
+          }
+          if (line.startsWith("data:")) {
+            dataLines.push(line.slice(5).trimStart());
+          }
+        }
+      }
+
+      flushEvent();
     } finally {
       try {
         reader.releaseLock();
@@ -514,7 +609,7 @@ class APIClient {
         return;
       }
 
-      const chunk = this.extractStreamChunk(parsed, currentEvent);
+      const chunk = this.extractStreamChunk(parsed);
       if (chunk && onChunk) {
         onChunk({ ...chunk, event: currentEvent, raw: parsed });
       }
@@ -765,7 +860,7 @@ class APIClient {
       const text = await response.text();
       const parsed = this.parseSSEData(text);
       if (parsed == null || !options.onChunk) return;
-      const chunk = this.extractStreamChunk(parsed, "message");
+      const chunk = this.extractStreamChunk(parsed);
       if (chunk) options.onChunk({ ...chunk, event: "message", raw: parsed });
       return;
     }
@@ -779,32 +874,32 @@ class APIClient {
   }
 
   // --------------------
-  // States (runtime)
+  // Preference states
   // --------------------
-  async listStates<TValue = unknown>(params: ListStatesParams = {}): Promise<Array<RuntimeStateRecord<TValue>>> {
-    const res = await this.client.get("/states", {
-      params: params.namespace ? { namespace: params.namespace } : undefined,
-    });
-    return res.data as Array<RuntimeStateRecord<TValue>>;
+  async listPreferenceStates<TValue = unknown>(): Promise<Array<PreferenceStateRecord<TValue>>> {
+    const res = await this.client.get("/stores/default/preferences/states");
+    return res.data as Array<PreferenceStateRecord<TValue>>;
   }
 
-  async createState<TValue = unknown>(payload: CreateStateRequest<TValue>): Promise<RuntimeStateRecord<TValue>> {
-    const res = await this.client.post("/states", payload);
-    return res.data as RuntimeStateRecord<TValue>;
+  async createPreferenceState<TValue = unknown>(
+    payload: CreatePreferenceStateRequest<TValue>
+  ): Promise<PreferenceStateRecord<TValue>> {
+    const res = await this.client.post("/stores/default/preferences/states", payload);
+    return res.data as PreferenceStateRecord<TValue>;
   }
 
-  async updateState<TValue = unknown>(
-    stateId: string,
-    payload: UpdateStateRequest<TValue>
-  ): Promise<RuntimeStateRecord<TValue>> {
-    const encodedStateId = encodeURIComponent(stateId);
-    const res = await this.client.put(`/states/${encodedStateId}`, payload);
-    return res.data as RuntimeStateRecord<TValue>;
+  async updatePreferenceState<TValue = unknown>(
+    key: string,
+    payload: UpdatePreferenceStateRequest<TValue>
+  ): Promise<PreferenceStateRecord<TValue>> {
+    const encodedKey = encodeURIComponent(key);
+    const res = await this.client.put(`/stores/default/preferences/states/${encodedKey}`, payload);
+    return res.data as PreferenceStateRecord<TValue>;
   }
 
-  async deleteState(stateId: string): Promise<void> {
-    const encodedStateId = encodeURIComponent(stateId);
-    await this.client.delete(`/states/${encodedStateId}`);
+  async deletePreferenceState(key: string): Promise<void> {
+    const encodedKey = encodeURIComponent(key);
+    await this.client.delete(`/stores/default/preferences/states/${encodedKey}`);
   }
 
   // --------------------
@@ -842,14 +937,26 @@ class APIClient {
   }
 
   // --------------------
-  // Agents (runtime)
+  // Agents (config)
   // --------------------
   async listAgents(appId?: string): Promise<AgentResponse[]> {
     const normalizedAppId = appId?.trim();
-    const res = await this.client.get("/agents", {
+    const res = await this.client.get("/api/v1/agents", {
       headers: normalizedAppId ? { "X-Application": normalizedAppId } : undefined,
     });
     return res.data as AgentResponse[];
+  }
+
+  async getAgent(namespace: string, name: string, appId?: string): Promise<AgentResponse> {
+    const encodedNamespace = encodeURIComponent(namespace);
+    const encodedName = encodeURIComponent(name);
+    const normalizedAppId = appId?.trim();
+
+    const res = await this.client.get(`/api/v1/agents/${encodedNamespace}/${encodedName}`, {
+      headers: normalizedAppId ? { "X-Application": normalizedAppId } : undefined,
+    });
+
+    return res.data as AgentResponse;
   }
 }
 

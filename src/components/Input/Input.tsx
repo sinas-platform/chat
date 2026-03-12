@@ -7,6 +7,8 @@ type InputVariant = "default" | "otp";
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
   variant?: InputVariant;
   wrapperClassName?: string;
+  startAction?: ReactNode;
+  startActionClassName?: string;
   endAction?: ReactNode;
   endActionClassName?: string;
 };
@@ -20,6 +22,8 @@ export const Input = forwardRef<HTMLInputElement, Props>(function Input(
     variant = "default",
     className,
     wrapperClassName,
+    startAction,
+    startActionClassName,
     endAction,
     endActionClassName,
     ...inputProps
@@ -32,6 +36,7 @@ export const Input = forwardRef<HTMLInputElement, Props>(function Input(
 
   return (
     <div className={joinClasses(styles.wrapper, wrapperClassName)}>
+      {startAction && <div className={joinClasses(styles.startAction, startActionClassName)}>{startAction}</div>}
       <input ref={ref} className={joinClasses(styles.input, className)} {...inputProps} />
       {endAction && <div className={joinClasses(styles.endAction, endActionClassName)}>{endAction}</div>}
     </div>

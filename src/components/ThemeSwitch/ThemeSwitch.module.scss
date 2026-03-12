@@ -1,0 +1,88 @@
+.switch {
+  --switch-bg: #efe9e3;
+  --switch-text: #b0a59b;
+  --switch-active-bg: #f6f3ef;
+  --switch-active-text: #4e4741;
+
+  position: absolute;
+  top: 32px;
+  right: 32px;
+  z-index: 45;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  height: 32px;
+  border: 1px solid var(--switch-active-bg);
+  border-radius: 999px;
+  background: var(--switch-active-bg);
+  overflow: hidden;
+}
+
+:global(html[data-theme="dark"]) .switch {
+  --switch-bg: #2e2a26;
+  --switch-text: #7e746b;
+  --switch-active-bg: #4e4741;
+  --switch-active-text: #ffffff;
+}
+
+.option {
+  border: 0;
+  background: transparent;
+  color: var(--switch-text);
+  height: 100%;
+  border-radius: 0;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 400;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.optionActive {
+  color: var(--switch-active-text);
+}
+
+.optionInactive {
+  background: var(--switch-bg);
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  display: block;
+  background: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.iconSun {
+  -webkit-mask-image: url("../../icons/sun.svg");
+  mask-image: url("../../icons/sun.svg");
+}
+
+.iconMoon {
+  -webkit-mask-image: url("../../icons/moon.svg");
+  mask-image: url("../../icons/moon.svg");
+}

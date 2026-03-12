@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CirclePlus, LogOut, Settings } from "lucide-react";
+import { Bot } from "lucide-react";
 import {
   FloatingPortal,
   autoUpdate,
@@ -9,42 +9,123 @@ import {
   offset,
   shift,
   useFloating,
+  useFocus,
   useHover,
   useInteractions,
 } from "@floating-ui/react";
 
-import sinasLogo from "../../icons/sinas-logo-small.svg";
+import sinasLogo from "../../icons/sinas-logo.svg";
+import sinasLogoWhite from "../../icons/sinas-logo-white.svg";
+import PlusIcon from "../../icons/plus.svg?react";
+import LinkIcon from "../../icons/link.svg?react";
+import SettingsIcon from "../../icons/settings.svg?react";
+import LogoutIcon from "../../icons/logout.svg?react";
+import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { apiClient } from "../../lib/api";
-import { getAgentByNamespaceAndName } from "../../lib/agents";
+import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { useAuth } from "../../lib/authContext";
-import { getWorkspaceUrl } from "../../lib/workspace";
+import { useTheme } from "../../lib/useTheme";
+import { getApplicationId, getWorkspaceUrl } from "../../lib/workspace";
+import type { AgentResponse, Chat } from "../../types";
 import { Button } from "../Button/Button";
 import SinasLoader from "../Loader/Loader";
-import type { Chat } from "../../types";
 import styles from "./AppSidebar.module.scss";
 
 type AppSidebarProps = {
   activeChatId?: string;
 };
 
+const SIDEBAR_CHAT_LIMIT = 10;
+
 function joinClasses(...classNames: Array<string | undefined | false>) {
   return classNames.filter(Boolean).join(" ");
 }
 
-function getBadgeToneClass(chat: Chat): string {
-  const agent = getAgentByNamespaceAndName(chat.agent_namespace, chat.agent_name);
-  if (!agent) return styles.chatBadgeToneNeutral;
-  if (agent.tone === "yellow") return styles.chatBadgeToneYellow;
-  if (agent.tone === "blue") return styles.chatBadgeToneBlue;
-  if (agent.tone === "mint") return styles.chatBadgeToneMint;
-  return styles.chatBadgeToneNeutral;
+function toAgentKey(namespace?: string | null, name?: string | null): string | null {
+  if (!namespace || !name) return null;
+  return `${namespace.toLowerCase()}::${name.toLowerCase()}`;
 }
 
-function getBadgeLabel(chat: Chat): string {
-  const agent = getAgentByNamespaceAndName(chat.agent_namespace, chat.agent_name);
-  if (agent) return agent.displayName;
-  if (chat.agent_name) return chat.agent_name;
-  return "Unknown";
+function getAgentKey(agent: Pick<AgentResponse, "namespace" | "name">): string {
+  return `${agent.namespace.toLowerCase()}::${agent.name.toLowerCase()}`;
+}
+
+function getPlaceholderCssVars(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  return {
+    "--agent-icon-color": placeholder.color,
+    "--agent-icon-soft-color": placeholder.softColor,
+  } as CSSProperties;
+}
+
+function getPlaceholderGlyphStyle(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  const iconUrl = `url("${placeholder.iconSrc}")`;
+  return {
+    WebkitMaskImage: iconUrl,
+    maskImage: iconUrl,
+  } as CSSProperties;
+}
+
+function getChatSortTime(chat: Chat): number {
+  const timestamp = Date.parse(chat.last_message_at ?? chat.updated_at ?? chat.created_at);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+type ChatAgentIconProps = {
+  chat: Chat;
+  agentsById: Map<string, AgentResponse>;
+  agentsByKey: Map<string, AgentResponse>;
+  iconSrcByAgentId: Record<string, string>;
+  placeholderByAgentId: Record<string, AgentPlaceholderMeta>;
+  onAgentIconError: (agentId: string) => Promise<string | null>;
+};
+
+function ChatAgentIcon({
+  chat,
+  agentsById,
+  agentsByKey,
+  iconSrcByAgentId,
+  placeholderByAgentId,
+  onAgentIconError,
+}: ChatAgentIconProps) {
+  let chatAgent = chat.agent_id ? agentsById.get(chat.agent_id) : undefined;
+  if (!chatAgent) {
+    const endpointKey = toAgentKey(chat.agent_namespace, chat.agent_name);
+    chatAgent = endpointKey ? agentsByKey.get(endpointKey) : undefined;
+  }
+
+  const iconSrc = chatAgent ? iconSrcByAgentId[chatAgent.id] : undefined;
+  const placeholder = chatAgent ? placeholderByAgentId[chatAgent.id] : undefined;
+  const placeholderCssVars = getPlaceholderCssVars(placeholder);
+  const shouldShowPlaceholder = !iconSrc && Boolean(placeholderCssVars);
+  const placeholderGlyphStyle = getPlaceholderGlyphStyle(placeholder);
+
+  return (
+    <span
+      className={joinClasses(styles.chatAgentIconWrap, shouldShowPlaceholder && styles.chatAgentIconWrapPlaceholder)}
+      style={shouldShowPlaceholder ? placeholderCssVars : undefined}
+      aria-hidden
+    >
+      {iconSrc && chatAgent ? (
+        <img
+          className={styles.chatAgentIconImage}
+          src={iconSrc}
+          alt=""
+          loading="lazy"
+          onError={() => {
+            void onAgentIconError(chatAgent.id);
+          }}
+        />
+      ) : shouldShowPlaceholder ? (
+        <span className={styles.chatAgentPlaceholderGlyph} style={placeholderGlyphStyle} />
+      ) : (
+        <Bot size={14} />
+      )}
+    </span>
+  );
 }
 
 function SidebarChatTitle({ title }: { title: string }) {
@@ -114,11 +195,27 @@ function SidebarChatTitle({ title }: { title: string }) {
 
 export function AppSidebar({ activeChatId }: AppSidebarProps) {
   const navigate = useNavigate();
-  const location = useLocation();
   const { logout } = useAuth();
+  const { theme } = useTheme();
   const ws = getWorkspaceUrl();
+  const appId = getApplicationId();
+  const logoSrc = theme === "dark" ? sinasLogoWhite : sinasLogo;
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLogoutTooltipOpen, setIsLogoutTooltipOpen] = useState(false);
+  const { refs: logoutTooltipRefs, floatingStyles: logoutTooltipStyles, context: logoutTooltipContext } = useFloating({
+    open: isLogoutTooltipOpen,
+    onOpenChange: setIsLogoutTooltipOpen,
+    whileElementsMounted: autoUpdate,
+    placement: "top",
+    middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 })],
+  });
+  const logoutHover = useHover(logoutTooltipContext, { move: false, enabled: !isLoggingOut });
+  const logoutFocus = useFocus(logoutTooltipContext, { enabled: !isLoggingOut });
+  const { getReferenceProps: getLogoutReferenceProps, getFloatingProps: getLogoutFloatingProps } = useInteractions([
+    logoutHover,
+    logoutFocus,
+  ]);
 
   const meQ = useQuery({
     queryKey: ["me", ws],
@@ -132,10 +229,27 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
     enabled: Boolean(ws),
   });
 
-  const chats = chatsQ.data ?? [];
-  const isAllChatsPage = location.pathname === "/chats";
-  const isSettingsPage = location.pathname === "/settings";
+  const agentsQ = useQuery({
+    queryKey: ["config-agents", ws, appId ?? ""],
+    queryFn: () => apiClient.listAgents(appId),
+    enabled: Boolean(ws),
+  });
 
+  const activeAgents = useMemo(() => (agentsQ.data ?? []).filter((agent) => agent.is_active), [agentsQ.data]);
+  const { iconSrcByAgentId, onAgentIconError } = useAgentIconSources(activeAgents, apiClient);
+  const placeholderByAgentId = useMemo(() => buildAgentPlaceholderMetaById(activeAgents), [activeAgents]);
+  const agentsById = useMemo(() => new Map(activeAgents.map((agent) => [agent.id, agent] as const)), [activeAgents]);
+  const agentsByKey = useMemo(
+    () => new Map(activeAgents.map((agent) => [getAgentKey(agent), agent] as const)),
+    [activeAgents],
+  );
+
+  const chats = chatsQ.data ?? [];
+  const sidebarChats = useMemo(() => {
+    return [...chats]
+      .sort((a, b) => getChatSortTime(b) - getChatSortTime(a))
+      .slice(0, SIDEBAR_CHAT_LIMIT);
+  }, [chats]);
   function onCreateNewChat() {
     navigate("/");
   }
@@ -156,7 +270,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
     <aside className={styles.sidebar}>
       <div className={styles.sidebarTop}>
         <div className={styles.sidebarLogoWrap}>
-          <img className={styles.sidebarLogo} src={sinasLogo} alt="Sinas" />
+          <img className={styles.sidebarLogo} src={logoSrc} alt="Sinas" />
         </div>
 
         <Button
@@ -164,7 +278,8 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
           className={styles.newChatBtn}
           onClick={onCreateNewChat}
         >
-          New chat <CirclePlus size={16} aria-hidden />
+          <PlusIcon className={styles.newChatIcon} aria-hidden />
+          <span>New chat</span>
         </Button>
 
         <div className={styles.sidebarSectionTitle}>Your chats</div>
@@ -178,7 +293,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
           ) : chats.length === 0 ? (
             <div className={styles.muted}>No chats yet</div>
           ) : (
-            chats.map((chat: Chat) => {
+            sidebarChats.map((chat) => {
               const chatTitle = chat.title?.trim() || "Untitled chat";
               return (
                 <Button
@@ -187,8 +302,15 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
                   className={joinClasses(styles.chatRow, chat.id === activeChatId && styles.chatRowActive)}
                   onClick={() => navigate(`/chats/${chat.id}`)}
                 >
+                  <ChatAgentIcon
+                    chat={chat}
+                    agentsById={agentsById}
+                    agentsByKey={agentsByKey}
+                    iconSrcByAgentId={iconSrcByAgentId}
+                    placeholderByAgentId={placeholderByAgentId}
+                    onAgentIconError={onAgentIconError}
+                  />
                   <SidebarChatTitle title={chatTitle} />
-                  <span className={joinClasses(styles.chatBadge, getBadgeToneClass(chat))}>{getBadgeLabel(chat)}</span>
                 </Button>
               );
             })
@@ -197,20 +319,22 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
 
         <Button
           variant="minimal"
-          className={joinClasses(styles.allChatsBtn, isAllChatsPage && styles.allChatsBtnActive)}
+          className={styles.allChatsBtn}
           onClick={() => navigate("/chats")}
         >
-          All chats
+          <LinkIcon className={styles.allChatsIcon} aria-hidden />
+          <span>All chats</span>
         </Button>
+
       </div>
 
       <div className={styles.sidebarBottom}>
         <Button
           variant="minimal"
-          className={joinClasses(styles.settingsBtn, isSettingsPage && styles.settingsBtnActive)}
+          className={styles.settingsBtn}
           onClick={() => navigate("/settings")}
         >
-          <Settings size={16} aria-hidden />
+          <SettingsIcon className={styles.settingsIcon} aria-hidden />
           <span>Settings</span>
         </Button>
 
@@ -218,13 +342,26 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
           <Button
             variant="icon"
             className={styles.logoutBtn}
+            ref={logoutTooltipRefs.setReference}
+            {...getLogoutReferenceProps()}
             onClick={onLogout}
             disabled={isLoggingOut}
             aria-label="Log out"
-            title="Log out"
           >
-            <LogOut size={16} />
+            <LogoutIcon className={styles.logoutIcon} aria-hidden />
           </Button>
+          {isLogoutTooltipOpen ? (
+            <FloatingPortal>
+              <div
+                ref={logoutTooltipRefs.setFloating}
+                style={logoutTooltipStyles}
+                className={styles.iconTooltip}
+                {...getLogoutFloatingProps()}
+              >
+                Log out
+              </div>
+            </FloatingPortal>
+          ) : null}
           <div className={styles.userEmail}>{meQ.data?.email ?? "…"}</div>
         </div>
       </div>

@@ -3,17 +3,17 @@
 }
 
 .dropActive {
-  outline: 2px dashed var(--color-border-muted);
-  outline-offset: 6px;
-  border-radius: 16px;
+  outline: 2px dashed #cfbfae;
+  outline-offset: 4px;
+  border-radius: 24px;
 }
 
 .dropOverlay {
   position: absolute;
-  inset: -4px;
-  border-radius: 16px;
-  background: var(--color-bg-overlay);
-  border: 1px solid var(--color-border-default);
+  inset: -3px;
+  border-radius: 24px;
+  background: rgba(250, 247, 242, 0.78);
+  border: 1px solid #dfd3c4;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,20 +22,23 @@
 }
 
 .dropOverlayText {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--color-text-primary);
-  padding: 8px 12px;
+  color: #5f5347;
+  padding: 8px 14px;
   border-radius: 999px;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-default);
+  background: #fff;
+  border: 1px solid #e6dbcf;
 }
 
 .attachmentArea {
-  margin-bottom: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.attachmentAreaWithItems {
+  margin-bottom: 10px;
 }
 
 .attachmentList {
@@ -45,13 +48,22 @@
 }
 
 .attachmentError {
-  color: var(--color-danger);
+  color: #9e2d20;
   font-size: 12px;
 }
 
 .textarea {
   width: 100%;
   background: transparent;
+  border: 0;
+  outline: 0;
+  font-size: 14px;
+  color: #4f473f;
+  line-height: 1.45;
+
+  &::placeholder {
+    color: #8d8378;
+  }
 
   &:disabled {
     background: transparent;
@@ -59,6 +71,50 @@
     opacity: 1;
     -webkit-text-fill-color: currentColor;
   }
+}
+
+:global(html[data-theme="dark"]) .textarea::placeholder {
+  color: #fff;
+  opacity: 1;
+}
+
+.voiceStatus {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #7b6d5f;
+}
+
+.voiceStatusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #d9a15b;
+  flex: 0 0 8px;
+}
+
+.voiceStatusStarting .voiceStatusDot,
+.voiceStatusListening .voiceStatusDot {
+  animation: voiceStatusPulse 1.2s ease-in-out infinite;
+}
+
+.voiceStatusListening {
+  color: #8b4900;
+}
+
+.voiceStatusListening .voiceStatusDot {
+  background: #e17a14;
+}
+
+.voiceStatusError {
+  color: #9e2d20;
+}
+
+.voiceStatusError .voiceStatusDot {
+  background: #c5483a;
+  animation: none;
 }
 
 .attachmentInput {
@@ -69,20 +125,20 @@
 .micButton {
   position: absolute;
   bottom: 12px;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--color-border-default);
+  width: 36px;
+  height: 36px;
   border-radius: 999px;
-  background: var(--color-bg-surface);
-  color: var(--color-text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  padding: 0;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  border: none;
+  background: transparent;
 
   &:hover:not(:disabled) {
-    border-color: var(--color-border-muted);
-    background: var(--color-bg-surface-hover);
+    background-color: var(--color-hover-beige);
   }
 
   &:disabled {
@@ -92,7 +148,7 @@
 }
 
 .attachmentButton {
-  right: 50px;
+  right: 54px;
 }
 
 .micButton {
@@ -100,19 +156,28 @@
 }
 
 .micButtonActive {
-  color: var(--color-success);
-  border-color: var(--color-success-border);
-  background: var(--color-success-bg);
+  color: #6a3d00;
+  background: #ffd493;
+  border-color: #ffc472;
+  box-shadow: 0 0 0 3px rgba(255, 170, 67, 0.22);
+}
+
+.micButtonStarting {
+  background: #ffe3b7;
+}
+
+.micButtonListening {
+  animation: micButtonPulse 1.25s ease-in-out infinite;
 }
 
 .stopButton {
-  border-color: var(--color-border-default);
-  background: var(--color-bg-surface-muted);
-  color: var(--color-text-secondary);
+  background: #ffe8ca;
+  color: #71420a;
+  border-color: #f7cc8f;
 
   &:hover:not(:disabled) {
-    border-color: var(--color-border-muted);
-    background: var(--color-bg-surface-hover);
+    background: #ffdfb4;
+    border-color: #f0be73;
   }
 }
 
@@ -122,4 +187,51 @@
   border-radius: 2px;
   background: currentColor;
   display: block;
+}
+
+.attachmentIcon,
+.micIcon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  color: var(--color-text-primary);
+
+  path {
+    stroke: currentColor;
+  }
+}
+
+:global(html[data-theme="dark"]) .attachmentIcon,
+:global(html[data-theme="dark"]) .micIcon {
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voiceStatusStarting .voiceStatusDot,
+  .voiceStatusListening .voiceStatusDot,
+  .micButtonListening {
+    animation: none;
+  }
+}
+
+@keyframes micButtonPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.045);
+  }
+}
+
+@keyframes voiceStatusPulse {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
 }

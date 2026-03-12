@@ -1,7 +1,7 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { Bot, CircleHelp, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -9,11 +9,14 @@ import styles from "./Chat.module.scss";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import SinasLoader from "../../components/Loader/Loader";
+import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
+import { useAgentIconSources } from "../../hooks/useAgentIconSources";
+import { useChatScrollBehavior } from "../../hooks/useChatScrollBehavior";
+import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { apiClient, type ChatStreamHandle } from "../../lib/api";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
-import type { ApprovalRequiredEvent } from "../../types";
-import sinasLogoSmall from "../../icons/sinas-logo-small.svg";
+import type { AgentResponse, ApprovalRequiredEvent, ChatWithMessages, ToolEndEvent, ToolStartEvent } from "../../types";
 
 type AudioAttachmentFormat = "wav" | "mp3" | "m4a" | "ogg";
 
@@ -41,6 +44,16 @@ type ChatMessagesProps = {
   isPending: boolean;
   isStreaming: boolean;
   streamingContent: string;
+  thinkingText: string;
+  toolRuns: ToolRun[];
+  pendingApprovals: ApprovalRequiredEvent[];
+  processingApproval: string | null;
+  onApprovalDecision: (approval: ApprovalRequiredEvent, approved: boolean) => void;
+  assistantAvatarSrc?: string;
+  assistantAvatarPlaceholder?: AgentPlaceholderMeta;
+  onAssistantAvatarError?: () => void;
+  messagesContainerRef?: RefObject<HTMLDivElement | null>;
+  onLastUserMessageRef?: (node: HTMLDivElement | null) => void;
 };
 
 type RenderedMessageAttachment = {
@@ -56,6 +69,24 @@ type ParsedMessageContent = {
   attachments: RenderedMessageAttachment[];
 };
 
+type ToolRunStatus = "running" | "done" | "error";
+
+interface ToolRun {
+  id: string;
+  name: string;
+  description: string;
+  status: ToolRunStatus;
+  startedAt: string;
+  error?: string | null;
+}
+
+type ToolProgressRowsProps = {
+  tools: ToolRun[];
+  assistantAvatarSrc?: string;
+  assistantAvatarPlaceholder?: AgentPlaceholderMeta;
+  onAssistantAvatarError?: () => void;
+};
+
 const MARKDOWN_PLUGINS = [remarkGfm];
 const MemoizedAppSidebar = memo(AppSidebar);
 const DEFAULT_ATTACHMENT_ERROR = "File uploads aren’t configured on this Sinas instance. Ask admin to configure it.";
@@ -65,6 +96,9 @@ const AUDIO_ATTACHMENTS_DISABLED_ERROR = "Audio attachments are not supported ye
 const UNSUPPORTED_AUDIO_ERROR = "Unsupported audio format. Please use WAV, MP3, M4A, or OGG.";
 const SUPPORTED_AUDIO_FORMATS = new Set<AudioAttachmentFormat>(["wav", "mp3", "m4a", "ogg"]);
 const CHAT_ATTACHMENT_ACCEPT = "image/*,.pdf,.doc,.docx,.txt";
+const TOOL_RUN_AUTO_REMOVE_MS = 3000;
+const CHAT_SCROLL_TOP_OFFSET = 16;
+const CHAT_NEAR_BOTTOM_THRESHOLD = 72;
 
 type PendingChatAttachment =
   | {
@@ -82,6 +116,29 @@ type PendingChatAttachment =
         added_at: string;
       };
     };
+
+function joinClasses(...classNames: Array<string | undefined | false>): string {
+  return classNames.filter(Boolean).join(" ");
+}
+
+function getPlaceholderCssVars(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  return {
+    "--agent-icon-color": placeholder.color,
+    "--agent-icon-soft-color": placeholder.softColor,
+  } as CSSProperties;
+}
+
+function getPlaceholderGlyphStyle(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  const iconUrl = `url("${placeholder.iconSrc}")`;
+  return {
+    WebkitMaskImage: iconUrl,
+    maskImage: iconUrl,
+  } as CSSProperties;
+}
 
 function getFileExtension(filename: string): string {
   const dotIndex = filename.lastIndexOf(".");
@@ -149,6 +206,87 @@ function getAudioAttachmentErrorMessage(error: unknown): string {
     return error.message;
   }
   return "Could not process audio file.";
+}
+
+function normalizeToolName(name: string | null | undefined): string {
+  const trimmed = name?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : "tool";
+}
+
+function getToolDescription(description: string | null | undefined, toolName: string): string {
+  const trimmed = description?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : `Running ${toolName}`;
+}
+
+function getApprovalReason(approval: ApprovalRequiredEvent): string {
+  const args = approval.arguments ?? {};
+  const candidates = [
+    args.justification,
+    args.reason,
+    args.description,
+    args.message,
+    args.purpose,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") continue;
+    const trimmed = candidate.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+
+  return "The assistant needs your permission to continue with the next action.";
+}
+
+function extractToolCallId(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+
+  const directId = (value as { tool_call_id?: unknown }).tool_call_id;
+  if (typeof directId === "string" && directId.trim().length > 0) {
+    return directId;
+  }
+
+  const nestedError = (value as { error?: unknown }).error;
+  if (nestedError && typeof nestedError === "object") {
+    const nestedId = (nestedError as { tool_call_id?: unknown }).tool_call_id;
+    if (typeof nestedId === "string" && nestedId.trim().length > 0) {
+      return nestedId;
+    }
+  }
+
+  return null;
+}
+
+function extractErrorMessage(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (value instanceof Error) {
+    const trimmed = value.message.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (value && typeof value === "object") {
+    const directMessage = (value as { message?: unknown }).message;
+    if (typeof directMessage === "string" && directMessage.trim().length > 0) {
+      return directMessage.trim();
+    }
+
+    const directError = (value as { error?: unknown }).error;
+    if (typeof directError === "string" && directError.trim().length > 0) {
+      return directError.trim();
+    }
+
+    if (directError && typeof directError === "object") {
+      const nestedMessage = (directError as { message?: unknown }).message;
+      if (typeof nestedMessage === "string" && nestedMessage.trim().length > 0) {
+        return nestedMessage.trim();
+      }
+    }
+  }
+
+  return null;
 }
 
 function tryParseStructuredContentString(value: string): unknown | null {
@@ -325,6 +463,12 @@ function shouldRenderMessage(message: ChatMessageViewModel): boolean {
 type ChatMessageRowProps = {
   message: ChatMessageViewModel;
   showAssistantAvatarLoading?: boolean;
+  showAssistantAvatarPulse?: boolean;
+  runningTool?: ToolRun;
+  assistantAvatarSrc?: string;
+  assistantAvatarPlaceholder?: AgentPlaceholderMeta;
+  onAssistantAvatarError?: () => void;
+  rowRef?: (node: HTMLDivElement | null) => void;
 };
 
 type MessageAttachmentImageProps = {
@@ -368,9 +512,179 @@ function MessageAttachmentImage({ attachment, compact }: MessageAttachmentImageP
   );
 }
 
+type AssistantAvatarProps = {
+  showAssistantAvatarLoading?: boolean;
+  showAssistantAvatarPulse?: boolean;
+  assistantAvatarSrc?: string;
+  assistantAvatarPlaceholder?: AgentPlaceholderMeta;
+  onAssistantAvatarError?: () => void;
+};
+
+function AssistantAvatar({
+  showAssistantAvatarLoading = false,
+  showAssistantAvatarPulse = false,
+  assistantAvatarSrc,
+  assistantAvatarPlaceholder,
+  onAssistantAvatarError,
+}: AssistantAvatarProps) {
+  const assistantAvatarCssVars = getPlaceholderCssVars(assistantAvatarPlaceholder);
+  const assistantAvatarGlyphStyle = getPlaceholderGlyphStyle(assistantAvatarPlaceholder);
+  const shouldShowAssistantPlaceholder = !assistantAvatarSrc && Boolean(assistantAvatarCssVars);
+
+  return (
+    <div
+      className={joinClasses(
+        styles.assistantAvatar,
+        showAssistantAvatarPulse && styles.assistantAvatarPulse,
+        shouldShowAssistantPlaceholder && styles.assistantAvatarPlaceholder,
+        assistantAvatarSrc && styles.assistantAvatarCustomIcon,
+      )}
+      style={assistantAvatarCssVars}
+      role={showAssistantAvatarLoading ? "status" : undefined}
+      aria-live={showAssistantAvatarLoading ? "polite" : undefined}
+      aria-label={showAssistantAvatarLoading ? "Generating response" : undefined}
+    >
+      {assistantAvatarSrc ? (
+        <img
+          className={styles.assistantAvatarImage}
+          src={assistantAvatarSrc}
+          alt=""
+          aria-hidden="true"
+          onError={onAssistantAvatarError}
+        />
+      ) : shouldShowAssistantPlaceholder ? (
+        <span className={styles.assistantAvatarPlaceholderGlyph} style={assistantAvatarGlyphStyle} />
+      ) : (
+        <Bot size={20} aria-hidden="true" />
+      )}
+    </div>
+  );
+}
+
+type ApprovalPromptRowProps = {
+  approval: ApprovalRequiredEvent;
+  isProcessing: boolean;
+  disableActions: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+  assistantAvatarSrc?: string;
+  assistantAvatarPlaceholder?: AgentPlaceholderMeta;
+  onAssistantAvatarError?: () => void;
+};
+
+const ApprovalPromptRow = memo(function ApprovalPromptRow({
+  approval,
+  isProcessing,
+  disableActions,
+  onApprove,
+  onReject,
+  assistantAvatarSrc,
+  assistantAvatarPlaceholder,
+  onAssistantAvatarError,
+}: ApprovalPromptRowProps) {
+  return (
+    <div className={`${styles.messageRow} ${styles.assistantRow}`}>
+      <AssistantAvatar
+        assistantAvatarSrc={assistantAvatarSrc}
+        assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+        onAssistantAvatarError={onAssistantAvatarError}
+      />
+
+      <div className={`${styles.approvalCard} ${isProcessing ? styles.approvalCardProcessing : ""}`}>
+        <div className={styles.approvalIconWrap}>
+          {isProcessing ? (
+            <Loader2 className={styles.approvalSpinner} aria-hidden="true" />
+          ) : (
+            <CircleHelp className={styles.approvalIcon} aria-hidden="true" />
+          )}
+        </div>
+
+        <div className={styles.approvalContent}>
+          <h4 className={styles.approvalTitle}>{isProcessing ? "Processing approval..." : "Action Needs Your Approval"}</h4>
+          <p className={styles.approvalText}>{getApprovalReason(approval)}</p>
+          <p className={styles.approvalHint}>Approve to continue, or reject to stop this action.</p>
+
+          <div className={styles.approvalActions}>
+            <button type="button" className={`${styles.approvalButton} ${styles.approveButton}`} onClick={onApprove} disabled={disableActions}>
+              {isProcessing ? "Processing..." : "Approve"}
+            </button>
+            <button type="button" className={`${styles.approvalButton} ${styles.rejectButton}`} onClick={onReject} disabled={disableActions}>
+              Reject
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+ApprovalPromptRow.displayName = "ApprovalPromptRow";
+
+const ToolProgressRows = memo(function ToolProgressRows({
+  tools,
+  assistantAvatarSrc,
+  assistantAvatarPlaceholder,
+  onAssistantAvatarError,
+}: ToolProgressRowsProps) {
+  const visibleTools = tools.filter((tool) => tool.status !== "running");
+  if (visibleTools.length === 0) return null;
+
+  return (
+    <div className={styles.toolProgressInlineList} role="status" aria-live="polite" aria-atomic="false">
+      {visibleTools.map((tool) => {
+        const isDone = tool.status === "done";
+        const statusText = isDone ? "Completed" : "Failed";
+
+        return (
+          <div key={tool.id} className={`${styles.messageRow} ${styles.assistantRow}`}>
+            <AssistantAvatar
+              assistantAvatarSrc={assistantAvatarSrc}
+              assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+              onAssistantAvatarError={onAssistantAvatarError}
+            />
+
+            <div
+              className={joinClasses(
+                styles.toolProgressCard,
+                isDone && styles.toolProgressDone,
+                tool.status === "error" && styles.toolProgressError
+              )}
+            >
+              <span
+                className={joinClasses(
+                  styles.toolProgressDot,
+                  isDone && styles.toolProgressDotDone,
+                  tool.status === "error" && styles.toolProgressDotError
+                )}
+                aria-hidden="true"
+              />
+              <div className={styles.toolProgressContent}>
+                <p className={styles.toolProgressDescription}>{tool.description}</p>
+                <p className={styles.toolProgressMeta}>
+                  <code className={styles.toolProgressName}>{tool.name}</code>
+                  <span className={styles.toolProgressStatus}>{statusText}</span>
+                </p>
+                {tool.status === "error" && tool.error ? <p className={styles.toolProgressErrorText}>{tool.error}</p> : null}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+ToolProgressRows.displayName = "ToolProgressRows";
+
 const ChatMessageRow = memo(function ChatMessageRow({
   message,
   showAssistantAvatarLoading = false,
+  showAssistantAvatarPulse = false,
+  runningTool,
+  assistantAvatarSrc,
+  assistantAvatarPlaceholder,
+  onAssistantAvatarError,
+  rowRef,
 }: ChatMessageRowProps) {
   const { text: messageText, attachments } = parseMessageContent(message.content);
   const imageAttachments = attachments.filter((attachment) => attachment.kind === "image");
@@ -380,86 +694,121 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const shouldHideAssistantBubble = isAssistant && showAssistantAvatarLoading;
+  const [openRunningToolId, setOpenRunningToolId] = useState<string | null>(null);
+  const isRunningToolDetailsOpen = runningTool ? openRunningToolId === runningTool.id : false;
 
-  return (
-    <div className={`${styles.messageRow} ${isUser ? styles.userRow : styles.assistantRow}`}>
-      {isAssistant ? (
-        <div className={styles.assistantAvatar}>
-          {showAssistantAvatarLoading ? (
-            <div className={styles.assistantAvatarLoading} role="status" aria-live="polite" aria-label="Generating response">
-              <SinasLoader size={24} />
-            </div>
-          ) : (
-            <img className={styles.assistantAvatarImage} src={sinasLogoSmall} alt="" aria-hidden="true" />
-          )}
-        </div>
-      ) : null}
+  const messageBubble = !shouldHideAssistantBubble ? (
+    <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
+      <div className={styles.messageBody}>
+        {isAssistant ? (
+          <div className={styles.messageMarkdown}>
+            <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS}>{messageText}</ReactMarkdown>
+          </div>
+        ) : (
+          <div className={styles.messageText}>{messageText}</div>
+        )}
 
-      {!shouldHideAssistantBubble ? (
-        <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
-          <div className={styles.messageBody}>
-            {isAssistant ? (
-              <div className={styles.messageMarkdown}>
-                <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS}>{messageText}</ReactMarkdown>
+        {attachments.length > 0 ? (
+          <div className={styles.messageAttachments}>
+            {imageAttachments.length > 0 ? (
+              <div
+                className={`${styles.messageImageAttachments} ${
+                  useCompactImageAttachments ? styles.messageImageAttachmentsCompact : ""
+                }`}
+              >
+                {imageAttachments.map((attachment, index) => (
+                  <MessageAttachmentImage
+                    key={`${attachment.url}-${index}`}
+                    attachment={attachment}
+                    compact={useCompactImageAttachments}
+                  />
+                ))}
               </div>
-            ) : (
-              <div className={styles.messageText}>{messageText}</div>
-            )}
+            ) : null}
 
-            {attachments.length > 0 ? (
-              <div className={styles.messageAttachments}>
-                {imageAttachments.length > 0 ? (
-                  <div
-                    className={`${styles.messageImageAttachments} ${
-                      useCompactImageAttachments ? styles.messageImageAttachmentsCompact : ""
-                    }`}
+            {fileAttachments.length > 0 ? (
+              <div className={styles.messageFileAttachments}>
+                {fileAttachments.map((attachment, index) => (
+                  <a
+                    key={`${attachment.url}-${index}`}
+                    href={attachment.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={styles.messageAttachmentFile}
                   >
-                    {imageAttachments.map((attachment, index) => (
-                      <MessageAttachmentImage
-                        key={`${attachment.url}-${index}`}
-                        attachment={attachment}
-                        compact={useCompactImageAttachments}
-                      />
-                    ))}
-                  </div>
-                ) : null}
+                    <span className={styles.messageAttachmentFileName}>{attachment.name || "Attachment"}</span>
+                    {attachment.mime ? (
+                      <span className={styles.messageAttachmentFileMeta}>{attachment.mime}</span>
+                    ) : null}
+                  </a>
+                ))}
+              </div>
+            ) : null}
 
-                {fileAttachments.length > 0 ? (
-                  <div className={styles.messageFileAttachments}>
-                    {fileAttachments.map((attachment, index) => (
-                      <a
-                        key={`${attachment.url}-${index}`}
-                        href={attachment.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={styles.messageAttachmentFile}
-                      >
-                        <span className={styles.messageAttachmentFileName}>{attachment.name || "Attachment"}</span>
-                        {attachment.mime ? (
-                          <span className={styles.messageAttachmentFileMeta}>{attachment.mime}</span>
-                        ) : null}
-                      </a>
-                    ))}
+            {audioAttachments.length > 0 ? (
+              <div className={styles.messageFileAttachments}>
+                {audioAttachments.map((attachment, index) => (
+                  <div key={`${attachment.name ?? "audio"}-${attachment.format ?? "unknown"}-${index}`} className={styles.messageAttachmentFile}>
+                    <span className={styles.messageAttachmentFileName}>{attachment.name || "Audio attachment"}</span>
+                    <span className={styles.messageAttachmentFileMeta}>
+                      {attachment.format ? `audio/${attachment.format}` : "audio"}
+                    </span>
                   </div>
-                ) : null}
-
-                {audioAttachments.length > 0 ? (
-                  <div className={styles.messageFileAttachments}>
-                    {audioAttachments.map((attachment, index) => (
-                      <div key={`${attachment.name ?? "audio"}-${attachment.format ?? "unknown"}-${index}`} className={styles.messageAttachmentFile}>
-                        <span className={styles.messageAttachmentFileName}>{attachment.name || "Audio attachment"}</span>
-                        <span className={styles.messageAttachmentFileMeta}>
-                          {attachment.format ? `audio/${attachment.format}` : "audio"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
+                ))}
               </div>
             ) : null}
           </div>
-        </div>
+        ) : null}
+      </div>
+    </div>
+  ) : null;
+
+  return (
+    <div className={`${styles.messageRow} ${isUser ? styles.userRow : styles.assistantRow}`} ref={rowRef}>
+      {isAssistant ? (
+        <AssistantAvatar
+          showAssistantAvatarLoading={showAssistantAvatarLoading}
+          showAssistantAvatarPulse={showAssistantAvatarPulse}
+          assistantAvatarSrc={assistantAvatarSrc}
+          assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+          onAssistantAvatarError={onAssistantAvatarError}
+        />
       ) : null}
+
+      {isAssistant ? (
+        <div className={styles.assistantMessageStack}>
+          {messageBubble ? (
+            <div className={styles.assistantBubbleRow}>
+              {messageBubble}
+              {runningTool ? (
+                <button
+                  type="button"
+                  className={styles.runningToolHelpButton}
+                  aria-label={isRunningToolDetailsOpen ? "Hide running tool details" : "Show running tool details"}
+                  aria-expanded={isRunningToolDetailsOpen}
+                  onClick={() => setOpenRunningToolId((prev) => (prev === runningTool.id ? null : runningTool.id))}
+                >
+                  <CircleHelp className={styles.runningToolHelpIcon} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {runningTool && isRunningToolDetailsOpen ? (
+            <div className={joinClasses(styles.toolProgressCard, styles.runningToolDetailsCard)}>
+              <span className={joinClasses(styles.toolProgressDot, styles.runningToolDetailsDot)} aria-hidden="true" />
+              <div className={styles.toolProgressContent}>
+                <p className={styles.toolProgressDescription}>{runningTool.description}</p>
+                <p className={styles.toolProgressMeta}>
+                  <code className={styles.toolProgressName}>{runningTool.name}</code>
+                  <span className={styles.toolProgressStatus}>Running</span>
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        messageBubble
+      )}
     </div>
   );
 });
@@ -473,16 +822,38 @@ const ChatMessages = memo(function ChatMessages({
   isPending,
   isStreaming,
   streamingContent,
+  thinkingText,
+  toolRuns,
+  pendingApprovals,
+  processingApproval,
+  onApprovalDecision,
+  assistantAvatarSrc,
+  assistantAvatarPlaceholder,
+  onAssistantAvatarError,
+  messagesContainerRef,
+  onLastUserMessageRef,
 }: ChatMessagesProps) {
   const lastMessage = messages[messages.length - 1];
+  const latestUserMessageIndex = [...messages].map((message) => message.role).lastIndexOf("user");
   const isWaitingForFirstChunk =
     isPending &&
     lastMessage?.role === "assistant" &&
     getMessageText(lastMessage.content).length === 0;
   const showStreamingRow = isStreaming || streamingContent.length > 0;
+  const latestRunningTool = useMemo(() => [...toolRuns].reverse().find((tool) => tool.status === "running"), [toolRuns]);
+
+  const [isScrolled, setIsScrolled] = useState(false);
+  useEffect(() => {
+    const el = messagesContainerRef?.current;
+    if (!el) return;
+    const onScroll = () => setIsScrolled(el.scrollTop > 0);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [messagesContainerRef]);
 
   return (
-    <div className={styles.messages}>
+    <div className={`${styles.messages} ${isScrolled ? styles.messagesScrolled : ""}`} ref={messagesContainerRef}>
       {isError ? <div className={styles.error}>Could not load chat</div> : null}
 
       {isLoading && messages.length === 0 ? (
@@ -490,7 +861,7 @@ const ChatMessages = memo(function ChatMessages({
           <SinasLoader size={28} />
           <span className={styles.loadingText}>Loading conversation...</span>
         </div>
-      ) : messages.length === 0 ? (
+      ) : messages.length === 0 && pendingApprovals.length === 0 ? (
         <div className={styles.empty}>No messages yet</div>
       ) : (
         messages.map((message, index) => {
@@ -506,10 +877,41 @@ const ChatMessages = memo(function ChatMessages({
               key={message.id ?? `${message.role ?? "message"}-${message.created_at ?? "unknown"}-${index}`}
               message={message}
               showAssistantAvatarLoading={shouldShowAssistantLoading}
+              showAssistantAvatarPulse={shouldShowAssistantLoading}
+              assistantAvatarSrc={assistantAvatarSrc}
+              assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+              onAssistantAvatarError={onAssistantAvatarError}
+              rowRef={index === latestUserMessageIndex ? onLastUserMessageRef : undefined}
             />
           );
         })
       )}
+
+      <ToolProgressRows
+        tools={toolRuns}
+        assistantAvatarSrc={assistantAvatarSrc}
+        assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+        onAssistantAvatarError={onAssistantAvatarError}
+      />
+
+      {pendingApprovals.map((approval) => {
+        const isProcessing = processingApproval === approval.tool_call_id;
+        const disableActions = Boolean(processingApproval) || isStreaming;
+
+        return (
+          <ApprovalPromptRow
+            key={approval.tool_call_id}
+            approval={approval}
+            isProcessing={isProcessing}
+            disableActions={disableActions}
+            onApprove={() => onApprovalDecision(approval, true)}
+            onReject={() => onApprovalDecision(approval, false)}
+            assistantAvatarSrc={assistantAvatarSrc}
+            assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+            onAssistantAvatarError={onAssistantAvatarError}
+          />
+        );
+      })}
 
       {showStreamingRow ? (
         <ChatMessageRow
@@ -517,12 +919,18 @@ const ChatMessages = memo(function ChatMessages({
           message={{
             id: "streaming-assistant",
             role: "assistant",
-            content: streamingContent,
+            content: streamingContent.length > 0 ? streamingContent : thinkingText,
             created_at: new Date().toISOString(),
           }}
-          showAssistantAvatarLoading={isStreaming && streamingContent.length === 0}
+          showAssistantAvatarLoading={isStreaming && streamingContent.length === 0 && !thinkingText}
+          showAssistantAvatarPulse={isStreaming}
+          runningTool={streamingContent.length === 0 ? latestRunningTool : undefined}
+          assistantAvatarSrc={assistantAvatarSrc}
+          assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+          onAssistantAvatarError={onAssistantAvatarError}
         />
       ) : null}
+
     </div>
   );
 });
@@ -533,6 +941,8 @@ export function ChatPage() {
   const { chatId } = useParams<{ chatId: string }>();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const lastUserMessageRef = useRef<HTMLDivElement | null>(null);
 
   const initialDraft = useMemo(() => {
     const state = location.state as LocationState | null;
@@ -551,10 +961,12 @@ export function ChatPage() {
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [activeTools, setActiveTools] = useState<Record<string, ToolRun>>({});
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequiredEvent[]>([]);
   const [processingApproval, setProcessingApproval] = useState<string | null>(null);
   const sentInitialDraftRef = useRef<Record<string, boolean>>({});
   const streamHandleRef = useRef<ChatStreamHandle | null>(null);
+  const toolCleanupTimeoutsRef = useRef<Record<string, number>>({});
   const composerAttachments = useMemo<ChatAttachment[]>(
     () =>
       pendingAttachments.map((item) => {
@@ -576,25 +988,231 @@ export function ChatPage() {
     enabled: !!chatId,
     queryFn: async () => apiClient.getChat(chatId!),
   });
+  const chatData = chatQ.data as ChatWithMessages | undefined;
+
+  const chatAgentNamespace = chatData?.agent_namespace?.trim() ?? "";
+  const chatAgentName = chatData?.agent_name?.trim() ?? "";
+  const assistantAgentQ = useQuery({
+    queryKey: ["chat-agent", chatAgentNamespace, chatAgentName],
+    enabled: chatAgentNamespace.length > 0 && chatAgentName.length > 0,
+    queryFn: () => apiClient.getAgent(chatAgentNamespace, chatAgentName),
+  });
+  const assistantAgent = assistantAgentQ.data as AgentResponse | undefined;
+  const assistantAgentIconCandidates = useMemo(() => (assistantAgent ? [assistantAgent] : []), [assistantAgent]);
+  const { iconSrcByAgentId, onAgentIconError } = useAgentIconSources(assistantAgentIconCandidates, apiClient);
+  const assistantAvatarSrc = assistantAgent ? iconSrcByAgentId[assistantAgent.id] : undefined;
+  const assistantAvatarPlaceholder = useMemo(() => {
+    if (!chatAgentNamespace || !chatAgentName) return undefined;
+
+    const placeholderAgentId =
+      assistantAgent?.id ?? chatData?.agent_id ?? `${chatAgentNamespace.toLowerCase()}::${chatAgentName.toLowerCase()}`;
+    const placeholderByAgentId = buildAgentPlaceholderMetaById([
+      {
+        id: placeholderAgentId,
+        namespace: chatAgentNamespace,
+        name: chatAgentName,
+      },
+    ]);
+
+    return placeholderByAgentId[placeholderAgentId];
+  }, [assistantAgent?.id, chatAgentName, chatAgentNamespace, chatData?.agent_id]);
+  const onAssistantAvatarError = useMemo(() => {
+    if (!assistantAgent) return undefined;
+
+    return () => {
+      void onAgentIconError(assistantAgent.id);
+    };
+  }, [assistantAgent, onAgentIconError]);
 
   const messages: ChatMessageViewModel[] = useMemo(() => {
-    const data: any = chatQ.data;
-    if (!data) return [];
-    const rawMessages = Array.isArray(data.messages) ? (data.messages as ChatMessageViewModel[]) : [];
+    if (!chatData) return [];
+    const rawMessages = Array.isArray(chatData.messages) ? (chatData.messages as ChatMessageViewModel[]) : [];
     return rawMessages.filter(shouldRenderMessage);
-  }, [chatQ.data]);
+  }, [chatData]);
+  const hasUserMessages = useMemo(() => {
+    const rawMessages = Array.isArray(chatData?.messages) ? (chatData.messages as ChatMessageViewModel[]) : [];
+    return rawMessages.some((message) => message.role === "user");
+  }, [chatData]);
+  const toolRuns = useMemo(() => {
+    return Object.values(activeTools).sort((left, right) => {
+      const rank = (status: ToolRunStatus): number => {
+        if (status === "running") return 0;
+        if (status === "error") return 1;
+        return 2;
+      };
+
+      const rankDiff = rank(left.status) - rank(right.status);
+      if (rankDiff !== 0) return rankDiff;
+      return left.startedAt.localeCompare(right.startedAt);
+    });
+  }, [activeTools]);
+  const thinkingText = useMemo(() => {
+    const latestRunning = [...toolRuns].reverse().find((tool) => tool.status === "running");
+    if (latestRunning?.description) return latestRunning.description;
+    return "Thinking...";
+  }, [toolRuns]);
+  const userMessageCount = useMemo(() => messages.filter((message) => message.role === "user").length, [messages]);
+  const hasRunningTool = useMemo(() => toolRuns.some((tool) => tool.status === "running"), [toolRuns]);
+  const hasPendingApproval = pendingApprovals.length > 0;
+  const { requestPinLatestUserMessage } = useChatScrollBehavior({
+    chatId,
+    scrollContainerRef: messagesContainerRef,
+    lastUserMessageRef,
+    messageCount: messages.length,
+    userMessageCount,
+    isStreaming,
+    streamingContentLength: streamingContent.length,
+    hasRunningTool,
+    hasPendingApproval,
+    topOffset: CHAT_SCROLL_TOP_OFFSET,
+    nearBottomThreshold: CHAT_NEAR_BOTTOM_THRESHOLD,
+  });
 
   const chatTitle = useMemo(() => {
-    const rawTitle = (chatQ.data as any)?.title;
+    const rawTitle = chatData?.title;
     if (typeof rawTitle !== "string") return "Chat";
 
     const trimmedTitle = rawTitle.trim();
     return trimmedTitle || "Chat";
-  }, [chatQ.data]);
+  }, [chatData]);
 
   useEffect(() => {
     document.title = `${chatTitle}`;
   }, [chatTitle]);
+
+  function clearToolCleanupTimeout(toolCallId: string) {
+    const timeoutId = toolCleanupTimeoutsRef.current[toolCallId];
+    if (timeoutId == null) return;
+
+    window.clearTimeout(timeoutId);
+    delete toolCleanupTimeoutsRef.current[toolCallId];
+  }
+
+  function clearAllToolCleanupTimeouts() {
+    Object.values(toolCleanupTimeoutsRef.current).forEach((timeoutId) => {
+      window.clearTimeout(timeoutId);
+    });
+    toolCleanupTimeoutsRef.current = {};
+  }
+
+  function resetToolRuns() {
+    clearAllToolCleanupTimeouts();
+    setActiveTools({});
+  }
+
+  function handleToolStart(event: ToolStartEvent) {
+    const now = new Date().toISOString();
+    const toolName = normalizeToolName(event.name);
+
+    clearToolCleanupTimeout(event.tool_call_id);
+    setActiveTools((prev) => {
+      const existing = prev[event.tool_call_id];
+      const description = event.description?.trim() || existing?.description || getToolDescription(null, toolName);
+      return {
+        ...prev,
+        [event.tool_call_id]: {
+          id: event.tool_call_id,
+          name: toolName,
+          description,
+          status: "running",
+          startedAt: existing?.startedAt ?? now,
+          error: null,
+        },
+      };
+    });
+  }
+
+  function handleToolEnd(event: ToolEndEvent) {
+    const now = new Date().toISOString();
+    const toolName = normalizeToolName(event.name);
+
+    clearToolCleanupTimeout(event.tool_call_id);
+    setActiveTools((prev) => {
+      const existing = prev[event.tool_call_id];
+      const description = existing?.description ?? getToolDescription(null, toolName);
+
+      return {
+        ...prev,
+        [event.tool_call_id]: {
+          id: event.tool_call_id,
+          name: existing?.name ?? toolName,
+          description,
+          status: "done",
+          startedAt: existing?.startedAt ?? now,
+          error: null,
+        },
+      };
+    });
+  }
+
+  function handleToolError(error: unknown) {
+    const now = new Date().toISOString();
+    const toolCallId = extractToolCallId(error);
+    const errorMessage = extractErrorMessage(error);
+
+    if (toolCallId) {
+      clearToolCleanupTimeout(toolCallId);
+      setActiveTools((prev) => {
+        const existing = prev[toolCallId];
+        const toolName = normalizeToolName(existing?.name);
+        return {
+          ...prev,
+          [toolCallId]: {
+            id: toolCallId,
+            name: toolName,
+            description: existing?.description ?? getToolDescription(null, toolName),
+            status: "error",
+            startedAt: existing?.startedAt ?? now,
+            error: errorMessage,
+          },
+        };
+      });
+      return;
+    }
+
+    setActiveTools((prev) => {
+      let changed = false;
+      const next: Record<string, ToolRun> = {};
+
+      for (const [id, tool] of Object.entries(prev)) {
+        if (tool.status === "running") {
+          changed = true;
+          next[id] = {
+            ...tool,
+            status: "error",
+            error: errorMessage,
+          };
+        } else {
+          next[id] = tool;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }
+
+  function finalizeRunningTools(status: "done" | "error", errorMessage?: string | null) {
+    setActiveTools((prev) => {
+      let changed = false;
+      const next: Record<string, ToolRun> = {};
+
+      for (const [id, tool] of Object.entries(prev)) {
+        if (tool.status !== "running") {
+          next[id] = tool;
+          continue;
+        }
+
+        changed = true;
+        next[id] = {
+          ...tool,
+          status,
+          ...(status === "error" ? { error: errorMessage ?? tool.error ?? "Stream error" } : { error: null }),
+        };
+      }
+
+      return changed ? next : prev;
+    });
+  }
 
   useEffect(() => {
     return () => {
@@ -649,18 +1267,27 @@ export function ChatPage() {
   async function sendStreamingMessage(content: SendMessageVariables["content"]) {
     if (!chatId) return;
 
+    resetToolRuns();
     const handle = apiClient.streamChatMessage(chatId, content, {
       onChunkContent: (text) => {
         setStreamingContent((prev) => prev + text);
+      },
+      onToolStart: (event) => {
+        handleToolStart(event);
+      },
+      onToolEnd: (event) => {
+        handleToolEnd(event);
       },
       onApprovalRequired: (approval) => {
         queueApproval(approval);
       },
       onDone: () => {
-        // State cleanup and chat refetch are centralized in `consumeActiveStream`.
+        finalizeRunningTools("done");
       },
       onError: (error) => {
         console.error("Streaming error:", error);
+        handleToolError(error);
+        finalizeRunningTools("error", extractErrorMessage(error));
       },
     });
 
@@ -674,14 +1301,22 @@ export function ChatPage() {
       onChunkContent: (text) => {
         setStreamingContent((prev) => prev + text);
       },
+      onToolStart: (event) => {
+        handleToolStart(event);
+      },
+      onToolEnd: (event) => {
+        handleToolEnd(event);
+      },
       onApprovalRequired: (approval) => {
         queueApproval(approval);
       },
       onDone: () => {
-        // State cleanup and chat refetch are centralized in `consumeActiveStream`.
+        finalizeRunningTools("done");
       },
       onError: (error) => {
         console.error("Approval stream error:", error);
+        handleToolError(error);
+        finalizeRunningTools("error", extractErrorMessage(error));
       },
     });
 
@@ -745,9 +1380,45 @@ export function ChatPage() {
   });
 
   useEffect(() => {
+    for (const [toolCallId, tool] of Object.entries(activeTools)) {
+      if (tool.status === "running") {
+        const timeoutId = toolCleanupTimeoutsRef.current[toolCallId];
+        if (timeoutId != null) {
+          window.clearTimeout(timeoutId);
+          delete toolCleanupTimeoutsRef.current[toolCallId];
+        }
+        continue;
+      }
+
+      if (toolCleanupTimeoutsRef.current[toolCallId] == null) {
+        toolCleanupTimeoutsRef.current[toolCallId] = window.setTimeout(() => {
+          setActiveTools((prev) => {
+            if (!prev[toolCallId]) return prev;
+            const next = { ...prev };
+            delete next[toolCallId];
+            return next;
+          });
+          delete toolCleanupTimeoutsRef.current[toolCallId];
+        }, TOOL_RUN_AUTO_REMOVE_MS);
+      }
+    }
+
+    for (const toolCallId of Object.keys(toolCleanupTimeoutsRef.current)) {
+      if (activeTools[toolCallId]) continue;
+
+      window.clearTimeout(toolCleanupTimeoutsRef.current[toolCallId]);
+      delete toolCleanupTimeoutsRef.current[toolCallId];
+    }
+  }, [activeTools]);
+
+  useEffect(() => {
     return () => {
       streamHandleRef.current?.abort();
       streamHandleRef.current = null;
+      Object.values(toolCleanupTimeoutsRef.current).forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+      toolCleanupTimeoutsRef.current = {};
     };
   }, []);
 
@@ -756,20 +1427,27 @@ export function ChatPage() {
     streamHandleRef.current = null;
     setIsStreaming(false);
     setStreamingContent("");
+    clearAllToolCleanupTimeouts();
+    setActiveTools({});
     setPendingApprovals([]);
     setProcessingApproval(null);
   }, [chatId]);
 
   // Auto-send initial draft once
   useEffect(() => {
-      if (!chatId) return;
-      if (!initialDraft && initialAttachments.length === 0) return;
-      if (chatQ.isLoading || chatQ.isError) return;
+    if (!chatId) return;
+    if (!initialDraft && initialAttachments.length === 0) return;
+    if (chatQ.isLoading || chatQ.isError) return;
+    if (hasUserMessages) {
+      sentInitialDraftRef.current[chatId] = true;
+      return;
+    }
 
     if (sentInitialDraftRef.current[chatId]) return;
     sentInitialDraftRef.current[chatId] = true;
 
     const ts = Date.now();
+    requestPinLatestUserMessage();
     sendMsgM.mutate({
       content:
         initialAttachments.length > 0
@@ -785,7 +1463,7 @@ export function ChatPage() {
           : initialDraft,
       userTempId: `tmp-user-${ts}`,
     });
-  }, [chatId, initialDraft, initialAttachments, chatQ.isLoading, chatQ.isError, sendMsgM]);
+  }, [chatId, initialDraft, initialAttachments, chatQ.isLoading, chatQ.isError, hasUserMessages, requestPinLatestUserMessage, sendMsgM]);
 
   async function addAttachment(file: File) {
     if (!chatId || isUploadingAttachment || sendMsgM.isPending || isStreaming || pendingApprovals.length > 0) return;
@@ -872,6 +1550,7 @@ export function ChatPage() {
           ];
 
     const ts = Date.now();
+    requestPinLatestUserMessage();
     sendMsgM.mutate({
       content,
       userTempId: `tmp-user-${ts}`,
@@ -886,6 +1565,8 @@ export function ChatPage() {
       <div className={styles.layout}>
         <MemoizedAppSidebar />
         <main className={styles.main}>
+          <ThemeSwitch />
+
           <div className={styles.chatShell}>
             <p>Missing chat id</p>
           </div>
@@ -898,6 +1579,8 @@ export function ChatPage() {
     <div className={styles.layout}>
       <MemoizedAppSidebar activeChatId={chatId} />
       <main className={styles.main}>
+        <ThemeSwitch />
+
         <div className={styles.chatShell}>
           <ChatMessages
             messages={messages}
@@ -906,67 +1589,21 @@ export function ChatPage() {
             isPending={sendMsgM.isPending}
             isStreaming={isStreaming}
             streamingContent={streamingContent}
+            thinkingText={thinkingText}
+            toolRuns={toolRuns}
+            pendingApprovals={pendingApprovals}
+            processingApproval={processingApproval}
+            onApprovalDecision={(approval, approved) => {
+              void handleApproval(approval, approved);
+            }}
+            assistantAvatarSrc={assistantAvatarSrc}
+            assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+            onAssistantAvatarError={onAssistantAvatarError}
+            messagesContainerRef={messagesContainerRef}
+            onLastUserMessageRef={(node) => {
+              lastUserMessageRef.current = node;
+            }}
           />
-
-          {pendingApprovals.length > 0 ? (
-            <div className={styles.approvalList}>
-              {pendingApprovals.map((approval) => {
-                const isProcessing = processingApproval === approval.tool_call_id;
-                const disableActions = Boolean(processingApproval) || isStreaming;
-
-                return (
-                  <div
-                    key={approval.tool_call_id}
-                    className={`${styles.approvalCard} ${isProcessing ? styles.approvalCardProcessing : ""}`}
-                  >
-                    <div className={styles.approvalIconWrap}>
-                      {isProcessing ? (
-                        <Loader2 className={styles.approvalSpinner} aria-hidden="true" />
-                      ) : (
-                        <AlertTriangle className={styles.approvalIcon} aria-hidden="true" />
-                      )}
-                    </div>
-
-                    <div className={styles.approvalContent}>
-                      <h4 className={styles.approvalTitle}>
-                        {isProcessing ? "Processing approval..." : "Function Approval Required"}
-                      </h4>
-                      <p className={styles.approvalText}>
-                        The agent wants to call{" "}
-                        <code className={styles.approvalCode}>
-                          {approval.function_namespace}/{approval.function_name}
-                        </code>
-                      </p>
-
-                      <div className={styles.approvalArgsBlock}>
-                        <p className={styles.approvalArgsLabel}>Arguments</p>
-                        <pre className={styles.approvalArgs}>{JSON.stringify(approval.arguments ?? {}, null, 2)}</pre>
-                      </div>
-
-                      <div className={styles.approvalActions}>
-                        <button
-                          type="button"
-                          className={`${styles.approvalButton} ${styles.approveButton}`}
-                          onClick={() => void handleApproval(approval, true)}
-                          disabled={disableActions}
-                        >
-                          {isProcessing ? "Processing..." : "Approve"}
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.approvalButton} ${styles.rejectButton}`}
-                          onClick={() => void handleApproval(approval, false)}
-                          disabled={disableActions}
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
 
           <ChatComposer
             className={styles.composer}

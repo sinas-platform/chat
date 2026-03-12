@@ -20,6 +20,7 @@ type DropdownMenuProps = {
   variant?: DropdownVariant;
   align?: DropdownAlign;
   menuClassName?: string;
+  triggerClassName?: string;
 };
 
 function joinClasses(...classNames: Array<string | undefined | false>) {
@@ -33,6 +34,7 @@ export function DropdownMenu({
   variant = "icon",
   align = "right",
   menuClassName,
+  triggerClassName,
 }: DropdownMenuProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -62,7 +64,11 @@ export function DropdownMenu({
     <div className={styles.root} ref={rootRef}>
       <button
         type="button"
-        className={joinClasses(styles.trigger, variant === "icon" ? styles.triggerIcon : styles.triggerText)}
+        className={joinClasses(
+          styles.trigger,
+          variant === "icon" ? styles.triggerIcon : styles.triggerText,
+          triggerClassName,
+        )}
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="menu"
         aria-expanded={isOpen}

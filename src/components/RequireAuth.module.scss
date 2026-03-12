@@ -5,10 +5,13 @@
   justify-content: center;
   gap: 10px;
   padding: 20px;
+  background: var(--color-bg-auth, var(--color-bg-app));
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .loadingText {
   color: var(--color-accent);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
 }

@@ -1,18 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, ChevronDown, LayoutGrid, List, Moon, Search, Sun, type LucideIcon } from "lucide-react";
+import { Bot } from "lucide-react";
 
 import styles from "./HomePage.module.scss";
+import DownArrowIcon from "../../icons/down-arrow.svg?react";
+import GridLayoutIcon from "../../icons/grid-layout.svg?react";
+import ListLayoutIcon from "../../icons/list-layout.svg?react";
+import SearchIcon from "../../icons/search.svg?react";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
+import { Input } from "../../components/Input/Input";
 import SinasLoader from "../../components/Loader/Loader";
+import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
+import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { useVisibleAgentsPreference } from "../../hooks/useVisibleAgentsPreference";
 import { apiClient } from "../../lib/api";
+import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
-import { useTheme } from "../../lib/useTheme";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import type { AgentResponse, Chat } from "../../types";
 
@@ -27,7 +34,8 @@ function joinClasses(...classNames: Array<string | undefined | false>) {
 }
 
 const SELECTED_AGENT_STORAGE_KEY = "chat.selected_agent_endpoint";
-const AGENT_TONES = ["yellow", "blue", "mint"] as const;
+const HERO_MESSAGE_INDEX_STORAGE_KEY = "chat.home.hero_message_index";
+const HERO_MESSAGE_COUNT = 3;
 
 type AgentSortMode = "alphabetical" | "recent";
 type AgentViewMode = "grid" | "list";
@@ -97,27 +105,56 @@ function saveSelectedAgentKey(agentKey: string): void {
   }
 }
 
-function getAgentTone(agent: Pick<AgentResponse, "id" | "namespace" | "name">): (typeof AGENT_TONES)[number] {
-  const source = `${agent.id}:${agent.namespace}:${agent.name}`;
-  let hash = 0;
-  for (let index = 0; index < source.length; index += 1) {
-    hash = (hash * 31 + source.charCodeAt(index)) >>> 0;
+function getNextHeroMessageIndex(): number {
+  if (typeof window === "undefined") return 0;
+
+  try {
+    const storedRaw = window.localStorage.getItem(HERO_MESSAGE_INDEX_STORAGE_KEY);
+    const storedIndex = storedRaw == null ? 0 : Number.parseInt(storedRaw, 10);
+    const nextIndex = Number.isNaN(storedIndex) ? 0 : ((storedIndex % HERO_MESSAGE_COUNT) + HERO_MESSAGE_COUNT) % HERO_MESSAGE_COUNT;
+    window.localStorage.setItem(HERO_MESSAGE_INDEX_STORAGE_KEY, String((nextIndex + 1) % HERO_MESSAGE_COUNT));
+    return nextIndex;
+  } catch {
+    return 0;
   }
-  return AGENT_TONES[hash % AGENT_TONES.length] ?? "yellow";
 }
 
 type AgentCardProps = {
   agent: AgentResponse;
   isActive: boolean;
   onSelect: (agent: AgentResponse) => void;
+  iconSrc?: string;
+  placeholder?: AgentPlaceholderMeta;
+  onIconError: (agentId: string) => Promise<string | null>;
   className?: string;
 };
 
-function AgentCard({ agent, isActive, onSelect, className }: AgentCardProps) {
-  const AgentIcon: LucideIcon = Bot;
-  const tone = getAgentTone(agent);
-  const primaryLabel = `${agent.namespace} / ${agent.name}`;
+function getPlaceholderCssVars(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  return {
+    "--agent-icon-color": placeholder.color,
+    "--agent-icon-soft-color": placeholder.softColor,
+  } as CSSProperties;
+}
+
+function getPlaceholderGlyphStyle(placeholder: AgentPlaceholderMeta | undefined): CSSProperties | undefined {
+  if (!placeholder) return undefined;
+
+  const iconUrl = `url("${placeholder.iconSrc}")`;
+  return {
+    WebkitMaskImage: iconUrl,
+    maskImage: iconUrl,
+  } as CSSProperties;
+}
+
+function AgentCard({ agent, isActive, onSelect, iconSrc, placeholder, onIconError, className }: AgentCardProps) {
+  const primaryLabel = `${agent.name}`;
   const secondaryLabel = agent.description?.trim() || "No description available.";
+  const placeholderCssVars = getPlaceholderCssVars(placeholder);
+  const cardCssVars = placeholderCssVars;
+  const placeholderGlyphStyle = getPlaceholderGlyphStyle(placeholder);
+  const shouldShowPlaceholder = !iconSrc && Boolean(placeholderCssVars);
 
   return (
     <button
@@ -125,20 +162,37 @@ function AgentCard({ agent, isActive, onSelect, className }: AgentCardProps) {
       type="button"
       className={joinClasses(
         styles.agentCard,
-        styles[`agentCardTone${tone[0].toUpperCase()}${tone.slice(1)}`],
         isActive && styles.agentCardActive,
         className,
       )}
+      style={cardCssVars}
       onClick={() => onSelect(agent)}
       aria-pressed={isActive}
     >
       <div className={styles.agentCardTop}>
-        <span className={styles.agentIconWrap} aria-hidden>
-          <AgentIcon size={14} />
+        <span
+          className={joinClasses(styles.agentIconWrap, shouldShowPlaceholder && styles.agentIconWrapPlaceholder)}
+          aria-hidden
+        >
+          {iconSrc ? (
+            <img
+              className={styles.agentIconImage}
+              src={iconSrc}
+              alt=""
+              loading="lazy"
+              onError={() => {
+                void onIconError(agent.id);
+              }}
+            />
+          ) : shouldShowPlaceholder ? (
+            <span className={styles.agentPlaceholderGlyph} style={placeholderGlyphStyle} />
+          ) : (
+            <Bot size={14} />
+          )}
         </span>
         <span className={styles.agentName}>{primaryLabel}</span>
       </div>
-      <div className={styles.agentBadge}>{agent.is_default ? "Default" : "Agent"}</div>
+      <div className={styles.agentBadge}>{agent.namespace}</div>
       <div className={styles.agentDescription}>{secondaryLabel}</div>
     </button>
   );
@@ -149,7 +203,6 @@ export default function HomePage() {
   const ws = getWorkspaceUrl();
   const hasWorkspaceUrl = ws.length > 0;
   const visibleAgentsPreference = useVisibleAgentsPreference();
-  const { theme, toggleTheme, isSavingTheme, themeErrorMessage } = useTheme();
   const agentsQ = visibleAgentsPreference.agentsQuery;
 
   const [selectedAgentKey, setSelectedAgentKey] = useState<string | null>(() => readSelectedAgentKey());
@@ -162,6 +215,7 @@ export default function HomePage() {
   const [agentSearch, setAgentSearch] = useState("");
   const [agentSort, setAgentSort] = useState<AgentSortMode>("alphabetical");
   const [agentView, setAgentView] = useState<AgentViewMode>("grid");
+  const [heroMessageIndex, setHeroMessageIndex] = useState(0);
   const pendingAttachmentsRef = useRef<PendingAttachment[]>([]);
 
   useEffect(() => {
@@ -184,6 +238,8 @@ export default function HomePage() {
 
   const allActiveAgents = visibleAgentsPreference.activeAgents;
   const activeAgents = visibleAgentsPreference.visibleActiveAgents;
+  const { iconSrcByAgentId, onAgentIconError } = useAgentIconSources(activeAgents, apiClient);
+  const placeholderByAgentId = useMemo(() => buildAgentPlaceholderMetaById(allActiveAgents), [allActiveAgents]);
 
   const agentsByKey = useMemo(
     () => new Map(activeAgents.map((agent) => [getAgentKey(agent), agent] as const)),
@@ -220,7 +276,24 @@ export default function HomePage() {
     return activeAgents.find((agent) => agent.is_default) ?? activeAgents[0] ?? null;
   }, [activeAgents, agentsByKey, selectedAgentKey]);
 
-  const selectedAgentTone = selectedAgent ? getAgentTone(selectedAgent) : "yellow";
+  const selectedAgentIconSrc = selectedAgent ? iconSrcByAgentId[selectedAgent.id] : undefined;
+  const selectedAgentPlaceholder = selectedAgent ? placeholderByAgentId[selectedAgent.id] : undefined;
+  const selectedAgentPlaceholderCssVars = getPlaceholderCssVars(selectedAgentPlaceholder);
+  const selectedAgentPlaceholderGlyphStyle = getPlaceholderGlyphStyle(selectedAgentPlaceholder);
+  const shouldShowSelectedAgentPlaceholder = !selectedAgentIconSrc && Boolean(selectedAgentPlaceholderCssVars);
+  const selectedAgentName = selectedAgent?.name ?? "an agent";
+  const heroMessages = useMemo(
+    () => [
+      { title: `${selectedAgentName} here.`, hint: "What's on your mind?" },
+      { title: `${selectedAgentName} at your service.`, hint: "What are we tackling?" },
+      { title: `Hey, I'm ${selectedAgentName}.`, hint: "How can I help?" },
+    ],
+    [selectedAgentName],
+  );
+
+  useEffect(() => {
+    setHeroMessageIndex(getNextHeroMessageIndex());
+  }, []);
 
   const recentAgents = useMemo(() => {
     const chats = [...(chatsQ.data ?? [])];
@@ -364,11 +437,13 @@ export default function HomePage() {
 
   function onSelectAgent(agent: AgentResponse) {
     const key = getAgentKey(agent);
+    if (key === selectedAgentKey) return;
     setSelectedAgentKey(key);
     saveSelectedAgentKey(key);
+    setHeroMessageIndex(getNextHeroMessageIndex());
   }
 
-  const selectedAgentDescription = selectedAgent?.description?.trim() || "Select an agent to start a new chat.";
+  const activeHeroMessage = heroMessages[heroMessageIndex] ?? heroMessages[0];
   const hasAgents = activeAgents.length > 0;
   const hasAnyActiveAgents = allActiveAgents.length > 0;
   const isAgentsLoading = agentsQ.isLoading;
@@ -382,27 +457,9 @@ export default function HomePage() {
       <AppSidebar />
 
       <main className={styles.main}>
+        <ThemeSwitch />
+
         <div className={styles.mainContent}>
-          <div className={styles.topActions}>
-            <button
-              type="button"
-              className={styles.themeToggle}
-              onClick={() => void toggleTheme()}
-              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-              title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-              disabled={isSavingTheme}
-            >
-              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-              <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
-            </button>
-          </div>
-
-          {themeErrorMessage ? (
-            <div className={styles.errorState} role="alert" style={{ marginBottom: 12 }}>
-              <span>{themeErrorMessage}</span>
-            </div>
-          ) : null}
-
           {!hasWorkspaceUrl ? (
             <section className={styles.agentPicker}>
               <div className={styles.agentPickerTitle}>Select workspace</div>
@@ -416,19 +473,33 @@ export default function HomePage() {
           ) : (
             <>
           <div className={styles.hero}>
+            <span
+              className={joinClasses(
+                styles.heroIconWrap,
+                selectedAgent ? styles.heroIconWrapPulse : undefined,
+                shouldShowSelectedAgentPlaceholder && styles.heroIconWrapPlaceholder,
+                selectedAgent && selectedAgentIconSrc ? styles.heroIconWrapCustomIcon : undefined,
+              )}
+              style={selectedAgentPlaceholderCssVars}
+            >
+              {selectedAgent && selectedAgentIconSrc ? (
+                <img
+                  className={styles.heroIconImage}
+                  src={selectedAgentIconSrc}
+                  alt=""
+                  onError={() => {
+                    void onAgentIconError(selectedAgent.id);
+                  }}
+                />
+              ) : shouldShowSelectedAgentPlaceholder ? (
+                <span className={styles.heroPlaceholderGlyph} style={selectedAgentPlaceholderGlyphStyle} />
+              ) : (
+                <Bot size={32} />
+              )}
+            </span>
             <div className={styles.heroText}>
-              <div className={styles.heroTitleRow}>
-                <span
-                  className={joinClasses(
-                    styles.heroIconWrap,
-                    styles[`heroIconTone${selectedAgentTone[0].toUpperCase()}${selectedAgentTone.slice(1)}`],
-                  )}
-                >
-                  <Bot size={18} />
-                </span>
-                <div className={styles.heroTitle}>Hello! I&apos;m {selectedAgent ? selectedAgent.name : "an agent"}</div>
-              </div>
-              <div className={styles.heroHint}>{selectedAgentDescription}</div>
+              <div className={styles.heroTitle}>{activeHeroMessage.title}</div>
+              <div className={styles.heroHint}>{activeHeroMessage.hint}</div>
             </div>
           </div>
 
@@ -498,6 +569,9 @@ export default function HomePage() {
                     agent={agent}
                     isActive={selectedAgent?.id === agent.id}
                     onSelect={onSelectAgent}
+                    iconSrc={iconSrcByAgentId[agent.id]}
+                    placeholder={placeholderByAgentId[agent.id]}
+                    onIconError={onAgentIconError}
                     className={styles.recentAgentCard}
                   />
                 ))}
@@ -506,28 +580,19 @@ export default function HomePage() {
           </section>
 
           <section className={styles.allAgentsSection}>
+            <div className={styles.allAgentsTitle}>All agents</div>
             <div className={styles.agentControls}>
-              <div className={styles.agentSearchField}>
-                <Search size={16} aria-hidden />
-                <input
-                  className={styles.agentSearchInput}
-                  type="search"
-                  placeholder="Search agents..."
-                  value={agentSearch}
-                  onChange={(e) => setAgentSearch(e.target.value)}
-                />
-              </div>
+              <Input
+                wrapperClassName={styles.agentSearchField}
+                startAction={<SearchIcon className={styles.agentSearchIcon} aria-hidden />}
+                className={styles.agentSearchInput}
+                type="search"
+                placeholder="Search agents..."
+                value={agentSearch}
+                onChange={(e) => setAgentSearch(e.target.value)}
+              />
               <div className={styles.agentControlActions}>
                 <div className={styles.agentViewToggle} role="group" aria-label="Agent card view mode">
-                  <button
-                    type="button"
-                    className={joinClasses(styles.agentViewBtn, agentView === "grid" && styles.agentViewBtnActive)}
-                    onClick={() => setAgentView("grid")}
-                    aria-label="Show agents as grid"
-                    aria-pressed={agentView === "grid"}
-                  >
-                    <LayoutGrid size={14} />
-                  </button>
                   <button
                     type="button"
                     className={joinClasses(styles.agentViewBtn, agentView === "list" && styles.agentViewBtnActive)}
@@ -535,7 +600,16 @@ export default function HomePage() {
                     aria-label="Show agents as list"
                     aria-pressed={agentView === "list"}
                   >
-                    <List size={14} />
+                    <ListLayoutIcon className={styles.agentViewIcon} aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    className={joinClasses(styles.agentViewBtn, agentView === "grid" && styles.agentViewBtnActive)}
+                    onClick={() => setAgentView("grid")}
+                    aria-label="Show agents as grid"
+                    aria-pressed={agentView === "grid"}
+                  >
+                    <GridLayoutIcon className={styles.agentViewIcon} aria-hidden />
                   </button>
                 </div>
 
@@ -543,11 +617,13 @@ export default function HomePage() {
                   trigger={
                     <>
                       {agentSortLabel}
-                      <ChevronDown size={14} />
+                      <DownArrowIcon className={styles.agentSortIcon} aria-hidden />
                     </>
                   }
                   triggerAriaLabel="Sort agents"
                   variant="text"
+                  triggerClassName={styles.agentSortTrigger}
+                  menuClassName={styles.agentSortMenu}
                   items={[
                     {
                       id: "sort-alphabetical",
@@ -590,6 +666,9 @@ export default function HomePage() {
                     agent={agent}
                     isActive={selectedAgent?.id === agent.id}
                     onSelect={onSelectAgent}
+                    iconSrc={iconSrcByAgentId[agent.id]}
+                    placeholder={placeholderByAgentId[agent.id]}
+                    onIconError={onAgentIconError}
                     className={agentView === "list" ? styles.agentCardList : undefined}
                   />
                 ))

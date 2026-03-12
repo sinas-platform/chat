@@ -15,6 +15,10 @@
     opacity: 0.55;
     cursor: not-allowed;
   }
+
+  &:not(:disabled):hover {
+    background-color: var(--color-hover-beige);
+  }
 }
 
 .primary {
@@ -26,11 +30,31 @@
 .link {
   border: none;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   padding: 0;
-  font-size: 13px;
+  font-size: 14px;
   text-decoration: underline;
   border-radius: 0;
+  transition: font-style 0.15s ease-in-out;
+
+  &:not(:disabled):hover {
+    font-style: italic;
+    background-color: transparent;
+  }
+}
+
+.default {
+  height: 32px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-primary);
+  padding: 7px 12px;
+  font-size: 14px;
+  font-weight: 400;
+
+  &:not(:disabled):hover {
+    background-color: var(--color-hover-beige);
+  }
 }
 
 .icon {

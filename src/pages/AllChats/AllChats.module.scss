@@ -1,48 +1,68 @@
 .layout {
   height: 100vh;
   display: grid;
-  grid-template-columns: 280px 1fr;
-  background: #fff;
+  grid-template-columns: 290px 1fr;
 }
 
 .main {
+  position: relative;
   overflow: auto;
-  padding: 62px 50px;
+  padding: 32px 46px 48px;
+  background: var(--color-bg-surface);
 }
 
 .shell {
-  width: min(920px, 100%);
+  width: min(863px, 100%);
+  margin-inline: auto;
   display: grid;
-  gap: 14px;
+  gap: 24px;
+  padding-top: 82px;
 }
 
 .searchRow {
   display: grid;
-  gap: 24px;
+  gap: 16px;
 }
 
 .searchField {
-  border: 1px solid #d8d8d8;
-  border-radius: 999px;
-  height: 46px;
-  padding: 0 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #737373;
+  width: 100%;
+  height: 40px;
+  border-radius: 12px;
+  padding: 0;
+  --input-border-color: var(--color-border-default);
+  --input-border-radius: 12px;
+  --input-min-height: 32px;
+  --input-bg: transparent;
+  --input-padding: 0 12px 0 8px;
+  --input-font-size: 14px;
+  --input-text-color: var(--color-text-primary);
+  --input-placeholder-color: var(--color-text-secondary);
+  --input-start-action-padding-left: 12px;
 }
 
-.searchInput {
-  border: none;
-  outline: none;
-  background: transparent;
-  width: 100%;
-  font-size: 14px;
-  color: #111;
+.searchStartAction {
+  min-width: auto;
+  padding-left: 12px;
+}
 
-  &::placeholder {
-    color: #888;
+.searchIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  display: block;
+  color: var(--color-text-primary);
+
+  path {
+    stroke: currentColor;
   }
+}
+
+:global(html[data-theme="dark"]) .searchIcon {
+  color: #F7F2EF;
+}
+
+.searchField .searchInput {
+  width: 100%;
 }
 
 .controlsRow {
@@ -60,26 +80,33 @@
   flex-wrap: wrap;
 }
 
-.selectActionButton {
-  min-height: 30px;
-  border-radius: 7px;
-  padding: 6px 10px;
-  font-size: 12px;
-  line-height: 1;
+.selectActionsSelectMode {
+  padding-left: 12px;
 }
 
 .selectIconAction {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  color: #4f4f4f;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  color: var(--color-text-primary);
   transition:
     background 120ms ease,
     color 120ms ease;
 
   &:hover:not(:disabled) {
-    background: #f3f3f3;
-    color: #111;
+    background: var(--color-hover-beige);
+    color: var(--color-text-primary);
+  }
+}
+
+.selectActionIcon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  color: inherit;
+
+  path {
+    stroke: currentColor;
   }
 }
 
@@ -89,27 +116,20 @@
   gap: 4px;
 }
 
-.selectIconDanger {
-  color: #b42318;
-
-  &:hover:not(:disabled) {
-    background: #fff1f0;
-    color: #931c13;
-  }
-}
-
 .selectCount {
-  font-size: 12px;
-  color: #4d4d4d;
-  border: 1px solid #e1e1e1;
-  background: #fafafa;
-  border-radius: 999px;
-  padding: 6px 10px;
-  line-height: 1;
+  height: 32px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-primary);
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .selectAllToggle {
-  margin-left: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -129,6 +149,51 @@
   margin-left: auto;
 }
 
+.filterTrigger {
+  height: 32px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-primary);
+  padding: 7px 12px;
+  font-size: 14px;
+  font-weight: 400;
+
+  &:hover {
+    background-color: var(--color-hover-beige);
+    border: 1px solid var(--color-border-default);
+  }
+}
+
+.filterMenu {
+  border: 1px solid #d8d2cc;
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(56, 45, 34, 0.12);
+  min-width: 190px;
+
+  button {
+    background: #fcfbfa;
+    color: #443b34;
+
+    &:hover {
+      background: #f3efea;
+    }
+  }
+}
+
+:global(html[data-theme="dark"]) .filterMenu {
+  background: #2E2A26;
+  border: 1px solid #7E746B;
+
+  button {
+    background: #2E2A26;
+    color: var(--color-text-primary);
+
+    &:hover {
+      background: #4E4741;
+    }
+  }
+}
+
 .filterLabel {
   max-width: 180px;
   overflow: hidden;
@@ -140,18 +205,26 @@
   width: 100%;
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 .actionMenuIcon {
   flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  display: block;
+  color: inherit;
+
+  path {
+    stroke: currentColor;
+  }
 }
 
 .list {
-  border: none;
-  border-radius: 0;
-  padding: 0;
+  border-top: 1px solid var(--color-hover-beige);
+  border-bottom: 1px solid var(--color-hover-beige);
+  background: transparent;
   display: grid;
   gap: 0;
 }
@@ -160,32 +233,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  border-radius: 0;
-  background: transparent;
-  border-top: 1px solid #e8e8e8;
-  border-bottom: 1px solid #e8e8e8;
-  padding: 6px 12px;
-  margin-top: -1px;
-
-  &:hover {
-    background: #fcfcfc;
-  }
+  gap: 10px;
+  border-bottom: 1px solid var(--color-hover-beige);
+  padding: 0 12px;
+  min-height: 50px;
+  transition: background 120ms ease;
 }
 
-.chatRow:first-child {
-  margin-top: 0;
+.chatRow:last-child {
+  border-bottom: none;
 }
 
 .selectCell {
   display: inline-flex;
   align-items: center;
-  padding: 0 4px 0 6px;
+  padding-right: 10px;
 }
 
 .selectCheckbox {
-  width: 18px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -202,16 +269,15 @@
 }
 
 .selectCheckboxControl {
-  width: 18px;
-  height: 18px;
-  border: 1px solid #b9b9b9;
-  border-radius: 5px;
+  width: 16px;
+  height: 16px;
+  border: 1.2px solid var(--color-text-primary);
   background: #fff;
+  border-radius: 1px;
   transition:
     border-color 120ms ease,
     background 120ms ease,
     box-shadow 120ms ease,
-    transform 120ms ease,
     opacity 120ms ease;
   position: relative;
 
@@ -220,14 +286,14 @@
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     transform: translate(-50%, -50%) scale(0.9);
     opacity: 0;
     background-repeat: no-repeat;
     background-position: center;
-    background-size: 12px 12px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2 6.3L4.7 9L10 3.7' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 10px;
+    background-image: url("../../icons/check.svg");
     transition:
       opacity 120ms ease,
       transform 120ms ease;
@@ -235,23 +301,22 @@
 }
 
 .selectCheckboxInput:hover + .selectCheckboxControl {
-  border-color: #8f8f8f;
+  border-color: #59514a;
 }
 
 .selectCheckboxInput:focus-visible + .selectCheckboxControl {
-  border-color: #111;
-  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.18);
+  border-color: #59514a;
+  box-shadow: 0 0 0 2px rgba(89, 81, 74, 0.18);
 }
 
 .selectCheckboxInput:checked + .selectCheckboxControl {
-  border-color: #e97203;
-  background: #e97203;
-  transform: translateY(-0.5px);
+  border-color: #5a524c;
+  background: #5a524c;
 }
 
 .selectCheckboxInput:indeterminate + .selectCheckboxControl {
-  border-color: #e97203;
-  background: #e97203;
+  border-color: #5a524c;
+  background: #5a524c;
 }
 
 .selectCheckboxInput:checked + .selectCheckboxControl::after {
@@ -262,17 +327,47 @@
 .selectCheckboxInput:indeterminate + .selectCheckboxControl::after {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
-  background-size: 10px 10px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 6h7' stroke='white' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: 8px;
+  background-image: url("../../icons/minus.svg");
+}
+
+:global(html[data-theme="dark"]) .selectCheckboxControl {
+  background: #2E2A26;
+  border-color: #FFFFFF;
+}
+
+:global(html[data-theme="dark"]) .selectCheckboxInput:hover + .selectCheckboxControl,
+:global(html[data-theme="dark"]) .selectCheckboxInput:focus-visible + .selectCheckboxControl {
+  border-color: #FFFFFF;
+}
+
+:global(html[data-theme="dark"]) .selectCheckboxInput:focus-visible + .selectCheckboxControl {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+:global(html[data-theme="dark"]) .selectCheckboxInput:checked + .selectCheckboxControl,
+:global(html[data-theme="dark"]) .selectCheckboxInput:indeterminate + .selectCheckboxControl {
+  background: #E97203;
+  border-color: #E97203;
+}
+
+:global(html[data-theme="dark"]) .selectIconAction {
+  color: #FFFFFF;
 }
 
 .chatMain {
   flex: 1;
-  text-align: left;
   min-width: 0;
-  display: flex;
-  align-items: flex-start;
+  text-align: left;
+  display: inline-flex;
+  align-items: center;
   justify-content: flex-start;
+  min-height: 48px;
+
+  &:hover,
+  &:not(:disabled):hover {
+    background-color: transparent !important;
+  }
 }
 
 .chatTitle {
@@ -281,102 +376,325 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 400;
-  color: #111;
-  line-height: 1.3;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  line-height: 1.2;
 
   mark {
-    background: #fff2a7;
-    padding: 0;
-    border-radius: 2px;
+    background: #FFEAD6;
+    padding: 0 2px;
   }
+}
+
+:global(html[data-theme="dark"]) .chatTitle mark {
+  background: #7D3D00;
+  color: #FFFFFF;
 }
 
 .chatMeta {
   flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  gap: 2px;
-  position: relative;
-  min-width: 158px;
-}
-
-.chatMetaTop {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
+  gap: 12px;
+  min-width: 265px;
 }
 
 .chatTime {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  color: #777;
-  font-size: 11px;
-  line-height: 1.1;
+  gap: 5px;
+  color: #7d746d;
+  font-size: 13px;
+  line-height: 1;
   white-space: nowrap;
+}
+
+.chatTimeIcon {
+  width: 12px;
+  height: 12px;
+  display: block;
+  color: inherit;
+
+  path {
+    stroke: currentColor;
+  }
 }
 
 .agentBadge {
-  max-width: 120px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  border: 1px solid rgba(17, 17, 17, 0.3);
-  font-size: 10px;
-  line-height: 1.2;
+  max-width: 160px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--agent-icon-color, var(--color-palette-violet));
+  background: var(--agent-icon-soft-color, var(--color-palette-violet-soft));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    background: var(--agent-icon-color, var(--color-palette-violet));
+    display: inline-block;
+    -webkit-mask-image: var(--agent-badge-icon, url("../../icons/agentsPlaceholders/sparkle.svg"));
+    mask-image: var(--agent-badge-icon, url("../../icons/agentsPlaceholders/sparkle.svg"));
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    flex: 0 0 auto;
+  }
 }
 
-.agentBadgeToneYellow {
-  background: #faf7de;
+.rowMenuTrigger {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: #7d746d;
+
+  &:hover {
+    background: #ece7e1;
+    color: #4e453d;
+  }
 }
 
-.agentBadgeToneBlue {
-  background: #e9f0ff;
+.rowMenuIcon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  color: inherit;
+
+  path {
+    stroke: currentColor;
+  }
 }
 
-.agentBadgeToneMint {
-  background: #eaf8f1;
+.rowMenu {
+  border: 1px solid var(--color-border-default);
+
+  button {
+    background: transparent;
+    color: var(--color-text-primary);
+    padding: 12px;
+
+    &:hover {
+      background: var(--color-hover-beige);
+    }
+  }
 }
 
-.agentBadgeToneNeutral {
-  background: #f2f2f2;
+:global(html[data-theme="dark"]) .chatTime {
+  color: #E4DED8;
+}
+
+:global(html[data-theme="dark"]) .rowMenuTrigger {
+  color: #FFFFFF;
+
+  &:hover {
+    background: #4E4741;
+    color: #FFFFFF;
+  }
+}
+
+:global(html[data-theme="dark"]) .rowMenu .actionMenuIcon {
+  color: #E4DED8;
 }
 
 .loadingState {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 6px;
+  padding: 12px 6px;
 }
 
 .loadingText {
-  color: #e97203;
+  color: #a05a05;
   font-size: 13px;
   font-weight: 500;
 }
 
 .muted {
-  color: #888;
+  color: #6e655e;
   font-size: 13px;
-  padding: 8px 6px;
+  padding: 14px 6px;
 }
 
 .error {
   color: #b42318;
   font-size: 13px;
-  padding: 8px 6px;
+  padding: 14px 6px;
 }
 
 .modal {
   position: fixed;
   inset: 0;
   z-index: 50;
+}
+
+.renameModalBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(78, 71, 65, 0.4);
+}
+
+.renameModalPanel {
+  --rename-modal-panel-bg: #fff;
+  position: relative;
+  width: 596px;
+  max-width: calc(100vw - 32px);
+  margin: 12vh auto 0;
+  background: var(--rename-modal-panel-bg);
+  border-radius: 32px;
+  border: 2px solid var(--color-border-default);
+  padding: 48px;
+}
+
+.renameModalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.renameModalTitle {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.renameModalSubTitle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 6px;
+}
+
+.renameModalCloseButton {
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-primary);
+}
+
+.renameModalCloseIcon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  color: currentColor;
+
+  path {
+    stroke: currentColor;
+  }
+}
+
+.renameModalField {
+  display: grid;
+  gap: 6px;
+}
+
+.renameModalLabel {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.renameModalInputAction {
+  --rename-input-action-hover-bg: var(--color-text-primary);
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  position: relative;
+  overflow: visible;
+
+  &::before {
+    position: absolute;
+    content: "";
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    right: -1px;
+    background-color: var(--rename-input-action-hover-bg);
+    border-radius: inherit;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+  }
+
+  &:not(:disabled):hover {
+    color: #fff;
+
+    &::before {
+      opacity: 1;
+    }
+  }
+}
+
+.renameModalInputActionContent {
+  position: relative;
+  z-index: 1;
+}
+
+.renameModalInputActionWrapper {
+  min-width: 86px;
+
+  > button {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    border-radius: 0 11px 11px 0;
+  }
+}
+
+:global(html[data-theme="dark"]) .renameModalBackdrop {
+  background: var(--color-dim-overlay);
+}
+
+:global(html[data-theme="dark"]) .renameModalPanel {
+  --rename-modal-panel-bg: #2E2A26;
+  background: var(--rename-modal-panel-bg);
+  border: none;
+}
+
+:global(html[data-theme="dark"]) .renameModalPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: var(--Border-black, linear-gradient(107deg, rgba(126, 116, 107, 0.8) 2.39%, rgba(78, 71, 65, 0.8) 97.89%));
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+:global(html[data-theme="dark"]) .renameModalPanel > * {
+  position: relative;
+}
+
+:global(html[data-theme="dark"]) .renameModalCloseButton {
+  color: #fff;
+}
+
+:global(html[data-theme="dark"]) .renameModalInputAction {
+  --rename-input-action-hover-bg: var(--color-accent);
 }
 
 .modalBackdrop {
@@ -428,8 +746,179 @@
   gap: 10px;
 }
 
+.cancelButton {
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
 .dangerButton {
-  border-color: #b42318;
-  background: #b42318;
-  color: #fff;
+  border-color: var(--color-text-primary);
+  background: var(--color-text-primary);
+  color: var(--color-palette-white);
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    border-color: var(--color-text-primary);
+    background: var(--color-palette-white);
+    color: var(--color-text-primary);
+  }
+
+  &:not(:disabled):hover {
+    color: var(--color-text-primary);
+    background: var(--color-hover-beige);
+    border-color: var(--color-border-default);
+  }
+}
+
+.dangerButtonIcon {
+  width: 14px;
+  height: 14px;
+  display: block;
+  flex: 0 0 auto;
+
+  path {
+    stroke: currentColor;
+    transition: stroke 120ms ease;
+  }
+}
+
+:global(html[data-theme="dark"]) .modalBackdrop {
+  background: var(--color-dim-overlay);
+}
+
+:global(html[data-theme="dark"]) .modalPanel {
+  --delete-modal-panel-bg: #2E2A26;
+  background: var(--delete-modal-panel-bg);
+  border: none;
+  box-shadow: var(--color-shadow-soft);
+}
+
+:global(html[data-theme="dark"]) .modalPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: var(--Border-black, linear-gradient(107deg, rgba(126, 116, 107, 0.8) 2.39%, rgba(78, 71, 65, 0.8) 97.89%));
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+:global(html[data-theme="dark"]) .modalPanel > * {
+  position: relative;
+}
+
+:global(html[data-theme="dark"]) .modalTitle {
+  color: var(--color-text-primary);
+}
+
+:global(html[data-theme="dark"]) .modalSubTitle {
+  color: var(--color-text-secondary);
+}
+
+:global(html[data-theme="dark"]) .cancelButton {
+  background: #2E2A26;
+  border-color: #7E746B;
+  color: var(--color-text-primary);
+
+  &:not(:disabled):hover {
+    background: #4E4741;
+    border-color: #7E746B;
+  }
+}
+
+:global(html[data-theme="dark"]) .dangerButton {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+
+  &:disabled {
+    border-color: #7E746B;
+    background: #4E4741;
+    color: #ADA59C;
+  }
+
+  &:not(:disabled):hover {
+    background: #E97203;
+    border-color: #E97203;
+    color: var(--color-text-primary);
+  }
+}
+
+:global(html[data-theme="dark"]) .dangerButtonIcon {
+  color: #FFFFFF;
+}
+
+@media (max-width: 1260px) {
+  .main {
+    padding: 30px 34px 44px;
+  }
+
+  .shell {
+    width: 100%;
+  }
+
+  .chatMeta {
+    min-width: 228px;
+  }
+}
+
+@media (max-width: 980px) {
+  .main {
+    padding: 24px 20px 38px;
+  }
+
+  .controlsRow {
+    gap: 8px;
+  }
+
+  .filterActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .chatTitle {
+    font-size: 14px;
+  }
+
+  .chatMeta {
+    min-width: 210px;
+    gap: 16px;
+  }
+
+  .chatTime {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 760px) {
+  .controlsRow {
+    align-items: flex-start;
+  }
+
+  .filterActions {
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .chatRow {
+    flex-wrap: wrap;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .chatMain {
+    min-height: 0;
+    width: 100%;
+  }
+
+  .chatMeta {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+  }
 }
