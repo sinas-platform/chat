@@ -62,6 +62,7 @@ export function OTPInput({ value, onChange, disabled }: Props) {
         <Input
           key={i}
           variant="otp"
+          className={styles.digit}
           ref={(el) => {
             inputsRef.current[i] = el;
           }}

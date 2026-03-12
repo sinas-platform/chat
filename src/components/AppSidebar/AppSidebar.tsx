@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bot } from "lucide-react";
+import { Bot, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
   FloatingPortal,
   autoUpdate,
@@ -29,6 +29,7 @@ import { getApplicationId, getWorkspaceUrl } from "../../lib/workspace";
 import type { AgentResponse, Chat } from "../../types";
 import { Button } from "../Button/Button";
 import SinasLoader from "../Loader/Loader";
+import { ThemeSwitch } from "../ThemeSwitch/ThemeSwitch";
 import styles from "./AppSidebar.module.scss";
 
 type AppSidebarProps = {
@@ -36,6 +37,12 @@ type AppSidebarProps = {
 };
 
 const SIDEBAR_CHAT_LIMIT = 10;
+const MOBILE_SIDEBAR_BREAKPOINT = 760;
+
+function isMobileViewport() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia(`(max-width: ${MOBILE_SIDEBAR_BREAKPOINT}px)`).matches;
+}
 
 function joinClasses(...classNames: Array<string | undefined | false>) {
   return classNames.filter(Boolean).join(" ");
@@ -203,6 +210,8 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLogoutTooltipOpen, setIsLogoutTooltipOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(isMobileViewport);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { refs: logoutTooltipRefs, floatingStyles: logoutTooltipStyles, context: logoutTooltipContext } = useFloating({
     open: isLogoutTooltipOpen,
     onOpenChange: setIsLogoutTooltipOpen,
@@ -250,8 +259,69 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
       .sort((a, b) => getChatSortTime(b) - getChatSortTime(a))
       .slice(0, SIDEBAR_CHAT_LIMIT);
   }, [chats]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_SIDEBAR_BREAKPOINT}px)`);
+    const handleChange = () => {
+      const nextIsMobile = mediaQuery.matches;
+      setIsMobile(nextIsMobile);
+
+      if (!nextIsMobile) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+
+    handleChange();
+    mediaQuery.addEventListener("change", handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile || !isMobileSidebarOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobile, isMobileSidebarOpen]);
+
+  useEffect(() => {
+    if (!isMobileSidebarOpen) return;
+
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onEscape);
+    return () => {
+      window.removeEventListener("keydown", onEscape);
+    };
+  }, [isMobileSidebarOpen]);
+
+  function closeMobileSidebar() {
+    setIsMobileSidebarOpen(false);
+  }
+
+  function toggleMobileSidebar() {
+    setIsMobileSidebarOpen((current) => !current);
+  }
+
+  function navigateWithMobileClose(path: string) {
+    closeMobileSidebar();
+    navigate(path);
+  }
+
   function onCreateNewChat() {
-    navigate("/");
+    navigateWithMobileClose("/");
   }
 
   async function onLogout() {
@@ -259,6 +329,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
 
     setIsLoggingOut(true);
     try {
+      closeMobileSidebar();
       await logout();
       navigate("/login", { replace: true });
     } finally {
@@ -267,104 +338,145 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
   }
 
   return (
-    <aside className={styles.sidebar}>
-      <div className={styles.sidebarTop}>
-        <div className={styles.sidebarLogoWrap}>
-          <img className={styles.sidebarLogo} src={logoSrc} alt="Sinas" />
-        </div>
-
-        <Button
-          variant="minimal"
-          className={styles.newChatBtn}
-          onClick={onCreateNewChat}
-        >
-          <PlusIcon className={styles.newChatIcon} aria-hidden />
-          <span>New chat</span>
-        </Button>
-
-        <div className={styles.sidebarSectionTitle}>Your chats</div>
-
-        <div className={styles.chatList}>
-          {chatsQ.isLoading ? (
-            <div className={styles.loadingState} role="status" aria-live="polite">
-              <SinasLoader size={22} />
-              <span className={styles.loadingText}>Loading chats...</span>
-            </div>
-          ) : chats.length === 0 ? (
-            <div className={styles.muted}>No chats yet</div>
-          ) : (
-            sidebarChats.map((chat) => {
-              const chatTitle = chat.title?.trim() || "Untitled chat";
-              return (
-                <Button
-                  variant="minimal"
-                  key={chat.id}
-                  className={joinClasses(styles.chatRow, chat.id === activeChatId && styles.chatRowActive)}
-                  onClick={() => navigate(`/chats/${chat.id}`)}
-                >
-                  <ChatAgentIcon
-                    chat={chat}
-                    agentsById={agentsById}
-                    agentsByKey={agentsByKey}
-                    iconSrcByAgentId={iconSrcByAgentId}
-                    placeholderByAgentId={placeholderByAgentId}
-                    onAgentIconError={onAgentIconError}
-                  />
-                  <SidebarChatTitle title={chatTitle} />
-                </Button>
-              );
-            })
-          )}
-        </div>
-
-        <Button
-          variant="minimal"
-          className={styles.allChatsBtn}
-          onClick={() => navigate("/chats")}
-        >
-          <LinkIcon className={styles.allChatsIcon} aria-hidden />
-          <span>All chats</span>
-        </Button>
-
-      </div>
-
-      <div className={styles.sidebarBottom}>
-        <Button
-          variant="minimal"
-          className={styles.settingsBtn}
-          onClick={() => navigate("/settings")}
-        >
-          <SettingsIcon className={styles.settingsIcon} aria-hidden />
-          <span>Settings</span>
-        </Button>
-
-        <div className={styles.userRow}>
-          <Button
-            variant="icon"
-            className={styles.logoutBtn}
-            ref={logoutTooltipRefs.setReference}
-            {...getLogoutReferenceProps()}
-            onClick={onLogout}
-            disabled={isLoggingOut}
-            aria-label="Log out"
+    <>
+      {isMobile ? (
+        <div className={styles.mobileTopBar}>
+          <button
+            type="button"
+            className={styles.mobileSidebarToggle}
+            onClick={toggleMobileSidebar}
+            aria-label={isMobileSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            aria-expanded={isMobileSidebarOpen}
+            aria-controls="app-sidebar-panel"
           >
-            <LogoutIcon className={styles.logoutIcon} aria-hidden />
-          </Button>
-          {isLogoutTooltipOpen ? (
-            <FloatingPortal>
-              <div
-                ref={logoutTooltipRefs.setFloating}
-                style={logoutTooltipStyles}
-                className={styles.iconTooltip}
-                {...getLogoutFloatingProps()}
-              >
-                Log out
-              </div>
-            </FloatingPortal>
-          ) : null}
-          <div className={styles.userEmail}>{meQ.data?.email ?? "…"}</div>
+            {isMobileSidebarOpen ? (
+              <PanelLeftClose className={styles.mobileSidebarToggleIcon} aria-hidden />
+            ) : (
+              <PanelLeftOpen className={styles.mobileSidebarToggleIcon} aria-hidden />
+            )}
+          </button>
+
+          <ThemeSwitch
+            compact
+            pinToViewportOnMobile={false}
+            className={styles.mobileTopBarThemeSwitch}
+          />
         </div>
-      </div>
-    </aside>
+      ) : null}
+
+      {isMobile ? (
+        <button
+          type="button"
+          className={joinClasses(styles.mobileBackdrop, !isMobileSidebarOpen && styles.mobileBackdropHidden)}
+          onClick={closeMobileSidebar}
+          aria-label="Close sidebar"
+          tabIndex={isMobileSidebarOpen ? 0 : -1}
+        />
+      ) : null}
+
+      <aside
+        id="app-sidebar-panel"
+        className={joinClasses(styles.sidebar, isMobileSidebarOpen && styles.sidebarOpen)}
+        aria-hidden={isMobile ? !isMobileSidebarOpen : undefined}
+      >
+        <div className={styles.sidebarTop}>
+          <div className={styles.sidebarLogoWrap}>
+            <img className={styles.sidebarLogo} src={logoSrc} alt="Sinas" />
+          </div>
+
+          <Button
+            variant="minimal"
+            className={styles.newChatBtn}
+            onClick={onCreateNewChat}
+          >
+            <PlusIcon className={styles.newChatIcon} aria-hidden />
+            <span>New chat</span>
+          </Button>
+
+          <div className={styles.sidebarSectionTitle}>Your chats</div>
+
+          <div className={styles.chatList}>
+            {chatsQ.isLoading ? (
+              <div className={styles.loadingState} role="status" aria-live="polite">
+                <SinasLoader size={22} />
+                <span className={styles.loadingText}>Loading chats...</span>
+              </div>
+            ) : chats.length === 0 ? (
+              <div className={styles.muted}>No chats yet</div>
+            ) : (
+              sidebarChats.map((chat) => {
+                const chatTitle = chat.title?.trim() || "Untitled chat";
+                return (
+                  <Button
+                    variant="minimal"
+                    key={chat.id}
+                    className={joinClasses(styles.chatRow, chat.id === activeChatId && styles.chatRowActive)}
+                    onClick={() => navigateWithMobileClose(`/chats/${chat.id}`)}
+                  >
+                    <ChatAgentIcon
+                      chat={chat}
+                      agentsById={agentsById}
+                      agentsByKey={agentsByKey}
+                      iconSrcByAgentId={iconSrcByAgentId}
+                      placeholderByAgentId={placeholderByAgentId}
+                      onAgentIconError={onAgentIconError}
+                    />
+                    <SidebarChatTitle title={chatTitle} />
+                  </Button>
+                );
+              })
+            )}
+          </div>
+
+          <Button
+            variant="minimal"
+            className={styles.allChatsBtn}
+            onClick={() => navigateWithMobileClose("/chats")}
+          >
+            <LinkIcon className={styles.allChatsIcon} aria-hidden />
+            <span>All chats</span>
+          </Button>
+
+        </div>
+
+        <div className={styles.sidebarBottom}>
+          <Button
+            variant="minimal"
+            className={styles.settingsBtn}
+            onClick={() => navigateWithMobileClose("/settings")}
+          >
+            <SettingsIcon className={styles.settingsIcon} aria-hidden />
+            <span>Settings</span>
+          </Button>
+
+          <div className={styles.userRow}>
+            <Button
+              variant="icon"
+              className={styles.logoutBtn}
+              ref={logoutTooltipRefs.setReference}
+              {...getLogoutReferenceProps()}
+              onClick={onLogout}
+              disabled={isLoggingOut}
+              aria-label="Log out"
+            >
+              <LogoutIcon className={styles.logoutIcon} aria-hidden />
+            </Button>
+            {isLogoutTooltipOpen ? (
+              <FloatingPortal>
+                <div
+                  ref={logoutTooltipRefs.setFloating}
+                  style={logoutTooltipStyles}
+                  className={styles.iconTooltip}
+                  {...getLogoutFloatingProps()}
+                >
+                  Log out
+                </div>
+              </FloatingPortal>
+            ) : null}
+            <div className={styles.userEmail}>{meQ.data?.email ?? "…"}</div>
+          </div>
+        </div>
+      </aside>
+    </>
   );
 }

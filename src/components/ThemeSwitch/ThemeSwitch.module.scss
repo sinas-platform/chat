@@ -63,6 +63,10 @@
   background: var(--switch-bg);
 }
 
+.optionLabel {
+  display: inline;
+}
+
 .icon {
   width: 16px;
   height: 16px;
@@ -85,4 +89,47 @@
 .iconMoon {
   -webkit-mask-image: url("../../icons/moon.svg");
   mask-image: url("../../icons/moon.svg");
+}
+
+.switchCompact {
+  grid-template-columns: repeat(2, 32px);
+}
+
+.switchCompact .option {
+  padding: 0;
+  gap: 0;
+}
+
+.switchCompact .optionLabel {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .switch {
+    height: 30px;
+  }
+
+  .switchMobilePinned {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    right: 12px;
+    z-index: 70;
+  }
+
+  .switchMobileInline {
+    position: static;
+    top: auto;
+    right: auto;
+    z-index: auto;
+  }
+
+  .option {
+    gap: 6px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
+
+  .switchCompact {
+    grid-template-columns: repeat(2, 30px);
+  }
 }

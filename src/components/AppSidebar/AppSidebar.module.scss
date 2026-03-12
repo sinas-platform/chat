@@ -323,3 +323,111 @@
   color: var(--color-text-muted);
   font-size: 13px;
 }
+
+.mobileSidebarToggle {
+  display: none;
+}
+
+.mobileTopBar {
+  display: none;
+}
+
+.mobileSidebarToggleIcon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  color: #4e4741;
+}
+
+:global(html[data-theme="dark"]) .mobileSidebarToggleIcon {
+  color: #fff;
+}
+
+.mobileBackdrop {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .sidebar {
+    position: fixed;
+    inset: calc(52px + env(safe-area-inset-top)) auto 0 0;
+    z-index: 71;
+    width: min(290px, calc(100vw - 56px));
+    max-width: calc(100vw - 24px);
+    height: calc(100dvh - 52px - env(safe-area-inset-top));
+    border-right: 1px solid var(--color-palette-neutral-100);
+    transform: translateX(calc(-100% - 16px));
+    transition: transform 180ms ease;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.22);
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+
+  .sidebarLogoWrap {
+    margin-bottom: 26px;
+  }
+
+  .sidebarSectionTitle {
+    margin-top: 20px;
+  }
+
+  .mobileTopBar {
+    --mobile-control-bg: #f6f3ef;
+    --mobile-control-border: #f6f3ef;
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 72;
+    height: calc(52px + env(safe-area-inset-top));
+    padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--color-border-default);
+    background: var(--color-bg-surface);
+  }
+
+  .mobileTopBarThemeSwitch {
+    position: static;
+  }
+
+  .mobileSidebarToggle {
+    position: static;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--mobile-control-border);
+    border-radius: 999px;
+    background: var(--mobile-control-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: background-color 120ms ease;
+  }
+
+  :global(html[data-theme="dark"]) .mobileTopBar {
+    --mobile-control-bg: #4e4741;
+    --mobile-control-border: #4e4741;
+    background: #2e2a26;
+  }
+
+  .mobileBackdrop {
+    position: fixed;
+    inset: calc(52px + env(safe-area-inset-top)) 0 0;
+    z-index: 70;
+    display: block;
+    border: none;
+    margin: 0;
+    padding: 0;
+    background: rgba(10, 9, 8, 0.48);
+    opacity: 1;
+    transition: opacity 160ms ease;
+  }
+
+  .mobileBackdropHidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+}

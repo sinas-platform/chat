@@ -390,7 +390,7 @@ export function AllChatsPage() {
       <AppSidebar />
 
       <main className={styles.main}>
-        <ThemeSwitch />
+        <ThemeSwitch className={styles.themeSwitch} />
 
         <div className={styles.shell}>
           <div className={styles.searchRow}>
@@ -517,7 +517,7 @@ export function AllChatsPage() {
               <div className={styles.muted}>No chats yet</div>
             ) : (
               filteredChats.map((chat: Chat) => (
-                <div key={chat.id} className={styles.chatRow}>
+                <div key={chat.id} className={joinClasses(styles.chatRow, isSelectMode && styles.chatRowSelectMode)}>
                   {isSelectMode ? (
                     <div className={styles.selectCell}>
                       <label className={styles.selectCheckbox}>

@@ -25,6 +25,10 @@
   overflow: hidden;
 }
 
+.themeSwitch {
+  display: block;
+}
+
 .chatShell {
   width: min(863px, 100%);
   height: 100%;
@@ -853,6 +857,132 @@
 
   .input {
     min-height: 100px;
+  }
+}
+
+@media (max-width: 760px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .main {
+    padding-top: calc(68px + env(safe-area-inset-top));
+  }
+
+  .chatShell {
+    width: 100%;
+  }
+
+  .messages {
+    padding: 4px 0 18px;
+    gap: 12px;
+  }
+
+  .messageRow {
+    gap: 10px;
+  }
+
+  .assistantAvatar {
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
+  }
+
+  .assistantAvatarImage,
+  .assistantAvatarPlaceholderGlyph {
+    width: 18px;
+    height: 18px;
+  }
+
+  .assistantMessageStack,
+  .assistantBubbleRow,
+  .assistantRow .message,
+  .toolProgressCard,
+  .approvalCard {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .message {
+    padding: 12px 14px;
+    border-radius: 18px;
+  }
+
+  .userRow .message {
+    max-width: 90%;
+  }
+
+  .messageAttachmentImageLinkCompact,
+  .messageAttachmentImageFallbackCompact {
+    width: 104px;
+    height: 104px;
+    min-height: 104px;
+  }
+
+  .composer {
+    margin-top: 8px;
+    min-height: 0;
+    border-radius: 22px;
+    padding: 14px 14px 12px;
+  }
+
+  .input {
+    font-size: 16px;
+    min-height: 84px;
+  }
+
+  .approvalActions {
+    flex-wrap: wrap;
+  }
+
+  .approvalButton {
+    flex: 1 1 120px;
+  }
+
+  .themeSwitch {
+    display: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .main {
+    padding: calc(64px + env(safe-area-inset-top)) 8px 8px;
+  }
+
+  .messages {
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+
+  .assistantAvatar {
+    width: 28px;
+    height: 28px;
+    flex-basis: 28px;
+  }
+
+  .assistantAvatarImage,
+  .assistantAvatarPlaceholderGlyph {
+    width: 16px;
+    height: 16px;
+  }
+
+  .message {
+    padding: 10px 12px;
+  }
+
+  .toolProgressCard,
+  .approvalCard {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .composer {
+    border-radius: 18px;
+    padding: 12px 12px 10px;
+  }
+
+  .input {
+    min-height: 72px;
   }
 }
 
