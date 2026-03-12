@@ -1565,7 +1565,7 @@ export function ChatPage() {
       <div className={styles.layout}>
         <MemoizedAppSidebar />
         <main className={styles.main}>
-          <ThemeSwitch />
+          <ThemeSwitch className={styles.themeSwitch} />
 
           <div className={styles.chatShell}>
             <p>Missing chat id</p>
@@ -1579,7 +1579,7 @@ export function ChatPage() {
     <div className={styles.layout}>
       <MemoizedAppSidebar activeChatId={chatId} />
       <main className={styles.main}>
-        <ThemeSwitch />
+        <ThemeSwitch className={styles.themeSwitch} />
 
         <div className={styles.chatShell}>
           <ChatMessages

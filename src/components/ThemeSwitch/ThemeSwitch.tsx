@@ -2,7 +2,7 @@ import type { ThemeMode } from "../../hooks/useThemePreference";
 import { useTheme } from "../../lib/useTheme";
 import styles from "./ThemeSwitch.module.scss";
 
-function joinClasses(...classNames: Array<string | false>) {
+function joinClasses(...classNames: Array<string | undefined | false>) {
   return classNames.filter(Boolean).join(" ");
 }
 
@@ -17,7 +17,13 @@ const THEME_OPTIONS: ThemeOption[] = [
   { value: "dark", label: "DARK", iconClassName: styles.iconMoon },
 ];
 
-export function ThemeSwitch() {
+type ThemeSwitchProps = {
+  className?: string;
+  compact?: boolean;
+  pinToViewportOnMobile?: boolean;
+};
+
+export function ThemeSwitch({ className, compact = false, pinToViewportOnMobile = true }: ThemeSwitchProps) {
   const { theme, setTheme, isSavingTheme } = useTheme();
 
   function handleThemeSelect(nextTheme: ThemeMode) {
@@ -26,7 +32,16 @@ export function ThemeSwitch() {
   }
 
   return (
-    <div className={styles.switch} role="group" aria-label="Theme switch">
+    <div
+      className={joinClasses(
+        styles.switch,
+        compact && styles.switchCompact,
+        pinToViewportOnMobile ? styles.switchMobilePinned : styles.switchMobileInline,
+        className,
+      )}
+      role="group"
+      aria-label="Theme switch"
+    >
       {THEME_OPTIONS.map((option) => {
         const isActive = theme === option.value;
 
@@ -46,7 +61,7 @@ export function ThemeSwitch() {
             aria-label={`Activate ${option.label.toLowerCase()} theme`}
           >
             <span className={joinClasses(styles.icon, option.iconClassName)} aria-hidden />
-            <span>{option.label}</span>
+            <span className={styles.optionLabel}>{option.label}</span>
           </button>
         );
       })}

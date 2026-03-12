@@ -457,7 +457,7 @@ export default function HomePage() {
       <AppSidebar />
 
       <main className={styles.main}>
-        <ThemeSwitch />
+        <ThemeSwitch className={styles.themeSwitch} />
 
         <div className={styles.mainContent}>
           {!hasWorkspaceUrl ? (

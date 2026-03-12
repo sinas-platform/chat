@@ -11,6 +11,10 @@
   padding: 32px 56px 72px;
 }
 
+.themeSwitch {
+  display: block;
+}
+
 .shell {
   width: min(863px, 100%);
   margin: 88px auto 0;
@@ -427,17 +431,39 @@
   }
 }
 
-@media (max-width: 920px) {
+@media (max-width: 980px) {
+  .main {
+    padding: 24px 20px 36px;
+  }
+
+  .shell {
+    width: 100%;
+    margin-top: 76px;
+    gap: 20px;
+  }
+
+  .card {
+    padding: 22px;
+    gap: 18px;
+  }
+}
+
+@media (max-width: 760px) {
   .layout {
     grid-template-columns: 1fr;
   }
 
   .main {
-    padding: 20px 14px 28px;
+    padding: calc(68px + env(safe-area-inset-top)) 16px 24px;
+  }
+
+  .themeSwitch {
+    display: none;
   }
 
   .shell {
     width: 100%;
+    margin-top: 0;
     gap: 16px;
   }
 
@@ -446,88 +472,148 @@
   }
 
   .subtitle {
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .card {
-    border-radius: 16px;
-    padding: 16px;
-    gap: 16px;
+    border-radius: 14px;
+    padding: 14px;
+    gap: 14px;
   }
 
   .cardTitle {
-    font-size: 19px;
+    font-size: 17px;
   }
 
   .cardDescription {
-    font-size: 16px;
+    font-size: 13px;
   }
 
   .errorBox,
   .successBox,
-  .noticeBox,
+  .noticeBox {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
   .inlineAction {
-    font-size: 14px;
+    font-size: 13px;
+    white-space: normal;
+  }
+
+  .searchField {
+    --input-font-size: 16px;
+  }
+
+  .group {
+    gap: 10px;
+    margin-top: 0;
   }
 
   .groupHeader {
     align-items: flex-start;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
   }
 
   .groupTitle {
-    font-size: 17px;
+    font-size: 15px;
   }
 
   .groupMeta {
-    font-size: 15px;
+    font-size: 13px;
+  }
+
+  .agentList {
+    gap: 10px;
   }
 
   .agentRowButton {
     align-items: flex-start;
     flex-direction: column;
+    gap: 10px;
+    padding: 10px;
   }
 
   .agentMeta {
     width: 100%;
   }
 
+  .agentHeader {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
   .agentName {
-    font-size: 16px;
+    font-size: 15px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    line-height: 1.25;
   }
 
   .agentTag {
-    font-size: 13px;
+    font-size: 11px;
+    padding: 2px 7px;
   }
 
   .agentDescription {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .agentAction {
-    font-size: 15px;
+    font-size: 14px;
     align-self: flex-end;
   }
 
+  .agentActionText {
+    font-size: 13px;
+  }
+
   .emptyListState {
-    font-size: 15px;
-    padding: 14px;
+    font-size: 13px;
+    padding: 12px;
   }
 
   .footerActions {
+    margin-top: 2px;
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
   }
 
   .footerHint {
-    font-size: 15px;
+    font-size: 13px;
   }
 
   .saveButton {
     width: 100%;
-    height: 40px;
+    height: 38px;
     font-size: 14px;
-    font-weight: 500;
+  }
+}
+
+@media (max-width: 430px) {
+  .main {
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-bottom: 18px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+
+  .card {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .agentAction {
+    width: 100%;
+    justify-content: flex-end;
   }
 }

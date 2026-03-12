@@ -274,7 +274,7 @@ export function SettingsPage() {
       <AppSidebar />
 
       <main className={styles.main}>
-        <ThemeSwitch />
+        <ThemeSwitch className={styles.themeSwitch} />
 
         <section className={styles.shell}>
           <header className={styles.pageHeader}>
