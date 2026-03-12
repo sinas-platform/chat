@@ -464,6 +464,7 @@ type ChatMessageRowProps = {
   message: ChatMessageViewModel;
   showAssistantAvatarLoading?: boolean;
   showAssistantAvatarPulse?: boolean;
+  runningTool?: ToolRun;
   assistantAvatarSrc?: string;
   assistantAvatarPlaceholder?: AgentPlaceholderMeta;
   onAssistantAvatarError?: () => void;
@@ -625,14 +626,14 @@ const ToolProgressRows = memo(function ToolProgressRows({
   assistantAvatarPlaceholder,
   onAssistantAvatarError,
 }: ToolProgressRowsProps) {
-  if (tools.length === 0) return null;
+  const visibleTools = tools.filter((tool) => tool.status !== "running");
+  if (visibleTools.length === 0) return null;
 
   return (
     <div className={styles.toolProgressInlineList} role="status" aria-live="polite" aria-atomic="false">
-      {tools.map((tool) => {
-        const isRunning = tool.status === "running";
+      {visibleTools.map((tool) => {
         const isDone = tool.status === "done";
-        const statusText = isRunning ? "Running" : isDone ? "Completed" : "Failed";
+        const statusText = isDone ? "Completed" : "Failed";
 
         return (
           <div key={tool.id} className={`${styles.messageRow} ${styles.assistantRow}`}>
@@ -645,7 +646,6 @@ const ToolProgressRows = memo(function ToolProgressRows({
             <div
               className={joinClasses(
                 styles.toolProgressCard,
-                isRunning && styles.toolProgressRunning,
                 isDone && styles.toolProgressDone,
                 tool.status === "error" && styles.toolProgressError
               )}
@@ -653,7 +653,6 @@ const ToolProgressRows = memo(function ToolProgressRows({
               <span
                 className={joinClasses(
                   styles.toolProgressDot,
-                  isRunning && styles.toolProgressDotRunning,
                   isDone && styles.toolProgressDotDone,
                   tool.status === "error" && styles.toolProgressDotError
                 )}
@@ -681,6 +680,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   message,
   showAssistantAvatarLoading = false,
   showAssistantAvatarPulse = false,
+  runningTool,
   assistantAvatarSrc,
   assistantAvatarPlaceholder,
   onAssistantAvatarError,
@@ -694,6 +694,74 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const shouldHideAssistantBubble = isAssistant && showAssistantAvatarLoading;
+  const [openRunningToolId, setOpenRunningToolId] = useState<string | null>(null);
+  const isRunningToolDetailsOpen = runningTool ? openRunningToolId === runningTool.id : false;
+
+  const messageBubble = !shouldHideAssistantBubble ? (
+    <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
+      <div className={styles.messageBody}>
+        {isAssistant ? (
+          <div className={styles.messageMarkdown}>
+            <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS}>{messageText}</ReactMarkdown>
+          </div>
+        ) : (
+          <div className={styles.messageText}>{messageText}</div>
+        )}
+
+        {attachments.length > 0 ? (
+          <div className={styles.messageAttachments}>
+            {imageAttachments.length > 0 ? (
+              <div
+                className={`${styles.messageImageAttachments} ${
+                  useCompactImageAttachments ? styles.messageImageAttachmentsCompact : ""
+                }`}
+              >
+                {imageAttachments.map((attachment, index) => (
+                  <MessageAttachmentImage
+                    key={`${attachment.url}-${index}`}
+                    attachment={attachment}
+                    compact={useCompactImageAttachments}
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            {fileAttachments.length > 0 ? (
+              <div className={styles.messageFileAttachments}>
+                {fileAttachments.map((attachment, index) => (
+                  <a
+                    key={`${attachment.url}-${index}`}
+                    href={attachment.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={styles.messageAttachmentFile}
+                  >
+                    <span className={styles.messageAttachmentFileName}>{attachment.name || "Attachment"}</span>
+                    {attachment.mime ? (
+                      <span className={styles.messageAttachmentFileMeta}>{attachment.mime}</span>
+                    ) : null}
+                  </a>
+                ))}
+              </div>
+            ) : null}
+
+            {audioAttachments.length > 0 ? (
+              <div className={styles.messageFileAttachments}>
+                {audioAttachments.map((attachment, index) => (
+                  <div key={`${attachment.name ?? "audio"}-${attachment.format ?? "unknown"}-${index}`} className={styles.messageAttachmentFile}>
+                    <span className={styles.messageAttachmentFileName}>{attachment.name || "Audio attachment"}</span>
+                    <span className={styles.messageAttachmentFileMeta}>
+                      {attachment.format ? `audio/${attachment.format}` : "audio"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className={`${styles.messageRow} ${isUser ? styles.userRow : styles.assistantRow}`} ref={rowRef}>
@@ -707,71 +775,40 @@ const ChatMessageRow = memo(function ChatMessageRow({
         />
       ) : null}
 
-      {!shouldHideAssistantBubble ? (
-        <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
-          <div className={styles.messageBody}>
-            {isAssistant ? (
-              <div className={styles.messageMarkdown}>
-                <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS}>{messageText}</ReactMarkdown>
+      {isAssistant ? (
+        <div className={styles.assistantMessageStack}>
+          {messageBubble ? (
+            <div className={styles.assistantBubbleRow}>
+              {messageBubble}
+              {runningTool ? (
+                <button
+                  type="button"
+                  className={styles.runningToolHelpButton}
+                  aria-label={isRunningToolDetailsOpen ? "Hide running tool details" : "Show running tool details"}
+                  aria-expanded={isRunningToolDetailsOpen}
+                  onClick={() => setOpenRunningToolId((prev) => (prev === runningTool.id ? null : runningTool.id))}
+                >
+                  <CircleHelp className={styles.runningToolHelpIcon} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {runningTool && isRunningToolDetailsOpen ? (
+            <div className={joinClasses(styles.toolProgressCard, styles.runningToolDetailsCard)}>
+              <span className={joinClasses(styles.toolProgressDot, styles.runningToolDetailsDot)} aria-hidden="true" />
+              <div className={styles.toolProgressContent}>
+                <p className={styles.toolProgressDescription}>{runningTool.description}</p>
+                <p className={styles.toolProgressMeta}>
+                  <code className={styles.toolProgressName}>{runningTool.name}</code>
+                  <span className={styles.toolProgressStatus}>Running</span>
+                </p>
               </div>
-            ) : (
-              <div className={styles.messageText}>{messageText}</div>
-            )}
-
-            {attachments.length > 0 ? (
-              <div className={styles.messageAttachments}>
-                {imageAttachments.length > 0 ? (
-                  <div
-                    className={`${styles.messageImageAttachments} ${
-                      useCompactImageAttachments ? styles.messageImageAttachmentsCompact : ""
-                    }`}
-                  >
-                    {imageAttachments.map((attachment, index) => (
-                      <MessageAttachmentImage
-                        key={`${attachment.url}-${index}`}
-                        attachment={attachment}
-                        compact={useCompactImageAttachments}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-
-                {fileAttachments.length > 0 ? (
-                  <div className={styles.messageFileAttachments}>
-                    {fileAttachments.map((attachment, index) => (
-                      <a
-                        key={`${attachment.url}-${index}`}
-                        href={attachment.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={styles.messageAttachmentFile}
-                      >
-                        <span className={styles.messageAttachmentFileName}>{attachment.name || "Attachment"}</span>
-                        {attachment.mime ? (
-                          <span className={styles.messageAttachmentFileMeta}>{attachment.mime}</span>
-                        ) : null}
-                      </a>
-                    ))}
-                  </div>
-                ) : null}
-
-                {audioAttachments.length > 0 ? (
-                  <div className={styles.messageFileAttachments}>
-                    {audioAttachments.map((attachment, index) => (
-                      <div key={`${attachment.name ?? "audio"}-${attachment.format ?? "unknown"}-${index}`} className={styles.messageAttachmentFile}>
-                        <span className={styles.messageAttachmentFileName}>{attachment.name || "Audio attachment"}</span>
-                        <span className={styles.messageAttachmentFileMeta}>
-                          {attachment.format ? `audio/${attachment.format}` : "audio"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      ) : (
+        messageBubble
+      )}
     </div>
   );
 });
@@ -803,6 +840,7 @@ const ChatMessages = memo(function ChatMessages({
     lastMessage?.role === "assistant" &&
     getMessageText(lastMessage.content).length === 0;
   const showStreamingRow = isStreaming || streamingContent.length > 0;
+  const latestRunningTool = useMemo(() => [...toolRuns].reverse().find((tool) => tool.status === "running"), [toolRuns]);
 
   const [isScrolled, setIsScrolled] = useState(false);
   useEffect(() => {
@@ -886,6 +924,7 @@ const ChatMessages = memo(function ChatMessages({
           }}
           showAssistantAvatarLoading={isStreaming && streamingContent.length === 0 && !thinkingText}
           showAssistantAvatarPulse={isStreaming}
+          runningTool={streamingContent.length === 0 ? latestRunningTool : undefined}
           assistantAvatarSrc={assistantAvatarSrc}
           assistantAvatarPlaceholder={assistantAvatarPlaceholder}
           onAssistantAvatarError={onAssistantAvatarError}

@@ -110,7 +110,7 @@
   --input-border-color: var(--color-border-default);
   --input-border-radius: 12px;
   --input-min-height: 32px;
-  --input-bg: rgba(255, 255, 255, 0.60);
+  --input-bg: transparent;
   --input-padding: 0 12px 0 8px;
   --input-font-size: 14px;
   --input-text-color: var(--color-text-primary);
@@ -227,6 +227,29 @@
   }
 }
 
+:global(html[data-theme="dark"]) .agentRowButtonHidden {
+  background: #ADA59C;
+
+  .agentName {
+    color: #4E4741;
+  }
+
+  .agentDescription,
+  .agentIconHidden,
+  .agentPlaceholderGlyph.agentIconHidden {
+    color: #7E746B;
+  }
+
+  .agentAction {
+    color: #F7F2EF;
+  }
+}
+
+:global(html[data-theme="dark"]) .agentRowButtonHidden:hover:not(:disabled) {
+  background: #B8B1A9;
+  border-color: #7E746B;
+}
+
 .agentIcon {
   width: 20px;
   height: 20px;
@@ -313,6 +336,11 @@
   color: var(--color-text-secondary);
 }
 
+:global(html[data-theme="dark"]) .agentTagHidden {
+  background: #7E746B;
+  color: #FFFFFF;
+}
+
 .agentDescription {
   display: block;
   font-size: 12px;
@@ -334,6 +362,19 @@
   width: 16px;
   height: 16px;
   flex: 0 0 16px;
+
+  path,
+  line {
+    stroke: currentColor;
+  }
+}
+
+.agentActionIconEyeOff {
+  color: var(--color-text-primary);
+}
+
+:global(html[data-theme="dark"]) .agentActionIconEyeOff {
+  color: #F7F2EF;
 }
 
 .agentActionText {
@@ -372,11 +413,17 @@
   &:hover:not(:disabled) {
     color: var(--color-text-primary);
   }
+}
 
-  &:disabled:hover {
-    background: var(--color-bg-inverse);
-    border-color: var(--color-bg-inverse);
-    color: var(--color-text-inverse);
+:global(html[data-theme="dark"]) .saveButton {
+  background: #FF7B00;
+  border-color: #FF7B00;
+  color: #FFFFFF;
+
+  &:hover:not(:disabled) {
+    background: #E66E00;
+    border-color: #E66E00;
+    color: #FFFFFF;
   }
 }
 

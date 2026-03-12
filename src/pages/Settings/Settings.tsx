@@ -7,8 +7,8 @@ import { Button } from "../../components/Button/Button";
 import { Input } from "../../components/Input/Input";
 import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
-import eyeIcon from "../../icons/eye.svg";
-import eyeOffIcon from "../../icons/eye-off.svg";
+import EyeIcon from "../../icons/eye.svg?react";
+import EyeOffIcon from "../../icons/eye-off.svg?react";
 import SearchIcon from "../../icons/search.svg?react";
 import { apiClient } from "../../lib/api";
 import {
@@ -254,7 +254,11 @@ export function SettingsPage() {
                   <span className={styles.agentDescription}>{description}</span>
                 </span>
                 <span className={styles.agentAction}>
-                  <img className={styles.agentActionIcon} src={isVisible ? eyeOffIcon : eyeIcon} alt="" aria-hidden />
+                  {isVisible ? (
+                    <EyeOffIcon className={joinClasses(styles.agentActionIcon, styles.agentActionIconEyeOff)} aria-hidden />
+                  ) : (
+                    <EyeIcon className={styles.agentActionIcon} aria-hidden />
+                  )}
                   <span className={styles.agentActionText}>{isVisible ? "Hide" : "Show"}</span>
                 </span>
               </button>

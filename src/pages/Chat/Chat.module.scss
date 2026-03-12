@@ -176,6 +176,58 @@
   mask-size: contain;
 }
 
+.runningToolHelpButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.14);
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  flex: 0 0 28px;
+}
+
+.runningToolHelpButton:hover {
+  background: var(--color-hover-beige);
+}
+
+.runningToolHelpButton:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.runningToolHelpIcon {
+  width: 13px;
+  height: 13px;
+}
+
+.assistantMessageStack {
+  width: min(100%, 663px);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.assistantBubbleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 663px);
+}
+
+.assistantBubbleRow .message {
+  width: auto;
+  max-width: none;
+  flex: 1;
+}
+
 .userMsg {
   background: var(--color-palette-neutral-100);
   border-radius: 24px;
@@ -389,11 +441,28 @@
   box-shadow: 0 8px 20px rgba(31, 31, 31, 0.06);
 }
 
-.toolProgressRunning {
+.runningToolDetailsCard {
   border-color: var(--color-warning-border);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 247, 239, 0.94) 100%),
     var(--color-warning-bg);
+  box-shadow: 0 8px 20px rgba(31, 31, 31, 0.06);
+}
+
+:global(html[data-theme="dark"]) .runningToolDetailsCard {
+  border-color: var(--color-warning-border);
+  background:
+    linear-gradient(180deg, rgba(117, 87, 56, 0.34) 0%, rgba(63, 46, 26, 0.92) 100%),
+    var(--color-warning-bg);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+}
+
+:global(html[data-theme="dark"]) .toolProgressCard {
+  border-color: var(--color-border-default);
+  background:
+    linear-gradient(180deg, rgba(78, 71, 65, 0.95) 0%, rgba(46, 42, 38, 0.92) 100%),
+    var(--color-bg-surface);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
 }
 
 .toolProgressDone {
@@ -403,10 +472,24 @@
     var(--color-success-bg);
 }
 
+:global(html[data-theme="dark"]) .toolProgressDone {
+  border-color: var(--color-success-border);
+  background:
+    linear-gradient(180deg, rgba(58, 100, 76, 0.34) 0%, rgba(31, 58, 42, 0.92) 100%),
+    var(--color-success-bg);
+}
+
 .toolProgressError {
   border-color: var(--color-danger-border);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 244, 242, 0.94) 100%),
+    var(--color-danger-bg);
+}
+
+:global(html[data-theme="dark"]) .toolProgressError {
+  border-color: var(--color-danger-border);
+  background:
+    linear-gradient(180deg, rgba(120, 64, 58, 0.34) 0%, rgba(62, 32, 29, 0.92) 100%),
     var(--color-danger-bg);
 }
 
@@ -419,7 +502,7 @@
   flex: 0 0 10px;
 }
 
-.toolProgressDotRunning {
+.runningToolDetailsDot {
   background: var(--color-warning);
 }
 
@@ -461,6 +544,12 @@
   background: var(--color-palette-neutral-100);
 }
 
+:global(html[data-theme="dark"]) .toolProgressName {
+  border-color: var(--color-border-default);
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-secondary);
+}
+
 .toolProgressStatus {
   font-size: 11px;
   font-weight: 600;
@@ -488,10 +577,25 @@
   box-shadow: 0 8px 20px rgba(31, 31, 31, 0.06);
 }
 
+:global(html[data-theme="dark"]) .approvalCard {
+  border-color: var(--color-border-default);
+  background:
+    linear-gradient(180deg, rgba(78, 71, 65, 0.95) 0%, rgba(46, 42, 38, 0.92) 100%),
+    var(--color-bg-surface);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+}
+
 .approvalCardProcessing {
   border-color: var(--color-warning-border);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 247, 239, 0.94) 100%),
+    var(--color-warning-bg);
+}
+
+:global(html[data-theme="dark"]) .approvalCardProcessing {
+  border-color: var(--color-warning-border);
+  background:
+    linear-gradient(180deg, rgba(117, 87, 56, 0.34) 0%, rgba(63, 46, 26, 0.92) 100%),
     var(--color-warning-bg);
 }
 
@@ -506,6 +610,12 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 38px;
+}
+
+:global(html[data-theme="dark"]) .approvalIconWrap {
+  border-color: var(--color-border-default);
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-secondary);
 }
 
 .approvalCardProcessing .approvalIconWrap {
@@ -570,15 +680,25 @@
 }
 
 .approvalButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
   border: 1px solid var(--color-border-default);
-  border-radius: 999px;
-  padding: 8px 12px;
+  border-radius: 12px;
+  padding: 7px 12px;
   background: var(--color-bg-surface);
   color: var(--color-text-primary);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
   cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, opacity 120ms ease;
+}
+
+.approvalButton:hover:not(:disabled) {
+  background: var(--color-hover-beige);
+  border-color: var(--color-border-default);
 }
 
 .approvalButton:disabled {
@@ -587,23 +707,26 @@
 }
 
 .approveButton {
-  border-color: var(--color-bg-inverse);
-  background: var(--color-bg-inverse);
-  color: var(--color-text-inverse);
+  border-color: var(--color-border-default);
+  background: color-mix(in srgb, var(--color-bg-surface) 74%, var(--color-bg-surface-subtle));
+  color: var(--color-text-primary);
 }
 
 .approveButton:hover:not(:disabled) {
-  opacity: 0.92;
+  background: var(--color-bg-surface-hover);
+  border-color: var(--color-border-default);
 }
 
 .rejectButton {
-  border-color: var(--color-danger-border);
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
 }
 
 .rejectButton:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-danger-bg) 82%, white);
+  background: color-mix(in srgb, var(--color-accent) 90%, var(--color-bg-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 90%, var(--color-bg-surface));
+  color: var(--color-accent-contrast);
 }
 
 .streamActions {
