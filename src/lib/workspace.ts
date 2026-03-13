@@ -22,8 +22,10 @@ function normalizeApplicationId(value: string | null | undefined): string | unde
   return normalized || undefined;
 }
 
-const DEFAULT_WORKSPACE = normalizeWorkspaceUrl(import.meta.env.VITE_DEFAULT_WORKSPACE_URL as string | undefined) || undefined;
-const ENV_DEFAULT_APP_ID = normalizeApplicationId(import.meta.env.VITE_DEFAULT_APPLICATION_ID as string | undefined);
+import { env } from "./env";
+
+const DEFAULT_WORKSPACE = normalizeWorkspaceUrl(env("VITE_DEFAULT_WORKSPACE_URL")) || undefined;
+const ENV_DEFAULT_APP_ID = normalizeApplicationId(env("VITE_DEFAULT_APPLICATION_ID"));
 
 function readStoredWorkspaceConfig(): WorkspaceConfig | null {
   const raw = localStorage.getItem(WORKSPACE_CONFIG_KEY);

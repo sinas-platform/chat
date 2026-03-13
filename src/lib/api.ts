@@ -1,4 +1,5 @@
 import axios, { type AxiosError, type AxiosInstance } from "axios";
+import { env } from "./env";
 import { getWorkspaceUrl, requireWorkspaceUrl } from "./workspace";
 import { clearAuth, getAuthToken, getRefreshToken, setAuthToken } from "./authStorage";
 import type { ChatAttachment, FileResponse, FileUpload, TempUrlResponse } from "./files/types";
@@ -40,8 +41,7 @@ function redirectToLoginIfNeeded(): void {
 }
 
 function getRuntimeApiKey(): string | null {
-  const apiKey = (import.meta.env.VITE_X_API_KEY as string | undefined)?.trim();
-  return apiKey || null;
+  return env("VITE_X_API_KEY")?.trim() || null;
 }
 
 export type MessageStreamChunk = {
