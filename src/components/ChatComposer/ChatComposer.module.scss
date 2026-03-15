@@ -59,7 +59,6 @@
   outline: 0;
   font-size: 14px;
   color: #4f473f;
-  line-height: 1.45;
 
   &::placeholder {
     color: #8d8378;
@@ -84,14 +83,15 @@
   align-items: center;
   gap: 7px;
   font-size: 12px;
-  color: #7b6d5f;
+  color: var(--color-text-secondary);
 }
 
 .voiceStatusDot {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: #d9a15b;
+  background: var(--agent-icon-color, var(--color-accent));
+  opacity: 0.55;
   flex: 0 0 8px;
 }
 
@@ -101,19 +101,21 @@
 }
 
 .voiceStatusListening {
-  color: #8b4900;
+  color: var(--agent-icon-color, var(--color-accent));
 }
 
 .voiceStatusListening .voiceStatusDot {
-  background: #e17a14;
+  background: var(--agent-icon-color, var(--color-accent));
+  opacity: 1;
 }
 
 .voiceStatusError {
-  color: #9e2d20;
+  color: var(--color-danger);
 }
 
 .voiceStatusError .voiceStatusDot {
-  background: #c5483a;
+  background: var(--color-danger);
+  opacity: 1;
   animation: none;
 }
 
@@ -156,28 +158,31 @@
 }
 
 .micButtonActive {
-  color: #6a3d00;
-  background: #ffd493;
-  border-color: #ffc472;
-  box-shadow: 0 0 0 3px rgba(255, 170, 67, 0.22);
+  color: var(--agent-icon-color, var(--color-accent));
+  background: var(--agent-icon-soft-color, var(--color-palette-orange-soft));
+  border-color: var(--agent-icon-soft-color, var(--color-palette-orange-soft));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--agent-icon-color, var(--color-accent)) 18%, transparent);
 }
 
 .micButtonStarting {
-  background: #ffe3b7;
+  background: var(--agent-icon-soft-color, var(--color-palette-orange-soft));
+  opacity: 0.75;
 }
 
 .micButtonListening {
   animation: micButtonPulse 1.25s ease-in-out infinite;
+  opacity: 1;
 }
 
 .stopButton {
-  background: #ffe8ca;
-  color: #71420a;
-  border-color: #f7cc8f;
+  background: var(--agent-icon-soft-color, var(--color-palette-orange-soft));
+  color: var(--agent-icon-color, var(--color-accent));
+  border-color: var(--agent-icon-soft-color, var(--color-palette-orange-soft));
 
   &:hover:not(:disabled) {
-    background: #ffdfb4;
-    border-color: #f0be73;
+    background: var(--agent-icon-soft-color, var(--color-palette-orange-soft));
+    filter: brightness(0.95);
+    border-color: var(--agent-icon-color, var(--color-accent));
   }
 }
 

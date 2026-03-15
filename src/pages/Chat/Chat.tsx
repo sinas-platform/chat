@@ -1581,7 +1581,7 @@ export function ChatPage() {
       <main className={styles.main}>
         <ThemeSwitch className={styles.themeSwitch} />
 
-        <div className={styles.chatShell}>
+        <div className={styles.chatShell} style={getPlaceholderCssVars(assistantAvatarPlaceholder)}>
           <ChatMessages
             messages={messages}
             isLoading={chatQ.isLoading}
@@ -1612,7 +1612,7 @@ export function ChatPage() {
             value={input}
             onChange={setInput}
             onSubmit={submitInput}
-            rows={4}
+            rows={2}
             disabled={sendMsgM.isPending || isStreaming || Boolean(processingApproval) || pendingApprovals.length > 0}
             attachments={composerAttachments}
             isUploadingAttachment={isUploadingAttachment}
