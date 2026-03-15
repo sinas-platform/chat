@@ -98,7 +98,7 @@ export function ChatComposer({
   const micStatusMessage = isStarting
     ? "Starting microphone…"
     : isListening
-      ? "Recording… speak now"
+      ? "Listening… go ahead"
       : speechError;
   const hasMicStatus = Boolean(micStatusMessage);
   const computedTextareaStyle: CSSProperties = {

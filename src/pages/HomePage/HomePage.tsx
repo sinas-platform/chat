@@ -461,7 +461,7 @@ export default function HomePage() {
       <main ref={mainRef} className={styles.main}>
         <ThemeSwitch className={styles.themeSwitch} />
 
-        <div className={styles.mainContent}>
+        <div className={styles.mainContent} style={selectedAgentPlaceholderCssVars}>
           {!hasWorkspaceUrl ? (
             <section className={styles.agentPicker}>
               <div className={styles.agentPickerTitle}>Select workspace</div>

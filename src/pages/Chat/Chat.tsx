@@ -1581,7 +1581,7 @@ export function ChatPage() {
       <main className={styles.main}>
         <ThemeSwitch className={styles.themeSwitch} />
 
-        <div className={styles.chatShell}>
+        <div className={styles.chatShell} style={getPlaceholderCssVars(assistantAvatarPlaceholder)}>
           <ChatMessages
             messages={messages}
             isLoading={chatQ.isLoading}
