@@ -217,6 +217,7 @@ export default function HomePage() {
   const [agentView, setAgentView] = useState<AgentViewMode>("grid");
   const [heroMessageIndex, setHeroMessageIndex] = useState(0);
   const pendingAttachmentsRef = useRef<PendingAttachment[]>([]);
+  const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     document.title = "Sinas - Chat";
@@ -441,6 +442,7 @@ export default function HomePage() {
     setSelectedAgentKey(key);
     saveSelectedAgentKey(key);
     setHeroMessageIndex(getNextHeroMessageIndex());
+    mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const activeHeroMessage = heroMessages[heroMessageIndex] ?? heroMessages[0];
@@ -456,7 +458,7 @@ export default function HomePage() {
     <div className={styles.layout}>
       <AppSidebar />
 
-      <main className={styles.main}>
+      <main ref={mainRef} className={styles.main}>
         <ThemeSwitch className={styles.themeSwitch} />
 
         <div className={styles.mainContent}>
