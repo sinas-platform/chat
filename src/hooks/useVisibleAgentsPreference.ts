@@ -75,11 +75,23 @@ export function normalizeVisibleAgentsPreferenceValue(value: unknown): VisibleAg
 function filterAgentsByPreference(
   agents: AgentResponse[],
   preference: VisibleAgentsPreferenceValue,
+  preferenceUpdatedAt: string | null,
 ): AgentResponse[] {
   if (preference.mode === "all") return agents;
 
   const visibleRefs = new Set(preference.visibleAgentRefs);
-  return agents.filter((agent) => visibleRefs.has(getAgentRef(agent)));
+  const preferenceUpdatedAtMs = preferenceUpdatedAt ? Date.parse(preferenceUpdatedAt) : Number.NaN;
+
+  return agents.filter((agent) => {
+    const agentRef = getAgentRef(agent);
+    if (visibleRefs.has(agentRef)) return true;
+
+    const agentCreatedAtMs = Date.parse(agent.created_at);
+    if (Number.isNaN(preferenceUpdatedAtMs) || Number.isNaN(agentCreatedAtMs)) return false;
+
+    // Agents created after the last saved preference should be visible by default.
+    return agentCreatedAtMs > preferenceUpdatedAtMs;
+  });
 }
 
 export function useVisibleAgentsPreference() {
@@ -123,8 +135,8 @@ export function useVisibleAgentsPreference() {
   );
 
   const visibleActiveAgents = useMemo(
-    () => filterAgentsByPreference(activeAgents, preference),
-    [activeAgents, preference],
+    () => filterAgentsByPreference(activeAgents, preference, preferenceState?.updated_at ?? null),
+    [activeAgents, preference, preferenceState?.updated_at],
   );
 
   const savePreferenceM = useMutation({
@@ -201,6 +213,7 @@ export function useVisibleAgentsPreference() {
     activeAgents,
     visibleActiveAgents,
     preference,
+    preferenceUpdatedAt: preferenceState?.updated_at ?? null,
     hasStoredPreference: Boolean(preferenceState),
     savePreference,
     isSavingPreference: savePreferenceM.isPending,

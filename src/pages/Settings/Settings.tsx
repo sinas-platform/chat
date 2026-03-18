@@ -70,6 +70,22 @@ function formatNamespaceLabel(namespace: string): string {
   return clean.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function isAgentVisibleInCustomMode(
+  agent: Pick<AgentResponse, "namespace" | "name" | "created_at">,
+  preference: VisibleAgentsPreferenceValue,
+  preferenceUpdatedAt: string | null,
+): boolean {
+  const agentRef = getAgentRef(agent);
+  if (preference.visibleAgentRefs.includes(agentRef)) return true;
+
+  const preferenceUpdatedAtMs = preferenceUpdatedAt ? Date.parse(preferenceUpdatedAt) : Number.NaN;
+  const agentCreatedAtMs = Date.parse(agent.created_at);
+
+  if (Number.isNaN(preferenceUpdatedAtMs) || Number.isNaN(agentCreatedAtMs)) return false;
+
+  return agentCreatedAtMs > preferenceUpdatedAtMs;
+}
+
 export function SettingsPage() {
   const workspaceUrl = getWorkspaceUrl();
   const hasWorkspaceUrl = workspaceUrl.length > 0;
@@ -113,10 +129,12 @@ export function SettingsPage() {
 
   const effectiveVisibleRefs = useMemo(() => {
     if (draftPreference.mode === "all") return allAgentRefs;
+    const effectivePreferenceUpdatedAt = isDirty ? null : visibleAgentsPreference.preferenceUpdatedAt;
 
-    const refSet = new Set(allAgentRefs);
-    return draftPreference.visibleAgentRefs.filter((ref) => refSet.has(ref));
-  }, [allAgentRefs, draftPreference]);
+    return sortedAgents
+      .filter((agent) => isAgentVisibleInCustomMode(agent, draftPreference, effectivePreferenceUpdatedAt))
+      .map((agent) => getAgentRef(agent));
+  }, [allAgentRefs, draftPreference, isDirty, sortedAgents, visibleAgentsPreference.preferenceUpdatedAt]);
 
   const effectiveVisibleRefSet = useMemo(() => new Set(effectiveVisibleRefs), [effectiveVisibleRefs]);
   const selectedCount = effectiveVisibleRefs.length;

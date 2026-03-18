@@ -36,6 +36,7 @@ function joinClasses(...classNames: Array<string | undefined | false>) {
 const SELECTED_AGENT_STORAGE_KEY = "chat.selected_agent_endpoint";
 const HERO_MESSAGE_INDEX_STORAGE_KEY = "chat.home.hero_message_index";
 const HERO_MESSAGE_COUNT = 3;
+const RECENT_AGENTS_DISPLAY_LIMIT = 3;
 
 type AgentSortMode = "alphabetical" | "recent";
 type AgentViewMode = "grid" | "list";
@@ -321,6 +322,10 @@ export default function HomePage() {
     () => new Map(recentAgents.map((agent, index) => [getAgentKey(agent), index])),
     [recentAgents],
   );
+  const recentAgentsToDisplay = useMemo(
+    () => recentAgents.slice(0, RECENT_AGENTS_DISPLAY_LIMIT),
+    [recentAgents],
+  );
 
   const normalizedAgentSearch = agentSearch.trim().toLowerCase();
   const agentSortLabel = agentSort === "recent" ? "Recently used" : "Alphabetical";
@@ -561,11 +566,11 @@ export default function HomePage() {
               <div className={styles.muted}>
                 {hasAnyActiveAgents ? "All agents are hidden in Homepage Agents settings." : "No agents available"}
               </div>
-            ) : recentAgents.length === 0 ? (
+            ) : recentAgentsToDisplay.length === 0 ? (
               <div className={styles.muted}>No recently used agents yet.</div>
             ) : (
               <div className={styles.recentAgentRow}>
-                {recentAgents.map((agent) => (
+                {recentAgentsToDisplay.map((agent) => (
                   <AgentCard
                     key={agent.id}
                     agent={agent}
