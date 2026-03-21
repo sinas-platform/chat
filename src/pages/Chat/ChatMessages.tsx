@@ -194,9 +194,9 @@ const ApprovalPromptRow = memo(function ApprovalPromptRow({
         </div>
 
         <div className={styles.approvalContent}>
-          <h4 className={styles.approvalTitle}>{isProcessing ? "Processing approval..." : "Action Needs Your Approval"}</h4>
+          <h4 className={styles.approvalTitle}>{isProcessing ? "Processing your decision..." : "Please confirm this action"}</h4>
           <p className={styles.approvalText}>{getApprovalReason(approval)}</p>
-          <p className={styles.approvalHint}>Approve to continue, or reject to stop this action.</p>
+          <p className={styles.approvalHint}>Approve to continue, or reject to stop this step.</p>
 
           <div className={styles.approvalActions}>
             <button
@@ -237,50 +237,96 @@ const ToolProgressRows = memo(function ToolProgressRows({
   assistantAvatarPlaceholder,
   onAssistantAvatarError,
 }: ToolProgressRowsProps) {
-  const visibleTools = tools.filter((tool) => tool.status !== "running");
-  if (visibleTools.length === 0) return null;
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const completedTools = tools.filter((tool) => tool.status !== "running");
+
+  if (completedTools.length === 0) return null;
+
+  const completedCount = completedTools.filter((tool) => tool.status === "done").length;
+  const failedCount = completedTools.filter((tool) => tool.status === "error").length;
+  const summaryText =
+    failedCount === 0
+      ? `${completedTools.length} background ${completedTools.length === 1 ? "step" : "steps"} completed.`
+      : `${completedCount} completed, ${failedCount} ${failedCount === 1 ? "had an issue" : "had issues"}.`;
 
   return (
-    <div className={styles.toolProgressInlineList} role="status" aria-live="polite" aria-atomic="false">
-      {visibleTools.map((tool) => {
-        const isDone = tool.status === "done";
-        const statusText = isDone ? "Completed" : "Failed";
+    <div className={styles.toolProgressInlineList}>
+      <div className={`${styles.messageRow} ${styles.assistantRow}`}>
+        <AssistantAvatar
+          assistantAvatarSrc={assistantAvatarSrc}
+          assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+          onAssistantAvatarError={onAssistantAvatarError}
+        />
 
-        return (
-          <div key={tool.id} className={`${styles.messageRow} ${styles.assistantRow}`}>
-            <AssistantAvatar
-              assistantAvatarSrc={assistantAvatarSrc}
-              assistantAvatarPlaceholder={assistantAvatarPlaceholder}
-              onAssistantAvatarError={onAssistantAvatarError}
-            />
-
-            <div
-              className={joinClasses(
-                styles.toolProgressCard,
-                isDone && styles.toolProgressDone,
-                tool.status === "error" && styles.toolProgressError,
-              )}
-            >
-              <span
-                className={joinClasses(
-                  styles.toolProgressDot,
-                  isDone && styles.toolProgressDotDone,
-                  tool.status === "error" && styles.toolProgressDotError,
-                )}
-                aria-hidden="true"
-              />
-              <div className={styles.toolProgressContent}>
-                <p className={styles.toolProgressDescription}>{tool.description}</p>
-                <p className={styles.toolProgressMeta}>
-                  <code className={styles.toolProgressName}>{tool.name}</code>
-                  <span className={styles.toolProgressStatus}>{statusText}</span>
-                </p>
-                {tool.status === "error" && tool.error ? <p className={styles.toolProgressErrorText}>{tool.error}</p> : null}
-              </div>
+        <div
+          className={joinClasses(
+            styles.toolActivitySummaryCard,
+            failedCount > 0 && styles.toolActivitySummaryCardError,
+            isDetailsOpen && styles.toolActivitySummaryCardExpanded,
+          )}
+          role="status"
+          aria-live="polite"
+          aria-atomic="false"
+        >
+          <div className={styles.toolActivitySummaryHeader}>
+            <div className={styles.toolActivitySummaryContent}>
+              <p className={styles.toolActivitySummaryTitle}>Background activity</p>
+              <p className={styles.toolActivitySummaryText}>{summaryText}</p>
             </div>
+
+            <button
+              type="button"
+              className={styles.toolActivityInfoButton}
+              aria-label={isDetailsOpen ? "Hide background activity details" : "Show background activity details"}
+              aria-expanded={isDetailsOpen}
+              onClick={() => setIsDetailsOpen((prev) => !prev)}
+            >
+              <CircleHelp className={styles.toolActivityInfoIcon} aria-hidden="true" />
+              <span>{isDetailsOpen ? "Hide details" : "Details"}</span>
+            </button>
           </div>
-        );
-      })}
+
+          {isDetailsOpen ? (
+            <div className={styles.toolActivityDetailsList}>
+              {completedTools.map((tool) => {
+                const isDone = tool.status === "done";
+                const statusText = isDone ? "Completed" : "Failed";
+
+                return (
+                  <div
+                    key={tool.id}
+                    className={joinClasses(
+                      styles.toolProgressCard,
+                      styles.toolActivityDetailsCard,
+                      isDone && styles.toolProgressDone,
+                      tool.status === "error" && styles.toolProgressError,
+                    )}
+                  >
+                    <span
+                      className={joinClasses(
+                        styles.toolProgressDot,
+                        isDone && styles.toolProgressDotDone,
+                        tool.status === "error" && styles.toolProgressDotError,
+                      )}
+                      aria-hidden="true"
+                    />
+                    <div className={styles.toolProgressContent}>
+                      <p className={styles.toolProgressDescription}>{tool.description}</p>
+                      <p className={styles.toolProgressMeta}>
+                        <code className={styles.toolProgressName}>{tool.name}</code>
+                        <span className={styles.toolProgressStatus}>{statusText}</span>
+                      </p>
+                      {tool.status === "error" && tool.error ? (
+                        <p className={styles.toolProgressErrorText}>{tool.error}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 });
@@ -473,6 +519,11 @@ export const ChatMessages = memo(function ChatMessages({
     getMessageText(lastMessage.content).length === 0;
   const showStreamingRow = isStreaming || streamingContent.length > 0;
   const latestRunningTool = useMemo(() => [...toolRuns].reverse().find((tool) => tool.status === "running"), [toolRuns]);
+  const completedToolRuns = useMemo(() => toolRuns.filter((tool) => tool.status !== "running"), [toolRuns]);
+  const toolSummaryKey = useMemo(() => {
+    if (completedToolRuns.length === 0) return "no-completed-tools";
+    return completedToolRuns.map((tool) => tool.id).join("|");
+  }, [completedToolRuns]);
 
   const [isScrolled, setIsScrolled] = useState(false);
   useEffect(() => {
@@ -520,6 +571,7 @@ export const ChatMessages = memo(function ChatMessages({
       )}
 
       <ToolProgressRows
+        key={toolSummaryKey}
         tools={toolRuns}
         assistantAvatarSrc={assistantAvatarSrc}
         assistantAvatarPlaceholder={assistantAvatarPlaceholder}

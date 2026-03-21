@@ -74,7 +74,6 @@ export const UNSUPPORTED_AUDIO_ERROR = "Unsupported audio format. Please use WAV
 const SUPPORTED_AUDIO_FORMATS = new Set<AudioAttachmentFormat>(["wav", "mp3", "m4a", "ogg"]);
 
 export const CHAT_ATTACHMENT_ACCEPT = "image/*,.pdf,.doc,.docx,.txt";
-export const TOOL_RUN_AUTO_REMOVE_MS = 3000;
 export const CHAT_SCROLL_TOP_OFFSET = 16;
 export const CHAT_NEAR_BOTTOM_THRESHOLD = 72;
 

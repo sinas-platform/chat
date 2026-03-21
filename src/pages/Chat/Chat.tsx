@@ -10,7 +10,6 @@ import {
   CHAT_ATTACHMENT_ACCEPT,
   CHAT_NEAR_BOTTOM_THRESHOLD,
   CHAT_SCROLL_TOP_OFFSET,
-  TOOL_RUN_AUTO_REMOVE_MS,
   UNSUPPORTED_AUDIO_ERROR,
   extractErrorMessage,
   extractToolCallId,
@@ -81,7 +80,6 @@ export function ChatPage() {
   const [processingApproval, setProcessingApproval] = useState<string | null>(null);
   const sentInitialDraftRef = useRef<Record<string, boolean>>({});
   const streamHandleRef = useRef<ChatStreamHandle | null>(null);
-  const toolCleanupTimeoutsRef = useRef<Record<string, number>>({});
 
   const composerAttachments = useMemo<ChatAttachment[]>(
     () =>
@@ -198,23 +196,7 @@ export function ChatPage() {
     document.title = `${chatTitle}`;
   }, [chatTitle]);
 
-  function clearToolCleanupTimeout(toolCallId: string) {
-    const timeoutId = toolCleanupTimeoutsRef.current[toolCallId];
-    if (timeoutId == null) return;
-
-    window.clearTimeout(timeoutId);
-    delete toolCleanupTimeoutsRef.current[toolCallId];
-  }
-
-  function clearAllToolCleanupTimeouts() {
-    Object.values(toolCleanupTimeoutsRef.current).forEach((timeoutId) => {
-      window.clearTimeout(timeoutId);
-    });
-    toolCleanupTimeoutsRef.current = {};
-  }
-
   function resetToolRuns() {
-    clearAllToolCleanupTimeouts();
     setActiveTools({});
   }
 
@@ -222,7 +204,6 @@ export function ChatPage() {
     const now = new Date().toISOString();
     const toolName = normalizeToolName(event.name);
 
-    clearToolCleanupTimeout(event.tool_call_id);
     setActiveTools((prev) => {
       const existing = prev[event.tool_call_id];
       const description = event.description?.trim() || existing?.description || getToolDescription(null, toolName);
@@ -244,7 +225,6 @@ export function ChatPage() {
     const now = new Date().toISOString();
     const toolName = normalizeToolName(event.name);
 
-    clearToolCleanupTimeout(event.tool_call_id);
     setActiveTools((prev) => {
       const existing = prev[event.tool_call_id];
       const description = existing?.description ?? getToolDescription(null, toolName);
@@ -269,7 +249,6 @@ export function ChatPage() {
     const errorMessage = extractErrorMessage(error);
 
     if (toolCallId) {
-      clearToolCleanupTimeout(toolCallId);
       setActiveTools((prev) => {
         const existing = prev[toolCallId];
         const toolName = normalizeToolName(existing?.name);
@@ -498,45 +477,9 @@ export function ChatPage() {
   });
 
   useEffect(() => {
-    for (const [toolCallId, tool] of Object.entries(activeTools)) {
-      if (tool.status === "running") {
-        const timeoutId = toolCleanupTimeoutsRef.current[toolCallId];
-        if (timeoutId != null) {
-          window.clearTimeout(timeoutId);
-          delete toolCleanupTimeoutsRef.current[toolCallId];
-        }
-        continue;
-      }
-
-      if (toolCleanupTimeoutsRef.current[toolCallId] == null) {
-        toolCleanupTimeoutsRef.current[toolCallId] = window.setTimeout(() => {
-          setActiveTools((prev) => {
-            if (!prev[toolCallId]) return prev;
-            const next = { ...prev };
-            delete next[toolCallId];
-            return next;
-          });
-          delete toolCleanupTimeoutsRef.current[toolCallId];
-        }, TOOL_RUN_AUTO_REMOVE_MS);
-      }
-    }
-
-    for (const toolCallId of Object.keys(toolCleanupTimeoutsRef.current)) {
-      if (activeTools[toolCallId]) continue;
-
-      window.clearTimeout(toolCleanupTimeoutsRef.current[toolCallId]);
-      delete toolCleanupTimeoutsRef.current[toolCallId];
-    }
-  }, [activeTools]);
-
-  useEffect(() => {
     return () => {
       streamHandleRef.current?.abort();
       streamHandleRef.current = null;
-      Object.values(toolCleanupTimeoutsRef.current).forEach((timeoutId) => {
-        window.clearTimeout(timeoutId);
-      });
-      toolCleanupTimeoutsRef.current = {};
     };
   }, []);
 
@@ -545,7 +488,6 @@ export function ChatPage() {
     streamHandleRef.current = null;
     setIsStreaming(false);
     setStreamingContent("");
-    clearAllToolCleanupTimeouts();
     setActiveTools({});
     setPendingApprovals([]);
     setProcessingApproval(null);
