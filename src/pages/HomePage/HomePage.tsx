@@ -86,6 +86,21 @@ function getAgentKey(agent: Pick<AgentResponse, "namespace" | "name">): string {
   return `${agent.namespace.toLowerCase()}::${agent.name.toLowerCase()}`;
 }
 
+function pickFallbackAgent(agents: AgentResponse[]): AgentResponse | null {
+  if (agents.length === 0) return null;
+
+  const backendDefault = agents.find((agent) => agent.is_default);
+  if (backendDefault) return backendDefault;
+
+  const sorted = [...agents].sort((left, right) => {
+    const leftLabel = `${left.namespace}::${left.name}`;
+    const rightLabel = `${right.namespace}::${right.name}`;
+    return leftLabel.localeCompare(rightLabel);
+  });
+
+  return sorted[0] ?? null;
+}
+
 function readSelectedAgentKey(): string | null {
   if (typeof window === "undefined") return null;
 
@@ -254,23 +269,22 @@ export default function HomePage() {
   );
 
   useEffect(() => {
+    // Wait until agents are fully loaded so we do not wipe a persisted selection on first render.
+    if (!agentsQ.isSuccess) return;
     if (activeAgents.length === 0) {
-      if (selectedAgentKey !== null) {
-        setSelectedAgentKey(null);
-      }
       return;
     }
 
     const hasCurrentSelection = selectedAgentKey ? agentsByKey.has(selectedAgentKey) : false;
     if (hasCurrentSelection) return;
 
-    const defaultAgent = activeAgents.find((agent) => agent.is_default) ?? activeAgents[0];
+    const defaultAgent = pickFallbackAgent(activeAgents);
     if (!defaultAgent) return;
 
     const nextKey = getAgentKey(defaultAgent);
     setSelectedAgentKey(nextKey);
     saveSelectedAgentKey(nextKey);
-  }, [activeAgents, agentsByKey, selectedAgentKey]);
+  }, [activeAgents, agentsByKey, selectedAgentKey, agentsQ.isSuccess]);
 
   const selectedAgent = useMemo(() => {
     if (activeAgents.length === 0) return null;
@@ -280,7 +294,7 @@ export default function HomePage() {
       if (byStoredKey) return byStoredKey;
     }
 
-    return activeAgents.find((agent) => agent.is_default) ?? activeAgents[0] ?? null;
+    return pickFallbackAgent(activeAgents);
   }, [activeAgents, agentsByKey, selectedAgentKey]);
 
   const selectedAgentIconSrc = selectedAgent ? iconSrcByAgentId[selectedAgent.id] : undefined;
