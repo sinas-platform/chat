@@ -14,6 +14,7 @@ import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { Input } from "../../components/Input/Input";
 import SinasLoader from "../../components/Loader/Loader";
 import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
+import { useActiveAgentPreference } from "../../hooks/useActiveAgentPreference";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
 import { useVisibleAgentsPreference } from "../../hooks/useVisibleAgentsPreference";
 import { apiClient } from "../../lib/api";
@@ -33,7 +34,6 @@ function joinClasses(...classNames: Array<string | undefined | false>) {
   return classNames.filter(Boolean).join(" ");
 }
 
-const SELECTED_AGENT_STORAGE_KEY = "chat.selected_agent_endpoint";
 const HERO_MESSAGE_INDEX_STORAGE_KEY = "chat.home.hero_message_index";
 const HERO_MESSAGE_COUNT = 3;
 const RECENT_AGENTS_DISPLAY_LIMIT = 3;
@@ -99,27 +99,6 @@ function pickFallbackAgent(agents: AgentResponse[]): AgentResponse | null {
   });
 
   return sorted[0] ?? null;
-}
-
-function readSelectedAgentKey(): string | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const value = window.localStorage.getItem(SELECTED_AGENT_STORAGE_KEY)?.trim();
-    return value || null;
-  } catch {
-    return null;
-  }
-}
-
-function saveSelectedAgentKey(agentKey: string): void {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.localStorage.setItem(SELECTED_AGENT_STORAGE_KEY, agentKey);
-  } catch {
-    // Ignore storage failures; in-memory selection is still fine.
-  }
 }
 
 function getNextHeroMessageIndex(): number {
@@ -220,9 +199,10 @@ export default function HomePage() {
   const ws = getWorkspaceUrl();
   const hasWorkspaceUrl = ws.length > 0;
   const visibleAgentsPreference = useVisibleAgentsPreference();
+  const activeAgentPreference = useActiveAgentPreference();
   const agentsQ = visibleAgentsPreference.agentsQuery;
 
-  const [selectedAgentKey, setSelectedAgentKey] = useState<string | null>(() => readSelectedAgentKey());
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [messageDraft, setMessageDraft] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -267,35 +247,77 @@ export default function HomePage() {
     () => new Map(activeAgents.map((agent) => [getAgentKey(agent), agent] as const)),
     [activeAgents],
   );
+  const agentsById = useMemo(() => new Map(activeAgents.map((agent) => [agent.id, agent] as const)), [activeAgents]);
+  const persistedSelectedAgentId =
+    activeAgentPreference.canUsePreferencesState &&
+    activeAgentPreference.statesQuery.isSuccess &&
+    activeAgentPreference.hasStoredPreference
+      ? activeAgentPreference.preference.agentId
+      : null;
+  const isActiveAgentPreferenceResolved =
+    !activeAgentPreference.canUsePreferencesState ||
+    activeAgentPreference.statesQuery.isSuccess ||
+    activeAgentPreference.statesQuery.isError;
 
   useEffect(() => {
     // Wait until agents are fully loaded so we do not wipe a persisted selection on first render.
     if (!agentsQ.isSuccess) return;
+    if (!isActiveAgentPreferenceResolved) return;
     if (activeAgents.length === 0) {
+      if (selectedAgentId !== null) {
+        setSelectedAgentId(null);
+      }
       return;
     }
 
-    const hasCurrentSelection = selectedAgentKey ? agentsByKey.has(selectedAgentKey) : false;
+    const hasCurrentSelection = selectedAgentId ? agentsById.has(selectedAgentId) : false;
     if (hasCurrentSelection) return;
 
-    const defaultAgent = pickFallbackAgent(activeAgents);
+    const byPreference =
+      persistedSelectedAgentId != null ? (agentsById.get(persistedSelectedAgentId) ?? null) : null;
+    const defaultAgent = byPreference ?? pickFallbackAgent(activeAgents);
     if (!defaultAgent) return;
 
-    const nextKey = getAgentKey(defaultAgent);
-    setSelectedAgentKey(nextKey);
-    saveSelectedAgentKey(nextKey);
-  }, [activeAgents, agentsByKey, selectedAgentKey, agentsQ.isSuccess]);
+    setSelectedAgentId(defaultAgent.id);
+
+    if (
+      activeAgentPreference.canUsePreferencesState &&
+      (!activeAgentPreference.hasStoredPreference || persistedSelectedAgentId !== defaultAgent.id)
+    ) {
+      activeAgentPreference.resetSavePreferenceError();
+      void activeAgentPreference.savePreference({
+        version: 1,
+        agentId: defaultAgent.id,
+      }).catch(() => {
+        // Keep local selection even if preference save fails.
+      });
+    }
+  }, [
+    activeAgentPreference,
+    activeAgents,
+    agentsById,
+    agentsByKey,
+    selectedAgentId,
+    persistedSelectedAgentId,
+    agentsQ.isSuccess,
+    isActiveAgentPreferenceResolved,
+  ]);
 
   const selectedAgent = useMemo(() => {
     if (activeAgents.length === 0) return null;
 
-    if (selectedAgentKey) {
-      const byStoredKey = agentsByKey.get(selectedAgentKey);
-      if (byStoredKey) return byStoredKey;
+    if (selectedAgentId) {
+      const byStoredId = agentsById.get(selectedAgentId);
+      if (byStoredId) return byStoredId;
+    }
+
+    if (persistedSelectedAgentId) {
+      const byPreference = agentsById.get(persistedSelectedAgentId);
+      if (byPreference) return byPreference;
     }
 
     return pickFallbackAgent(activeAgents);
-  }, [activeAgents, agentsByKey, selectedAgentKey]);
+  }, [activeAgents, agentsById, selectedAgentId, persistedSelectedAgentId]);
 
   const selectedAgentIconSrc = selectedAgent ? iconSrcByAgentId[selectedAgent.id] : undefined;
   const selectedAgentPlaceholder = selectedAgent ? placeholderByAgentId[selectedAgent.id] : undefined;
@@ -475,10 +497,20 @@ export default function HomePage() {
   }
 
   function onSelectAgent(agent: AgentResponse) {
-    const key = getAgentKey(agent);
-    if (key === selectedAgentKey) return;
-    setSelectedAgentKey(key);
-    saveSelectedAgentKey(key);
+    if (agent.id === selectedAgentId) return;
+    setSelectedAgentId(agent.id);
+    if (
+      activeAgentPreference.canUsePreferencesState &&
+      (!activeAgentPreference.hasStoredPreference || persistedSelectedAgentId !== agent.id)
+    ) {
+      activeAgentPreference.resetSavePreferenceError();
+      void activeAgentPreference.savePreference({
+        version: 1,
+        agentId: agent.id,
+      }).catch(() => {
+        // Keep local selection even if preference save fails.
+      });
+    }
     setHeroMessageIndex(getNextHeroMessageIndex());
     mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -488,7 +520,13 @@ export default function HomePage() {
   const hasAnyActiveAgents = allActiveAgents.length > 0;
   const isAgentsLoading = agentsQ.isLoading;
   const isAgentsError = agentsQ.isError;
-  const isPreferencesError = Boolean(visibleAgentsPreference.preferenceReadErrorMessage);
+  const isPreferencesError = Boolean(
+    visibleAgentsPreference.preferenceReadErrorMessage || activeAgentPreference.preferenceReadErrorMessage,
+  );
+  const preferencesErrorMessage =
+    visibleAgentsPreference.preferenceReadErrorMessage || activeAgentPreference.preferenceReadErrorMessage;
+  const canRetryPreferences =
+    preferencesErrorMessage != null && preferencesErrorMessage !== "Missing permissions to read/write preferences state";
   const agentLoadErrorMessage =
     agentsQ.error instanceof Error ? agentsQ.error.message : "Could not load agents. Please try again.";
 
@@ -563,14 +601,15 @@ export default function HomePage() {
           <section className={styles.agentPicker}>
             {isPreferencesError ? (
               <div className={styles.errorState} role="alert" style={{ marginBottom: 12 }}>
-                <span>{visibleAgentsPreference.preferenceReadErrorMessage}</span>
-                {!visibleAgentsPreference.statesQuery.isError ||
-                visibleAgentsPreference.preferenceReadErrorMessage ===
-                  "Missing permissions to read/write preferences state" ? null : (
+                <span>{preferencesErrorMessage}</span>
+                {(!visibleAgentsPreference.statesQuery.isError && !activeAgentPreference.statesQuery.isError) || !canRetryPreferences ? null : (
                   <button
                     type="button"
                     className={styles.retryButton}
-                    onClick={() => void visibleAgentsPreference.statesQuery.refetch()}
+                    onClick={() => {
+                      void visibleAgentsPreference.statesQuery.refetch();
+                      void activeAgentPreference.statesQuery.refetch();
+                    }}
                   >
                     Retry
                   </button>
