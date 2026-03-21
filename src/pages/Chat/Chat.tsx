@@ -16,6 +16,7 @@ import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../
 import { apiClient, type ChatStreamHandle } from "../../lib/api";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
+import { getWorkspaceUrl } from "../../lib/workspace";
 import type { AgentResponse, ApprovalRequiredEvent, ChatWithMessages, ToolEndEvent, ToolStartEvent } from "../../types";
 
 type AudioAttachmentFormat = "wav" | "mp3" | "m4a" | "ogg";
@@ -67,6 +68,16 @@ type RenderedMessageAttachment = {
 type ParsedMessageContent = {
   text: string;
   attachments: RenderedMessageAttachment[];
+};
+
+type SinasComponentToolPayload = {
+  type: "component";
+  namespace: string;
+  name: string;
+  render_token: string;
+  title?: string;
+  input?: unknown;
+  compile_status?: string;
 };
 
 type ToolRunStatus = "running" | "done" | "error";
@@ -309,6 +320,96 @@ function tryParseStructuredContentString(value: string): unknown | null {
   }
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function toSinasComponentToolPayload(value: unknown): SinasComponentToolPayload | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  if (record.type !== "component") return null;
+
+  const namespace = typeof record.namespace === "string" ? record.namespace.trim() : "";
+  const name = typeof record.name === "string" ? record.name.trim() : "";
+  const renderToken = typeof record.render_token === "string" ? record.render_token.trim() : "";
+  if (!namespace || !name || !renderToken) return null;
+
+  return {
+    type: "component",
+    namespace,
+    name,
+    render_token: renderToken,
+    title: typeof record.title === "string" ? record.title : undefined,
+    input: record.input,
+    compile_status: typeof record.compile_status === "string" ? record.compile_status : undefined,
+  };
+}
+
+function parseSinasComponentToolPayload(content: unknown, depth = 0): SinasComponentToolPayload | null {
+  if (depth > 2) return null;
+
+  const directPayload = toSinasComponentToolPayload(content);
+  if (directPayload) return directPayload;
+
+  if (typeof content === "string") {
+    const trimmed = content.trim();
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      return parseSinasComponentToolPayload(parsed, depth + 1);
+    } catch {
+      return null;
+    }
+  }
+
+  if (Array.isArray(content)) {
+    for (const item of content) {
+      const payload = parseSinasComponentToolPayload(item, depth + 1);
+      if (payload) return payload;
+
+      if (!item || typeof item !== "object") continue;
+      const text = (item as { text?: unknown }).text;
+      if (typeof text !== "string") continue;
+
+      const textPayload = parseSinasComponentToolPayload(text, depth + 1);
+      if (textPayload) return textPayload;
+    }
+    return null;
+  }
+
+  const record = asRecord(content);
+  if (!record) return null;
+
+  const nestedCandidates = [record.result, record.payload, record.content, record.data];
+  for (const candidate of nestedCandidates) {
+    const nestedPayload = parseSinasComponentToolPayload(candidate, depth + 1);
+    if (nestedPayload) return nestedPayload;
+  }
+
+  return null;
+}
+
+function getSinasComponentRenderSrc(payload: SinasComponentToolPayload): string {
+  const params = new URLSearchParams({ token: payload.render_token });
+  if (payload.input !== undefined) {
+    try {
+      params.set("input", JSON.stringify(payload.input));
+    } catch {
+      // Ignore non-serializable input payloads and render with token only.
+    }
+  }
+
+  const workspaceBaseUrl = getWorkspaceUrl().replace(/\/+$/, "");
+  const componentPath = `/components/${encodeURIComponent(payload.namespace)}/${encodeURIComponent(payload.name)}/render`;
+  if (!workspaceBaseUrl) {
+    return `${componentPath}?${params.toString()}`;
+  }
+
+  return `${workspaceBaseUrl}${componentPath}?${params.toString()}`;
+}
+
 function getMessageText(content: unknown): string {
   if (typeof content === "string") {
     const parsed = tryParseStructuredContentString(content);
@@ -450,7 +551,9 @@ function hasRenderableMessageContent(content: unknown): boolean {
 }
 
 function shouldRenderMessage(message: ChatMessageViewModel): boolean {
-  if (message.role === "tool") return false;
+  if (message.role === "tool") {
+    return parseSinasComponentToolPayload(message.content) !== null;
+  }
 
   // Hide assistant tool-call scaffolding messages that have no visible text/attachments.
   if (message.role === "assistant" && !hasRenderableMessageContent(message.content)) {
@@ -557,6 +660,36 @@ function AssistantAvatar({
       ) : (
         <Bot size={20} aria-hidden="true" />
       )}
+    </div>
+  );
+}
+
+type ComponentFrameProps = {
+  payload: SinasComponentToolPayload;
+};
+
+function ComponentFrame({ payload }: ComponentFrameProps) {
+  const title = payload.title?.trim() || "Component";
+  const componentName = `${payload.namespace}/${payload.name}`;
+  const status = payload.compile_status?.trim();
+
+  return (
+    <div className={styles.componentToolCard}>
+      <div className={styles.componentToolCardHeader}>
+        <p className={styles.componentToolCardTitle}>{title}</p>
+        <div className={styles.componentToolCardMeta}>
+          <code className={styles.componentToolCardName}>{componentName}</code>
+          {status ? <span className={styles.componentToolCardStatus}>{status}</span> : null}
+        </div>
+      </div>
+
+      <iframe
+        className={styles.componentToolFrame}
+        title={title}
+        src={getSinasComponentRenderSrc(payload)}
+        loading="lazy"
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
     </div>
   );
 }
@@ -687,12 +820,14 @@ const ChatMessageRow = memo(function ChatMessageRow({
   rowRef,
 }: ChatMessageRowProps) {
   const { text: messageText, attachments } = parseMessageContent(message.content);
+  const componentPayload = parseSinasComponentToolPayload(message.content);
+  const isComponentToolMessage = message.role === "tool" && componentPayload !== null;
   const imageAttachments = attachments.filter((attachment) => attachment.kind === "image");
   const fileAttachments = attachments.filter((attachment) => attachment.kind === "file");
   const audioAttachments = attachments.filter((attachment) => attachment.kind === "audio");
   const useCompactImageAttachments = imageAttachments.length > 1;
   const isUser = message.role === "user";
-  const isAssistant = message.role === "assistant";
+  const isAssistant = message.role === "assistant" || isComponentToolMessage;
   const shouldHideAssistantBubble = isAssistant && showAssistantAvatarLoading;
   const [openRunningToolId, setOpenRunningToolId] = useState<string | null>(null);
   const isRunningToolDetailsOpen = runningTool ? openRunningToolId === runningTool.id : false;
@@ -700,7 +835,9 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const messageBubble = !shouldHideAssistantBubble ? (
     <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
       <div className={styles.messageBody}>
-        {isAssistant ? (
+        {isComponentToolMessage && componentPayload ? (
+          <ComponentFrame payload={componentPayload} />
+        ) : isAssistant ? (
           <div className={styles.messageMarkdown}>
             <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS}>{messageText}</ReactMarkdown>
           </div>
@@ -708,7 +845,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
           <div className={styles.messageText}>{messageText}</div>
         )}
 
-        {attachments.length > 0 ? (
+        {!isComponentToolMessage && attachments.length > 0 ? (
           <div className={styles.messageAttachments}>
             {imageAttachments.length > 0 ? (
               <div

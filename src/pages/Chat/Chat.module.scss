@@ -299,6 +299,61 @@
   margin-bottom: 0;
 }
 
+.componentToolCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.componentToolCardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.componentToolCardTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.componentToolCardMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.componentToolCardName {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-palette-neutral-100);
+}
+
+.componentToolCardStatus {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.componentToolFrame {
+  width: 100%;
+  min-height: 300px;
+  height: 420px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+}
+
+:global(html[data-theme="dark"]) .componentToolCardName {
+  border-color: var(--color-border-default);
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-secondary);
+}
+
 .messageAttachments {
   margin-top: 10px;
   display: flex;
@@ -920,6 +975,11 @@
     min-height: 104px;
   }
 
+  .componentToolFrame {
+    min-height: 260px;
+    height: 360px;
+  }
+
   .composer {
     margin-top: 8px;
     min-height: 0;
@@ -975,6 +1035,12 @@
   .approvalCard {
     padding: 10px;
     border-radius: 14px;
+  }
+
+  .componentToolFrame {
+    min-height: 220px;
+    height: 300px;
+    border-radius: 10px;
   }
 
   .composer {
