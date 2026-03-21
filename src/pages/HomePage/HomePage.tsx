@@ -37,6 +37,7 @@ const SELECTED_AGENT_STORAGE_KEY = "chat.selected_agent_endpoint";
 const HERO_MESSAGE_INDEX_STORAGE_KEY = "chat.home.hero_message_index";
 const HERO_MESSAGE_COUNT = 3;
 const RECENT_AGENTS_DISPLAY_LIMIT = 3;
+const MOBILE_VIEW_BREAKPOINT_PX = 760;
 
 type AgentSortMode = "alphabetical" | "recent";
 type AgentViewMode = "grid" | "list";
@@ -216,6 +217,10 @@ export default function HomePage() {
   const [agentSearch, setAgentSearch] = useState("");
   const [agentSort, setAgentSort] = useState<AgentSortMode>("alphabetical");
   const [agentView, setAgentView] = useState<AgentViewMode>("grid");
+  const [isMobileView, setIsMobileView] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(`(max-width: ${MOBILE_VIEW_BREAKPOINT_PX}px)`).matches;
+  });
   const [heroMessageIndex, setHeroMessageIndex] = useState(0);
   const pendingAttachmentsRef = useRef<PendingAttachment[]>([]);
   const mainRef = useRef<HTMLElement>(null);
@@ -297,6 +302,19 @@ export default function HomePage() {
     setHeroMessageIndex(getNextHeroMessageIndex());
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_VIEW_BREAKPOINT_PX}px)`);
+    const updateFromMediaQuery = () => setIsMobileView(mediaQuery.matches);
+    updateFromMediaQuery();
+
+    mediaQuery.addEventListener("change", updateFromMediaQuery);
+    return () => {
+      mediaQuery.removeEventListener("change", updateFromMediaQuery);
+    };
+  }, []);
+
   const recentAgents = useMemo(() => {
     const chats = [...(chatsQ.data ?? [])];
     chats.sort((left, right) => getLatestChatTimestamp(right) - getLatestChatTimestamp(left));
@@ -330,6 +348,7 @@ export default function HomePage() {
   const normalizedAgentSearch = agentSearch.trim().toLowerCase();
   const agentSortLabel = agentSort === "recent" ? "Recently used" : "Alphabetical";
   const composerAttachments: ChatAttachment[] = useMemo(() => pendingAttachments.map((item) => item.preview), [pendingAttachments]);
+  const activeAgentView: AgentViewMode = isMobileView ? "list" : agentView;
 
   const allAgents = useMemo(() => {
     const filteredAgents = activeAgents.filter((agent) => {
@@ -599,26 +618,28 @@ export default function HomePage() {
                 onChange={(e) => setAgentSearch(e.target.value)}
               />
               <div className={styles.agentControlActions}>
-                <div className={styles.agentViewToggle} role="group" aria-label="Agent card view mode">
-                  <button
-                    type="button"
-                    className={joinClasses(styles.agentViewBtn, agentView === "list" && styles.agentViewBtnActive)}
-                    onClick={() => setAgentView("list")}
-                    aria-label="Show agents as list"
-                    aria-pressed={agentView === "list"}
-                  >
-                    <ListLayoutIcon className={styles.agentViewIcon} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    className={joinClasses(styles.agentViewBtn, agentView === "grid" && styles.agentViewBtnActive)}
-                    onClick={() => setAgentView("grid")}
-                    aria-label="Show agents as grid"
-                    aria-pressed={agentView === "grid"}
-                  >
-                    <GridLayoutIcon className={styles.agentViewIcon} aria-hidden />
-                  </button>
-                </div>
+                {!isMobileView ? (
+                  <div className={styles.agentViewToggle} role="group" aria-label="Agent card view mode">
+                    <button
+                      type="button"
+                      className={joinClasses(styles.agentViewBtn, activeAgentView === "list" && styles.agentViewBtnActive)}
+                      onClick={() => setAgentView("list")}
+                      aria-label="Show agents as list"
+                      aria-pressed={activeAgentView === "list"}
+                    >
+                      <ListLayoutIcon className={styles.agentViewIcon} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      className={joinClasses(styles.agentViewBtn, activeAgentView === "grid" && styles.agentViewBtnActive)}
+                      onClick={() => setAgentView("grid")}
+                      aria-label="Show agents as grid"
+                      aria-pressed={activeAgentView === "grid"}
+                    >
+                      <GridLayoutIcon className={styles.agentViewIcon} aria-hidden />
+                    </button>
+                  </div>
+                ) : null}
 
                 <DropdownMenu
                   trigger={
@@ -647,7 +668,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className={joinClasses(styles.allAgentGrid, agentView === "list" && styles.allAgentList)}>
+            <div className={joinClasses(styles.allAgentGrid, activeAgentView === "list" && styles.allAgentList)}>
               {isAgentsLoading ? (
                 <div className={styles.loadingState} role="status" aria-live="polite">
                   <SinasLoader size={26} />
@@ -676,7 +697,7 @@ export default function HomePage() {
                     iconSrc={iconSrcByAgentId[agent.id]}
                     placeholder={placeholderByAgentId[agent.id]}
                     onIconError={onAgentIconError}
-                    className={agentView === "list" ? styles.agentCardList : undefined}
+                    className={activeAgentView === "list" ? styles.agentCardList : undefined}
                   />
                 ))
               )}
