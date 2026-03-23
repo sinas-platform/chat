@@ -180,9 +180,9 @@ class APIClient {
 
     return {
       type: "file",
-      file: attachment.url,
-      name: attachment.name,
-      mime: attachment.mime,
+      file_url: attachment.url,
+      filename: attachment.name,
+      mime_type: attachment.mime,
     };
   }
 

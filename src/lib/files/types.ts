@@ -1,4 +1,4 @@
-export type FileVisibility = "private" | "public";
+export type FileVisibility = "private" | "shared";
 
 export interface FileUpload {
   name: string;
@@ -11,6 +11,7 @@ export interface FileUpload {
 export interface FileResponse {
   filename?: string;
   version?: number;
+  current_version?: number;
   [key: string]: unknown;
 }
 

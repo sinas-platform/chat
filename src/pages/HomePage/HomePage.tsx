@@ -22,6 +22,14 @@ import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
 import { getWorkspaceUrl } from "../../lib/workspace";
+import {
+  CHAT_ATTACHMENT_ACCEPT,
+  UNSUPPORTED_AUDIO_ERROR,
+  fileToDataUrl,
+  isAudioCandidate,
+  normalizeAudioFormat,
+  stripDataUrlPrefix,
+} from "../Chat/chatUtils";
 import type { AgentResponse, Chat } from "../../types";
 
 function getChatTitleFromDraft(draft: string) {
@@ -38,6 +46,7 @@ const HERO_MESSAGE_INDEX_STORAGE_KEY = "chat.home.hero_message_index";
 const HERO_MESSAGE_COUNT = 3;
 const RECENT_AGENTS_DISPLAY_LIMIT = 3;
 const MOBILE_VIEW_BREAKPOINT_PX = 760;
+const MAX_ATTACHMENT_SIZE_BYTES = 20 * 1024 * 1024;
 
 type AgentSortMode = "alphabetical" | "recent";
 type AgentViewMode = "grid" | "list";
@@ -54,6 +63,11 @@ function getAttachmentErrorMessage(error: unknown): string {
     return DEFAULT_ATTACHMENT_ERROR;
   }
 
+  if (error instanceof Error) {
+    const trimmedMessage = error.message.trim();
+    if (trimmedMessage.length > 0) return trimmedMessage;
+  }
+
   return DEFAULT_ATTACHMENT_ERROR;
 }
 
@@ -67,9 +81,10 @@ function createLocalAttachment(file: File): ChatAttachment {
   };
 }
 
-function toUploadAttachmentError(error: unknown): UploadChatAttachmentError {
-  if (error instanceof UploadChatAttachmentError) return error;
-  return new UploadChatAttachmentError("not_configured", DEFAULT_ATTACHMENT_ERROR);
+function assertAttachmentSizeWithinLimit(file: File) {
+  if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+    throw new UploadChatAttachmentError("file_too_large", "File is too large. Max size is 20 MB.");
+  }
 }
 
 function getLatestChatTimestamp(chat: Chat): number {
@@ -423,22 +438,75 @@ export default function HomePage() {
       });
 
       const uploadedAttachments: ChatAttachment[] = [];
+      const audioContentParts: Array<Record<string, unknown>> = [];
+      const uploadedContentParts: Array<Record<string, unknown>> = [];
       if (filesToAttach.length > 0) {
         setAttachmentError(null);
         setIsUploadingAttachment(true);
-        try {
-          for (const attachment of filesToAttach) {
-            setUploadingAttachmentName(attachment.file.name);
-            const uploaded = await uploadChatAttachment(attachment.file, chat.id);
-            uploadedAttachments.push(uploaded);
+        const audioAttachments: PendingAttachment[] = [];
+        const nonAudioAttachments: PendingAttachment[] = [];
+
+        for (const attachment of filesToAttach) {
+          if (isAudioCandidate(attachment.file)) {
+            audioAttachments.push(attachment);
+            continue;
           }
-        } catch (error) {
-          const uploadError = toUploadAttachmentError(error);
-          throw uploadError;
+          nonAudioAttachments.push(attachment);
+        }
+
+        for (const attachment of audioAttachments) {
+          assertAttachmentSizeWithinLimit(attachment.file);
+          const format = normalizeAudioFormat(attachment.file);
+          if (!format) {
+            throw new Error(UNSUPPORTED_AUDIO_ERROR);
+          }
+
+          setUploadingAttachmentName(attachment.file.name);
+          const dataUrl = await fileToDataUrl(attachment.file);
+          const base64 = stripDataUrlPrefix(dataUrl);
+
+          audioContentParts.push({
+            type: "audio",
+            data: base64,
+            format,
+          });
+        }
+
+        for (const attachment of nonAudioAttachments) {
+          setUploadingAttachmentName(attachment.file.name);
+          const uploaded = await uploadChatAttachment(attachment.file, chat.id);
+          uploadedAttachments.push(uploaded);
+
+          if (uploaded.mime.toLowerCase().startsWith("image/")) {
+            uploadedContentParts.push({ type: "image", image: uploaded.url });
+            continue;
+          }
+
+          uploadedContentParts.push({
+            type: "file",
+            file_url: uploaded.url,
+            filename: uploaded.name,
+            mime_type: uploaded.mime,
+          });
         }
       }
 
-      navigate(`/chats/${chat.id}`, { state: { initialDraft: draft, initialAttachments: uploadedAttachments } });
+      const hasAttachmentParts = audioContentParts.length > 0 || uploadedContentParts.length > 0;
+      const initialContent: string | Array<Record<string, unknown>> = hasAttachmentParts
+        ? [
+            ...(draft ? [{ type: "text", text: draft }] : []),
+            ...audioContentParts,
+            ...uploadedContentParts,
+          ]
+        : draft;
+
+      navigate(`/chats/${chat.id}`, {
+        state: {
+          initialContent,
+          initialDraft: draft,
+          initialAttachments: uploadedAttachments,
+        },
+      });
     } finally {
       setIsUploadingAttachment(false);
       setUploadingAttachmentName(null);
@@ -596,6 +664,7 @@ export default function HomePage() {
             attachmentError={attachmentError}
             onAddAttachment={addPendingAttachment}
             onRemoveAttachment={removePendingAttachment}
+            attachmentAccept={CHAT_ATTACHMENT_ACCEPT}
           />
 
           <section className={styles.agentPicker}>

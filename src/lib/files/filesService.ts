@@ -134,7 +134,12 @@ export async function uploadChatAttachment(file: File, chatId: string): Promise<
 
     const { namespace, collection } = getFilesConfig();
     const uploadResponse = await apiClient.uploadFile(namespace, collection, payload);
-    const version = typeof uploadResponse.version === "number" ? uploadResponse.version : undefined;
+    const version =
+      typeof uploadResponse.version === "number"
+        ? uploadResponse.version
+        : typeof uploadResponse.current_version === "number"
+          ? uploadResponse.current_version
+          : undefined;
 
     const tempUrl = await generateTempUrl(storedName, version, DEFAULT_TEMP_URL_EXPIRES_IN);
 

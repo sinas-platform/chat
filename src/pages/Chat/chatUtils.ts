@@ -67,13 +67,12 @@ export type PendingChatAttachment =
     };
 
 export const DEFAULT_ATTACHMENT_ERROR = "File uploads aren’t configured on this Sinas instance. Ask admin to configure it.";
-// Keep audio attachment plumbing in place; flip to `true` once agents support audio parts.
-export const AUDIO_ATTACHMENTS_ENABLED = false;
+export const AUDIO_ATTACHMENTS_ENABLED = true;
 export const AUDIO_ATTACHMENTS_DISABLED_ERROR = "Audio attachments are not supported yet.";
 export const UNSUPPORTED_AUDIO_ERROR = "Unsupported audio format. Please use WAV, MP3, M4A, or OGG.";
 const SUPPORTED_AUDIO_FORMATS = new Set<AudioAttachmentFormat>(["wav", "mp3", "m4a", "ogg"]);
 
-export const CHAT_ATTACHMENT_ACCEPT = "image/*,.pdf,.doc,.docx,.txt";
+export const CHAT_ATTACHMENT_ACCEPT = "image/*,audio/*,.wav,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.txt";
 export const CHAT_SCROLL_TOP_OFFSET = 16;
 export const CHAT_NEAR_BOTTOM_THRESHOLD = 72;
 
@@ -447,13 +446,13 @@ export function parseMessageContent(content: unknown): ParsedMessageContent {
     }
 
     if (type === "file") {
-      const fileUrl = part.file;
+      const fileUrl = typeof part.file_url === "string" ? part.file_url : part.file;
       if (typeof fileUrl === "string" && fileUrl.length > 0) {
         attachments.push({
           kind: "file",
           url: fileUrl,
-          name: typeof part.name === "string" ? part.name : getFilenameFromUrl(fileUrl),
-          mime: typeof part.mime === "string" ? part.mime : undefined,
+          name: typeof part.filename === "string" ? part.filename : typeof part.name === "string" ? part.name : getFilenameFromUrl(fileUrl),
+          mime: typeof part.mime_type === "string" ? part.mime_type : typeof part.mime === "string" ? part.mime : undefined,
         });
       }
       continue;

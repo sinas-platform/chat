@@ -42,6 +42,7 @@ import type { AgentResponse, ApprovalRequiredEvent, ChatWithMessages, ToolEndEve
 type LocationState = {
   initialDraft?: string;
   initialAttachments?: ChatAttachment[];
+  initialContent?: string | Array<Record<string, unknown>>;
 };
 
 type SendMessageVariables = {
@@ -65,6 +66,14 @@ export function ChatPage() {
   const initialAttachments = useMemo(() => {
     const state = location.state as LocationState | null;
     return Array.isArray(state?.initialAttachments) ? state.initialAttachments : [];
+  }, [location.state]);
+  const initialContent = useMemo<SendMessageVariables["content"] | undefined>(() => {
+    const state = location.state as LocationState | null;
+    if (!state || state.initialContent === undefined) return undefined;
+
+    if (typeof state.initialContent === "string") return state.initialContent;
+    if (Array.isArray(state.initialContent)) return state.initialContent;
+    return undefined;
   }, [location.state]);
 
   const [input, setInput] = useState("");
@@ -496,7 +505,7 @@ export function ChatPage() {
   // Auto-send initial draft once
   useEffect(() => {
     if (!chatId) return;
-    if (!initialDraft && initialAttachments.length === 0) return;
+    if (initialContent === undefined && !initialDraft && initialAttachments.length === 0) return;
     if (chatQ.isLoading || chatQ.isError) return;
     if (hasUserMessages) {
       sentInitialDraftRef.current[chatId] = true;
@@ -508,22 +517,24 @@ export function ChatPage() {
 
     const ts = Date.now();
     requestPinLatestUserMessage();
+    const legacyInitialContent =
+      initialAttachments.length > 0
+        ? [
+            ...(initialDraft ? [{ type: "text", text: initialDraft }] : []),
+            ...initialAttachments.map((attachment) => ({
+              type: attachment.mime.toLowerCase().startsWith("image/") ? "image" : "file",
+              ...(attachment.mime.toLowerCase().startsWith("image/")
+                ? { image: attachment.url }
+                : { file_url: attachment.url, filename: attachment.name, mime_type: attachment.mime }),
+            })),
+          ]
+        : initialDraft;
+
     sendMsgM.mutate({
-      content:
-        initialAttachments.length > 0
-          ? [
-              ...(initialDraft ? [{ type: "text", text: initialDraft }] : []),
-              ...initialAttachments.map((attachment) => ({
-                type: attachment.mime.toLowerCase().startsWith("image/") ? "image" : "file",
-                ...(attachment.mime.toLowerCase().startsWith("image/")
-                  ? { image: attachment.url }
-                  : { file: attachment.url, name: attachment.name, mime: attachment.mime }),
-              })),
-            ]
-          : initialDraft,
+      content: initialContent ?? legacyInitialContent,
       userTempId: `tmp-user-${ts}`,
     });
-  }, [chatId, initialDraft, initialAttachments, chatQ.isLoading, chatQ.isError, hasUserMessages, requestPinLatestUserMessage, sendMsgM]);
+  }, [chatId, initialDraft, initialAttachments, initialContent, chatQ.isLoading, chatQ.isError, hasUserMessages, requestPinLatestUserMessage, sendMsgM]);
 
   async function addAttachment(file: File) {
     if (!chatId || isUploadingAttachment || sendMsgM.isPending || isStreaming || pendingApprovals.length > 0) return;
@@ -605,7 +616,12 @@ export function ChatPage() {
               const attachment = item.attachment;
               return attachment.mime.toLowerCase().startsWith("image/")
                 ? ({ type: "image", image: attachment.url } as const)
-                : ({ type: "file", file: attachment.url, name: attachment.name, mime: attachment.mime } as const);
+                : ({
+                    type: "file",
+                    file_url: attachment.url,
+                    filename: attachment.name,
+                    mime_type: attachment.mime,
+                  } as const);
             }),
           ];
 
