@@ -728,6 +728,94 @@
     var(--color-danger-bg);
 }
 
+.delegatedNoticeCard {
+  width: min(100%, 663px);
+  border: 1px solid var(--color-border-default);
+  border-radius: 16px;
+  padding: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(249, 246, 241, 0.92) 100%),
+    var(--color-bg-surface);
+  box-shadow: 0 8px 20px rgba(31, 31, 31, 0.06);
+}
+
+:global(html[data-theme="dark"]) .delegatedNoticeCard {
+  border-color: var(--color-border-default);
+  background:
+    linear-gradient(180deg, rgba(78, 71, 65, 0.95) 0%, rgba(46, 42, 38, 0.92) 100%),
+    var(--color-bg-surface);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+}
+
+.delegatedNoticeCardNeedsApproval {
+  border-color: var(--color-warning-border);
+}
+
+.delegatedNoticeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.delegatedNoticeHeaderText {
+  min-width: 0;
+}
+
+.delegatedNoticeTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.delegatedNoticeStatus {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.delegatedNoticeOpenButton {
+  border: 1px solid var(--color-border-default);
+  border-radius: 999px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  flex: 0 0 auto;
+}
+
+.delegatedNoticeOpenButton:hover {
+  background: var(--color-hover-beige);
+}
+
+.delegatedNoticeOpenButton:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+:global(html[data-theme="dark"]) .delegatedNoticeOpenButton {
+  border-color: var(--color-border-default);
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-secondary);
+}
+
+.delegatedNoticePreview {
+  margin: 8px 0 0;
+  border-top: 1px solid var(--color-border-default);
+  padding-top: 8px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
 .toolProgressDot {
   width: 10px;
   height: 10px;
@@ -1130,6 +1218,7 @@
   .assistantRow .message,
   .toolActivitySummaryCard,
   .toolProgressCard,
+  .delegatedNoticeCard,
   .approvalCard {
     width: 100%;
     max-width: 100%;
@@ -1140,7 +1229,15 @@
     align-items: flex-start;
   }
 
+  .delegatedNoticeHeader {
+    flex-wrap: wrap;
+  }
+
   .toolActivityInfoButton {
+    margin-left: auto;
+  }
+
+  .delegatedNoticeOpenButton {
     margin-left: auto;
   }
 
@@ -1223,6 +1320,7 @@
 
   .toolActivitySummaryCard,
   .toolProgressCard,
+  .delegatedNoticeCard,
   .approvalCard {
     padding: 10px;
     border-radius: 14px;

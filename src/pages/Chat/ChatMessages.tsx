@@ -37,6 +37,14 @@ type ChatMessageRowProps = {
   rowRef?: (node: HTMLDivElement | null) => void;
 };
 
+export type DelegatedNotice = {
+  tool_call_id: string;
+  agentName: string;
+  chatId: string;
+  previewText: string;
+  pendingApprovalCount: number;
+};
+
 type MessageAttachmentImageProps = {
   attachment: RenderedMessageAttachment;
   compact: boolean;
@@ -335,6 +343,71 @@ const ToolProgressRows = memo(function ToolProgressRows({
 
 ToolProgressRows.displayName = "ToolProgressRows";
 
+type DelegatedNoticeRowsProps = {
+  notices: DelegatedNotice[];
+  onOpenDelegatedChat?: (chatId: string) => void;
+  assistantAvatarSrc?: string;
+  assistantAvatarPlaceholder?: AgentPlaceholderMeta;
+  onAssistantAvatarError?: () => void;
+};
+
+const DelegatedNoticeRows = memo(function DelegatedNoticeRows({
+  notices,
+  onOpenDelegatedChat,
+  assistantAvatarSrc,
+  assistantAvatarPlaceholder,
+  onAssistantAvatarError,
+}: DelegatedNoticeRowsProps) {
+  if (notices.length === 0) return null;
+
+  return (
+    <div className={styles.toolProgressInlineList}>
+      {notices.map((notice) => {
+        const hasPreview = notice.previewText.trim().length > 0;
+        const hasChatId = notice.chatId.trim().length > 0;
+        const needsApproval = notice.pendingApprovalCount > 0;
+        const statusText = needsApproval
+          ? `Needs approval (${notice.pendingApprovalCount})`
+          : hasPreview
+            ? "Delegated result preview"
+            : "Open delegated chat to continue";
+
+        return (
+          <div key={notice.tool_call_id} className={`${styles.messageRow} ${styles.assistantRow}`}>
+            <AssistantAvatar
+              assistantAvatarSrc={assistantAvatarSrc}
+              assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+              onAssistantAvatarError={onAssistantAvatarError}
+            />
+
+            <div className={`${styles.delegatedNoticeCard} ${needsApproval ? styles.delegatedNoticeCardNeedsApproval : ""}`}>
+              <div className={styles.delegatedNoticeHeader}>
+                <div className={styles.delegatedNoticeHeaderText}>
+                  <p className={styles.delegatedNoticeTitle}>{notice.agentName}</p>
+                  <p className={styles.delegatedNoticeStatus}>{statusText}</p>
+                </div>
+                {hasChatId ? (
+                  <button
+                    type="button"
+                    className={styles.delegatedNoticeOpenButton}
+                    onClick={() => onOpenDelegatedChat?.(notice.chatId)}
+                  >
+                    Open delegated chat
+                  </button>
+                ) : null}
+              </div>
+
+              {hasPreview ? <p className={styles.delegatedNoticePreview}>{notice.previewText}</p> : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+DelegatedNoticeRows.displayName = "DelegatedNoticeRows";
+
 const ChatMessageRow = memo(function ChatMessageRow({
   message,
   showAssistantAvatarLoading = false,
@@ -492,8 +565,10 @@ export type ChatMessagesProps = {
   streamingContent: string;
   thinkingText: string;
   toolRuns: ToolRun[];
+  delegatedNotices: DelegatedNotice[];
   pendingApprovals: ApprovalRequiredEvent[];
   processingApproval: string | null;
+  onOpenDelegatedChat?: (chatId: string) => void;
   onApprovalDecision: (approval: ApprovalRequiredEvent, approved: boolean) => void;
   assistantAvatarSrc?: string;
   assistantAvatarPlaceholder?: AgentPlaceholderMeta;
@@ -511,8 +586,10 @@ export const ChatMessages = memo(function ChatMessages({
   streamingContent,
   thinkingText,
   toolRuns,
+  delegatedNotices,
   pendingApprovals,
   processingApproval,
+  onOpenDelegatedChat,
   onApprovalDecision,
   assistantAvatarSrc,
   assistantAvatarPlaceholder,
@@ -582,6 +659,14 @@ export const ChatMessages = memo(function ChatMessages({
       <ToolProgressRows
         key={toolSummaryKey}
         tools={toolRuns}
+        assistantAvatarSrc={assistantAvatarSrc}
+        assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+        onAssistantAvatarError={onAssistantAvatarError}
+      />
+
+      <DelegatedNoticeRows
+        notices={delegatedNotices}
+        onOpenDelegatedChat={onOpenDelegatedChat}
         assistantAvatarSrc={assistantAvatarSrc}
         assistantAvatarPlaceholder={assistantAvatarPlaceholder}
         onAssistantAvatarError={onAssistantAvatarError}

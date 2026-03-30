@@ -1,9 +1,9 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import styles from "./Chat.module.scss";
-import { ChatMessages } from "./ChatMessages";
+import { ChatMessages, type DelegatedNotice } from "./ChatMessages";
 import {
   AUDIO_ATTACHMENTS_DISABLED_ERROR,
   AUDIO_ATTACHMENTS_ENABLED,
@@ -37,7 +37,14 @@ import { buildAgentPlaceholderMetaById } from "../../lib/agentPlaceholders";
 import { apiClient, type ChatStreamHandle } from "../../lib/api";
 import { uploadChatAttachment } from "../../lib/files/filesService";
 import type { ChatAttachment } from "../../lib/files/types";
-import type { AgentResponse, ApprovalRequiredEvent, ChatWithMessages, ToolEndEvent, ToolStartEvent } from "../../types";
+import type {
+  AgentResponse,
+  ApprovalRequiredEvent,
+  ChatWithMessages,
+  PendingApproval,
+  ToolEndEvent,
+  ToolStartEvent,
+} from "../../types";
 
 type LocationState = {
   initialDraft?: string;
@@ -52,9 +59,56 @@ type SendMessageVariables = {
 
 const MemoizedAppSidebar = memo(AppSidebar);
 
+type DelegatedToolEndPayload = {
+  agent_name?: unknown;
+  response?: unknown;
+  chat_id?: unknown;
+};
+
+function parseDelegatedToolEndPayload(result: unknown): DelegatedToolEndPayload | null {
+  if (result && typeof result === "object") {
+    return result as DelegatedToolEndPayload;
+  }
+
+  if (typeof result !== "string") return null;
+  const trimmed = result.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (parsed && typeof parsed === "object") {
+      return parsed as DelegatedToolEndPayload;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function toApprovalRequiredEvent(approval: PendingApproval): ApprovalRequiredEvent | null {
+  const toolCallId = typeof approval.tool_call_id === "string" ? approval.tool_call_id.trim() : "";
+  const functionNamespace = typeof approval.function_namespace === "string" ? approval.function_namespace.trim() : "";
+  const functionName = typeof approval.function_name === "string" ? approval.function_name.trim() : "";
+  const args = approval.arguments;
+
+  if (!toolCallId || !functionNamespace || !functionName || !args || typeof args !== "object") {
+    return null;
+  }
+
+  return {
+    type: "approval_required",
+    tool_call_id: toolCallId,
+    function_namespace: functionNamespace,
+    function_name: functionName,
+    arguments: args,
+  };
+}
+
 export function ChatPage() {
   const { chatId } = useParams<{ chatId: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const lastUserMessageRef = useRef<HTMLDivElement | null>(null);
@@ -86,6 +140,9 @@ export function ChatPage() {
   const [streamingContent, setStreamingContent] = useState("");
   const [activeTools, setActiveTools] = useState<Record<string, ToolRun>>({});
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequiredEvent[]>([]);
+  const [delegatedNoticesByToolCallId, setDelegatedNoticesByToolCallId] = useState<Record<string, DelegatedNotice>>(
+    {}
+  );
   const [processingApproval, setProcessingApproval] = useState<string | null>(null);
   const sentInitialDraftRef = useRef<Record<string, boolean>>({});
   const streamHandleRef = useRef<ChatStreamHandle | null>(null);
@@ -175,6 +232,7 @@ export function ChatPage() {
     if (latestRunning?.description) return latestRunning.description;
     return "Thinking...";
   }, [toolRuns]);
+  const delegatedNotices = useMemo(() => Object.values(delegatedNoticesByToolCallId), [delegatedNoticesByToolCallId]);
 
   const userMessageCount = useMemo(() => messages.filter((message) => message.role === "user").length, [messages]);
   const hasRunningTool = useMemo(() => toolRuns.some((tool) => tool.status === "running"), [toolRuns]);
@@ -230,6 +288,73 @@ export function ChatPage() {
     });
   }
 
+  function upsertDelegatedNotice(nextNotice: DelegatedNotice) {
+    setDelegatedNoticesByToolCallId((prev) => {
+      const existing = prev[nextNotice.tool_call_id];
+      if (
+        existing &&
+        existing.agentName === nextNotice.agentName &&
+        existing.chatId === nextNotice.chatId &&
+        existing.previewText === nextNotice.previewText &&
+        existing.pendingApprovalCount === nextNotice.pendingApprovalCount
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [nextNotice.tool_call_id]: nextNotice,
+      };
+    });
+  }
+
+  async function handleDelegatedToolEnd(event: ToolEndEvent, toolName: string) {
+    if (!toolName.startsWith("call_agent_")) return;
+
+    const payload = parseDelegatedToolEndPayload(event.result);
+    if (!payload) return;
+
+    const toolCallId = event.tool_call_id?.trim();
+    if (!toolCallId) return;
+
+    const agentName =
+      typeof payload.agent_name === "string" && payload.agent_name.trim().length > 0
+        ? payload.agent_name.trim()
+        : "Delegated agent";
+    const previewText = typeof payload.response === "string" ? payload.response.trim() : "";
+    const delegatedChatId =
+      typeof payload.chat_id === "string" && payload.chat_id.trim().length > 0 ? payload.chat_id.trim() : "";
+
+    if (previewText.length > 0) {
+      upsertDelegatedNotice({
+        tool_call_id: toolCallId,
+        agentName,
+        chatId: delegatedChatId,
+        previewText,
+        pendingApprovalCount: 0,
+      });
+      return;
+    }
+
+    if (!delegatedChatId) return;
+
+    let pendingApprovalCount = 0;
+    try {
+      const delegatedChat = await apiClient.getChat(delegatedChatId);
+      pendingApprovalCount = Array.isArray(delegatedChat.pending_approvals) ? delegatedChat.pending_approvals.length : 0;
+    } catch (error) {
+      console.error("Failed to fetch delegated chat:", error);
+    }
+
+    upsertDelegatedNotice({
+      tool_call_id: toolCallId,
+      agentName,
+      chatId: delegatedChatId,
+      previewText: "",
+      pendingApprovalCount,
+    });
+  }
+
   function handleToolEnd(event: ToolEndEvent) {
     const now = new Date().toISOString();
     const toolName = normalizeToolName(event.name);
@@ -250,6 +375,8 @@ export function ChatPage() {
         },
       };
     });
+
+    void handleDelegatedToolEnd(event, toolName);
   }
 
   function handleToolError(error: unknown) {
@@ -343,6 +470,28 @@ export function ChatPage() {
       return [...prev, approval];
     });
   }
+
+  useEffect(() => {
+    const fetchedApprovals = Array.isArray(chatData?.pending_approvals) ? chatData.pending_approvals : [];
+    if (fetchedApprovals.length === 0) return;
+
+    const normalizedApprovals = fetchedApprovals
+      .map((approval) => toApprovalRequiredEvent(approval))
+      .filter((approval): approval is ApprovalRequiredEvent => approval !== null);
+    if (normalizedApprovals.length === 0) return;
+
+    setPendingApprovals((prev) => {
+      const mergedById = new Map<string, ApprovalRequiredEvent>();
+      for (const approval of prev) {
+        mergedById.set(approval.tool_call_id, approval);
+      }
+      for (const approval of normalizedApprovals) {
+        mergedById.set(approval.tool_call_id, approval);
+      }
+
+      return Array.from(mergedById.values());
+    });
+  }, [chatData?.pending_approvals]);
 
   async function refreshChat() {
     if (!chatId) return;
@@ -499,6 +648,7 @@ export function ChatPage() {
     setStreamingContent("");
     setActiveTools({});
     setPendingApprovals([]);
+    setDelegatedNoticesByToolCallId({});
     setProcessingApproval(null);
   }, [chatId]);
 
@@ -667,8 +817,12 @@ export function ChatPage() {
             streamingContent={streamingContent}
             thinkingText={thinkingText}
             toolRuns={toolRuns}
+            delegatedNotices={delegatedNotices}
             pendingApprovals={pendingApprovals}
             processingApproval={processingApproval}
+            onOpenDelegatedChat={(delegatedChatId) => {
+              navigate(`/chats/${encodeURIComponent(delegatedChatId)}`);
+            }}
             onApprovalDecision={(approval, approved) => {
               void handleApproval(approval, approved);
             }}

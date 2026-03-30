@@ -51,9 +51,17 @@ export interface Chat {
     input?: Record<string, any>;
   }
   
-  export interface ChatWithMessages extends Chat {
+export interface ChatWithMessages extends Chat {
     messages: Message[];
+    pending_approvals?: PendingApproval[];
   }
+
+export interface PendingApproval {
+  tool_call_id: string;
+  function_namespace: string;
+  function_name: string;
+  arguments: Record<string, any>;
+}
   
   export type MessageContent = string | any[];
   
