@@ -354,6 +354,71 @@
   color: var(--color-text-secondary);
 }
 
+.htmlPreviewCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.htmlPreviewHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.htmlPreviewTitle {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.htmlPreviewSubject {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  line-height: 1.35;
+}
+
+.htmlPreviewFrame {
+  width: 100%;
+  min-height: 240px;
+  height: 340px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.htmlPreviewFallback {
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  background: var(--color-bg-surface-subtle);
+  padding: 8px 10px;
+}
+
+.htmlPreviewFallback summary {
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.htmlPreviewFallback pre {
+  margin: 8px 0 0;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+}
+
+:global(html[data-theme="dark"]) .htmlPreviewFrame {
+  background: #fff;
+}
+
 .messageAttachments {
   margin-top: 10px;
   display: flex;
@@ -1100,6 +1165,11 @@
     height: 360px;
   }
 
+  .htmlPreviewFrame {
+    min-height: 220px;
+    height: 300px;
+  }
+
   .composer {
     margin-top: 8px;
     min-height: 0;
@@ -1161,6 +1231,12 @@
   .componentToolFrame {
     min-height: 220px;
     height: 300px;
+    border-radius: 10px;
+  }
+
+  .htmlPreviewFrame {
+    min-height: 200px;
+    height: 260px;
     border-radius: 10px;
   }
 

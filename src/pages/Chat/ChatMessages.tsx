@@ -4,10 +4,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import styles from "./Chat.module.scss";
+import { HtmlPreviewCard } from "./HtmlPreviewCard";
 import SinasLoader from "../../components/Loader/Loader";
 import type { AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import type { ApprovalRequiredEvent } from "../../types";
 import {
+  extractHtmlPreview,
   getApprovalReason,
   getMessageText,
   getPlaceholderCssVars,
@@ -345,22 +347,29 @@ const ChatMessageRow = memo(function ChatMessageRow({
 }: ChatMessageRowProps) {
   const { text: messageText, attachments } = parseMessageContent(message.content);
   const componentPayload = parseSinasComponentToolPayload(message.content);
+  const htmlPreview = extractHtmlPreview(message.content);
   const isComponentToolMessage = message.role === "tool" && componentPayload !== null;
+  const isHtmlPreviewToolMessage = message.role === "tool" && htmlPreview !== null;
   const imageAttachments = attachments.filter((attachment) => attachment.kind === "image");
   const fileAttachments = attachments.filter((attachment) => attachment.kind === "file");
   const audioAttachments = attachments.filter((attachment) => attachment.kind === "audio");
   const useCompactImageAttachments = imageAttachments.length > 1;
   const isUser = message.role === "user";
-  const isAssistant = message.role === "assistant" || isComponentToolMessage;
+  const isAssistant = message.role === "assistant" || isComponentToolMessage || isHtmlPreviewToolMessage;
   const shouldHideAssistantBubble = isAssistant && showAssistantAvatarLoading;
   const [openRunningToolId, setOpenRunningToolId] = useState<string | null>(null);
   const isRunningToolDetailsOpen = runningTool ? openRunningToolId === runningTool.id : false;
+  const htmlPreviewFallbackText =
+    htmlPreview?.text?.trim() ||
+    (messageText.trim().length > 0 && messageText.trim() !== htmlPreview?.html.trim() ? messageText : undefined);
 
   const messageBubble = !shouldHideAssistantBubble ? (
     <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
       <div className={styles.messageBody}>
         {isComponentToolMessage && componentPayload ? (
           <ComponentFrame payload={componentPayload} />
+        ) : isHtmlPreviewToolMessage && htmlPreview ? (
+          <HtmlPreviewCard html={htmlPreview.html} subject={htmlPreview.subject} fallbackText={htmlPreviewFallbackText} />
         ) : isAssistant ? (
           <div className={styles.messageMarkdown}>
             <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS}>{messageText}</ReactMarkdown>
@@ -369,7 +378,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
           <div className={styles.messageText}>{messageText}</div>
         )}
 
-        {!isComponentToolMessage && attachments.length > 0 ? (
+        {!isComponentToolMessage && !isHtmlPreviewToolMessage && attachments.length > 0 ? (
           <div className={styles.messageAttachments}>
             {imageAttachments.length > 0 ? (
               <div

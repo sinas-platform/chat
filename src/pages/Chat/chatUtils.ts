@@ -38,6 +38,12 @@ export type SinasComponentToolPayload = {
   compile_status?: string;
 };
 
+export type HtmlPreviewPayload = {
+  html: string;
+  subject?: string;
+  text?: string;
+};
+
 export type ToolRunStatus = "running" | "done" | "error";
 
 export interface ToolRun {
@@ -267,6 +273,119 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
+const TOOL_PAYLOAD_WRAPPER_KEYS = ["result", "payload", "content", "data", "output", "response", "value"] as const;
+
+function looksLikeJsonString(value: string): boolean {
+  if (!value) return false;
+  const firstChar = value[0];
+  return firstChar === "{" || firstChar === "[" || firstChar === "\"";
+}
+
+export function tryParseJsonString(value: string): unknown | null {
+  const trimmed = value.trim();
+  if (!looksLikeJsonString(trimmed)) return null;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+export function normalizeToolPayload(content: unknown, depth = 0): unknown {
+  if (depth > 5) return content;
+
+  if (typeof content !== "string") return content;
+  const parsed = tryParseJsonString(content);
+  if (parsed === null) return content;
+  return normalizeToolPayload(parsed, depth + 1);
+}
+
+function getNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function isMeaningfulHtmlString(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return false;
+  return /<!doctype\s+html|<html[\s>]|<body[\s>]|<(table|div|p|section|article|header|footer|main|h1|h2|h3|h4|ul|ol|li|span|br)\b/i.test(
+    trimmed,
+  );
+}
+
+function toHtmlPreviewPayload(value: unknown): HtmlPreviewPayload | null {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  const normalizedHtmlValue = normalizeToolPayload(record.html);
+  const html = getNonEmptyString(normalizedHtmlValue);
+  if (!html || !isMeaningfulHtmlString(html)) return null;
+
+  const normalizedSubject = normalizeToolPayload(record.subject);
+  const normalizedTitle = normalizeToolPayload(record.title);
+  const normalizedText = normalizeToolPayload(record.text);
+  const subject = getNonEmptyString(normalizedSubject) ?? getNonEmptyString(normalizedTitle) ?? undefined;
+  const text = getNonEmptyString(normalizedText) ?? undefined;
+
+  return { html: html.trim(), subject, text };
+}
+
+export function extractHtmlPreview(content: unknown, depth = 0): HtmlPreviewPayload | null {
+  if (depth > 6) return null;
+
+  const normalizedContent = normalizeToolPayload(content);
+  if (normalizedContent !== content) {
+    return extractHtmlPreview(normalizedContent, depth + 1);
+  }
+
+  const directPayload = toHtmlPreviewPayload(content);
+  if (directPayload) return directPayload;
+
+  if (typeof content === "string") {
+    const trimmed = content.trim();
+    if (trimmed.length === 0) return null;
+    return isMeaningfulHtmlString(trimmed) ? { html: trimmed } : null;
+  }
+
+  if (Array.isArray(content)) {
+    for (const item of content) {
+      const payload = extractHtmlPreview(item, depth + 1);
+      if (payload) return payload;
+
+      if (!item || typeof item !== "object") continue;
+      const text = (item as { text?: unknown }).text;
+      if (typeof text !== "string") continue;
+
+      const textPayload = extractHtmlPreview(text, depth + 1);
+      if (textPayload) return textPayload;
+    }
+    return null;
+  }
+
+  const record = asRecord(content);
+  if (!record) return null;
+
+  const parentSubject = getNonEmptyString(normalizeToolPayload(record.subject)) ?? getNonEmptyString(normalizeToolPayload(record.title)) ?? undefined;
+  const parentText = getNonEmptyString(normalizeToolPayload(record.text)) ?? undefined;
+
+  for (const key of TOOL_PAYLOAD_WRAPPER_KEYS) {
+    const candidate = record[key];
+    if (candidate === undefined) continue;
+    const nestedPayload = extractHtmlPreview(candidate, depth + 1);
+    if (nestedPayload) {
+      return {
+        html: nestedPayload.html,
+        subject: nestedPayload.subject ?? parentSubject,
+        text: nestedPayload.text ?? parentText,
+      };
+    }
+  }
+
+  return null;
+}
+
 function toSinasComponentToolPayload(value: unknown): SinasComponentToolPayload | null {
   const record = asRecord(value);
   if (!record) return null;
@@ -494,7 +613,7 @@ function hasRenderableMessageContent(content: unknown): boolean {
 
 export function shouldRenderMessage(message: ChatMessageViewModel): boolean {
   if (message.role === "tool") {
-    return parseSinasComponentToolPayload(message.content) !== null;
+    return parseSinasComponentToolPayload(message.content) !== null || extractHtmlPreview(message.content) !== null;
   }
 
   // Hide assistant tool-call scaffolding messages that have no visible text/attachments.
