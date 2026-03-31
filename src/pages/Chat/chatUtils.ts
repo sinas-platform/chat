@@ -332,7 +332,10 @@ function toHtmlPreviewPayload(value: unknown): HtmlPreviewPayload | null {
   return { html: html.trim(), subject, text };
 }
 
-export function extractHtmlPreview(content: unknown, depth = 0): HtmlPreviewPayload | null {
+export function extractHtmlPreview(
+  content: unknown,
+  depth = 0,
+): HtmlPreviewPayload | null {
   if (depth > 6) return null;
 
   const normalizedContent = normalizeToolPayload(content);
@@ -367,12 +370,57 @@ export function extractHtmlPreview(content: unknown, depth = 0): HtmlPreviewPayl
   const record = asRecord(content);
   if (!record) return null;
 
-  const parentSubject = getNonEmptyString(normalizeToolPayload(record.subject)) ?? getNonEmptyString(normalizeToolPayload(record.title)) ?? undefined;
-  const parentText = getNonEmptyString(normalizeToolPayload(record.text)) ?? undefined;
+  const parentSubject =
+    getNonEmptyString(normalizeToolPayload(record.subject)) ??
+    getNonEmptyString(normalizeToolPayload(record.title)) ??
+    undefined;
+
+  const parentText =
+    getNonEmptyString(normalizeToolPayload(record.text)) ??
+    getNonEmptyString(normalizeToolPayload(record.text_content)) ??
+    undefined;
+
+  const directHtml =
+    getNonEmptyString(normalizeToolPayload(record.html)) ?? undefined;
+
+  if (directHtml && isMeaningfulHtmlString(directHtml)) {
+    return {
+      html: directHtml,
+      subject: parentSubject,
+      text: parentText,
+    };
+  }
+
+  const bodyRecord = asRecord(normalizeToolPayload(record.body));
+  if (bodyRecord) {
+    const bodyHtml =
+      getNonEmptyString(normalizeToolPayload(bodyRecord.html_content)) ??
+      getNonEmptyString(normalizeToolPayload(bodyRecord.html)) ??
+      undefined;
+
+    const bodySubject =
+      getNonEmptyString(normalizeToolPayload(bodyRecord.subject)) ??
+      getNonEmptyString(normalizeToolPayload(bodyRecord.title)) ??
+      parentSubject;
+
+    const bodyText =
+      getNonEmptyString(normalizeToolPayload(bodyRecord.text)) ??
+      getNonEmptyString(normalizeToolPayload(bodyRecord.text_content)) ??
+      parentText;
+
+    if (bodyHtml && isMeaningfulHtmlString(bodyHtml)) {
+      return {
+        html: bodyHtml,
+        subject: bodySubject,
+        text: bodyText,
+      };
+    }
+  }
 
   for (const key of TOOL_PAYLOAD_WRAPPER_KEYS) {
     const candidate = record[key];
     if (candidate === undefined) continue;
+
     const nestedPayload = extractHtmlPreview(candidate, depth + 1);
     if (nestedPayload) {
       return {
