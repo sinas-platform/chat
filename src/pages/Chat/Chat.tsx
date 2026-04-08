@@ -3,14 +3,13 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import styles from "./Chat.module.scss";
-import { ChatMessages, type DelegatedNotice } from "./ChatMessages";
+import { ChatMessages, type ApprovalGroup, type DelegatedNotice } from "./ChatMessages";
 import {
   AUDIO_ATTACHMENTS_DISABLED_ERROR,
   AUDIO_ATTACHMENTS_ENABLED,
   CHAT_ATTACHMENT_ACCEPT,
   CHAT_NEAR_BOTTOM_THRESHOLD,
   CHAT_SCROLL_TOP_OFFSET,
-  UNSUPPORTED_AUDIO_ERROR,
   extractErrorMessage,
   extractToolCallId,
   fileToDataUrl,
@@ -105,6 +104,106 @@ function toApprovalRequiredEvent(approval: PendingApproval): ApprovalRequiredEve
   };
 }
 
+function normalizeApprovalEvent(approval: ApprovalRequiredEvent): ApprovalRequiredEvent | null {
+  const toolCallId = approval.tool_call_id?.trim();
+  const functionNamespace = approval.function_namespace?.trim();
+  const functionName = approval.function_name?.trim();
+  const args = approval.arguments;
+
+  if (!toolCallId || !functionNamespace || !functionName || !args || typeof args !== "object") {
+    return null;
+  }
+
+  return {
+    type: "approval_required",
+    tool_call_id: toolCallId,
+    function_namespace: functionNamespace,
+    function_name: functionName,
+    arguments: args,
+  };
+}
+
+function asNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function extractToolCallIdFromToolCall(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+
+  const directId = asNonEmptyString(record.tool_call_id) ?? asNonEmptyString(record.id) ?? asNonEmptyString(record.call_id);
+  if (directId) return directId;
+
+  const fn = record.function;
+  if (fn && typeof fn === "object") {
+    const fnRecord = fn as Record<string, unknown>;
+    return asNonEmptyString(fnRecord.tool_call_id) ?? asNonEmptyString(fnRecord.id);
+  }
+
+  return null;
+}
+
+function buildAssistantMessageIdByToolCallId(messages: ChatWithMessages["messages"] | undefined): Map<string, string> {
+  const messageIdByToolCallId = new Map<string, string>();
+  if (!Array.isArray(messages)) return messageIdByToolCallId;
+
+  for (const message of messages) {
+    if (message.role !== "assistant" || typeof message.id !== "string" || !Array.isArray(message.tool_calls)) {
+      continue;
+    }
+
+    const messageId = message.id.trim();
+    if (!messageId) continue;
+
+    for (const toolCall of message.tool_calls) {
+      const toolCallId = extractToolCallIdFromToolCall(toolCall);
+      if (!toolCallId || messageIdByToolCallId.has(toolCallId)) continue;
+      messageIdByToolCallId.set(toolCallId, messageId);
+    }
+  }
+
+  return messageIdByToolCallId;
+}
+
+function extractApprovalQueries(args: Record<string, unknown>): string[] {
+  const queryValue = args.query;
+  if (typeof queryValue === "string") {
+    const trimmed = queryValue.trim();
+    return trimmed ? [trimmed] : [];
+  }
+
+  if (Array.isArray(queryValue)) {
+    return queryValue
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter((value) => value.length > 0);
+  }
+
+  if (queryValue && typeof queryValue === "object") {
+    const record = queryValue as Record<string, unknown>;
+    const nestedQuery =
+      asNonEmptyString(record.query) ??
+      asNonEmptyString(record.q) ??
+      asNonEmptyString(record.text) ??
+      asNonEmptyString(record.value);
+    return nestedQuery ? [nestedQuery] : [];
+  }
+
+  return [];
+}
+
+function toApprovalFunctionLabel(functionName: string, count: number): string {
+  const normalized = functionName.trim().toLowerCase();
+  if (normalized === "search_web" || normalized === "web_search") {
+    return count === 1 ? "web search" : "web searches";
+  }
+
+  const pretty = normalized.replace(/[_-]+/g, " ").trim() || "action";
+  if (count === 1 || pretty.endsWith("s")) return pretty;
+  return `${pretty}s`;
+}
+
 export function ChatPage() {
   const { chatId } = useParams<{ chatId: string }>();
   const location = useLocation();
@@ -139,11 +238,14 @@ export function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [activeTools, setActiveTools] = useState<Record<string, ToolRun>>({});
-  const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequiredEvent[]>([]);
+  const [streamApprovalsByToolCallId, setStreamApprovalsByToolCallId] = useState<Record<string, ApprovalRequiredEvent>>(
+    {}
+  );
+  const [resolvedToolCallIds, setResolvedToolCallIds] = useState<Set<string>>(() => new Set());
   const [delegatedNoticesByToolCallId, setDelegatedNoticesByToolCallId] = useState<Record<string, DelegatedNotice>>(
     {}
   );
-  const [processingApproval, setProcessingApproval] = useState<string | null>(null);
+  const [processingApprovalGroupId, setProcessingApprovalGroupId] = useState<string | null>(null);
   const sentInitialDraftRef = useRef<Record<string, boolean>>({});
   const streamHandleRef = useRef<ChatStreamHandle | null>(null);
 
@@ -233,10 +335,108 @@ export function ChatPage() {
     return "Thinking...";
   }, [toolRuns]);
   const delegatedNotices = useMemo(() => Object.values(delegatedNoticesByToolCallId), [delegatedNoticesByToolCallId]);
+  const fetchedApprovals = useMemo(() => {
+    const fetchedPendingApprovals = Array.isArray(chatData?.pending_approvals) ? chatData.pending_approvals : [];
+    return fetchedPendingApprovals
+      .map((approval) => toApprovalRequiredEvent(approval))
+      .filter((approval): approval is ApprovalRequiredEvent => approval !== null);
+  }, [chatData?.pending_approvals]);
+  const approvalCandidatesByToolCallId = useMemo(() => {
+    const approvalsById = new Map<string, ApprovalRequiredEvent>();
+
+    for (const approval of fetchedApprovals) {
+      approvalsById.set(approval.tool_call_id, approval);
+    }
+
+    for (const approval of Object.values(streamApprovalsByToolCallId)) {
+      approvalsById.set(approval.tool_call_id, approval);
+    }
+
+    return approvalsById;
+  }, [fetchedApprovals, streamApprovalsByToolCallId]);
+  const resolvedApprovalIds = useMemo(() => {
+    const resolvedIds = new Set<string>();
+    const chatMessages = Array.isArray(chatData?.messages) ? chatData.messages : [];
+
+    for (const message of chatMessages) {
+      if (message.role !== "tool" || typeof message.tool_call_id !== "string") continue;
+      const toolCallId = message.tool_call_id.trim();
+      if (!toolCallId) continue;
+      resolvedIds.add(toolCallId);
+    }
+
+    for (const toolRun of Object.values(activeTools)) {
+      if (toolRun.status !== "done" && toolRun.status !== "error") continue;
+      const toolCallId = toolRun.id.trim();
+      if (!toolCallId) continue;
+      resolvedIds.add(toolCallId);
+    }
+
+    for (const toolCallId of resolvedToolCallIds) {
+      resolvedIds.add(toolCallId);
+    }
+
+    return resolvedIds;
+  }, [chatData?.messages, activeTools, resolvedToolCallIds]);
+  const pendingApprovals = useMemo(() => {
+    const visibleApprovals: ApprovalRequiredEvent[] = [];
+
+    for (const approval of approvalCandidatesByToolCallId.values()) {
+      if (resolvedApprovalIds.has(approval.tool_call_id)) continue;
+      visibleApprovals.push(approval);
+    }
+
+    return visibleApprovals;
+  }, [approvalCandidatesByToolCallId, resolvedApprovalIds]);
+  const assistantMessageIdByToolCallId = useMemo(
+    () => buildAssistantMessageIdByToolCallId(Array.isArray(chatData?.messages) ? chatData.messages : undefined),
+    [chatData?.messages]
+  );
+  const approvalGroups = useMemo<ApprovalGroup[]>(() => {
+    const groupsById = new Map<string, ApprovalGroup>();
+
+    for (const approval of pendingApprovals) {
+      const assistantMessageId = assistantMessageIdByToolCallId.get(approval.tool_call_id) ?? null;
+      const fallbackGroupId = `${approval.function_namespace}/${approval.function_name}`;
+      const groupId = assistantMessageId ?? fallbackGroupId;
+      const queries = extractApprovalQueries(approval.arguments);
+      const existing = groupsById.get(groupId);
+
+      if (!existing) {
+        groupsById.set(groupId, {
+          id: groupId,
+          assistantMessageId,
+          functionNamespace: approval.function_namespace,
+          functionName: approval.function_name,
+          functionLabel: toApprovalFunctionLabel(approval.function_name, 1),
+          count: 1,
+          toolCallIds: [approval.tool_call_id],
+          previewQuery: queries[0] ?? null,
+          queries,
+        });
+        continue;
+      }
+
+      const count = existing.count + 1;
+      groupsById.set(groupId, {
+        ...existing,
+        functionLabel: toApprovalFunctionLabel(existing.functionName, count),
+        count,
+        toolCallIds: [...existing.toolCallIds, approval.tool_call_id],
+        previewQuery: existing.previewQuery ?? queries[0] ?? null,
+        queries: [...existing.queries, ...queries],
+      });
+    }
+
+    return Array.from(groupsById.values()).map((group) => ({
+      ...group,
+      queries: Array.from(new Set(group.queries)),
+    }));
+  }, [pendingApprovals, assistantMessageIdByToolCallId]);
 
   const userMessageCount = useMemo(() => messages.filter((message) => message.role === "user").length, [messages]);
   const hasRunningTool = useMemo(() => toolRuns.some((tool) => tool.status === "running"), [toolRuns]);
-  const hasPendingApproval = pendingApprovals.length > 0;
+  const hasPendingApproval = approvalGroups.length > 0;
   const { requestPinLatestUserMessage } = useChatScrollBehavior({
     chatId,
     scrollContainerRef: messagesContainerRef,
@@ -463,35 +663,26 @@ export function ChatPage() {
   }
 
   function queueApproval(approval: ApprovalRequiredEvent) {
-    setPendingApprovals((prev) => {
-      if (prev.some((item) => item.tool_call_id === approval.tool_call_id)) {
+    const normalizedApproval = normalizeApprovalEvent(approval);
+    if (!normalizedApproval) return;
+
+    setStreamApprovalsByToolCallId((prev) => {
+      const existing = prev[normalizedApproval.tool_call_id];
+      if (
+        existing &&
+        existing.function_namespace === normalizedApproval.function_namespace &&
+        existing.function_name === normalizedApproval.function_name &&
+        existing.arguments === normalizedApproval.arguments
+      ) {
         return prev;
       }
-      return [...prev, approval];
+
+      return {
+        ...prev,
+        [normalizedApproval.tool_call_id]: normalizedApproval,
+      };
     });
   }
-
-  useEffect(() => {
-    const fetchedApprovals = Array.isArray(chatData?.pending_approvals) ? chatData.pending_approvals : [];
-    if (fetchedApprovals.length === 0) return;
-
-    const normalizedApprovals = fetchedApprovals
-      .map((approval) => toApprovalRequiredEvent(approval))
-      .filter((approval): approval is ApprovalRequiredEvent => approval !== null);
-    if (normalizedApprovals.length === 0) return;
-
-    setPendingApprovals((prev) => {
-      const mergedById = new Map<string, ApprovalRequiredEvent>();
-      for (const approval of prev) {
-        mergedById.set(approval.tool_call_id, approval);
-      }
-      for (const approval of normalizedApprovals) {
-        mergedById.set(approval.tool_call_id, approval);
-      }
-
-      return Array.from(mergedById.values());
-    });
-  }, [chatData?.pending_approvals]);
 
   async function refreshChat() {
     if (!chatId) return;
@@ -578,24 +769,45 @@ export function ChatPage() {
     await consumeActiveStream(handle);
   }
 
-  async function handleApproval(approval: ApprovalRequiredEvent, approved: boolean) {
-    if (!chatId || isStreaming || processingApproval) return;
+  async function handleApprovalGroup(group: ApprovalGroup, approved: boolean) {
+    if (!chatId || isStreaming || processingApprovalGroupId) return;
+    const firstToolCallId = group.toolCallIds[0]?.trim();
+    if (!firstToolCallId) return;
 
-    setProcessingApproval(approval.tool_call_id);
+    const newlyResolvedToolCallIds = group.toolCallIds
+      .map((toolCallId) => toolCallId.trim())
+      .filter((toolCallId) => toolCallId.length > 0 && !resolvedToolCallIds.has(toolCallId));
+
+    setProcessingApprovalGroupId(group.id);
+    setResolvedToolCallIds((prev) => {
+      const next = new Set(prev);
+      for (const toolCallId of group.toolCallIds) {
+        const normalized = toolCallId.trim();
+        if (!normalized) continue;
+        next.add(normalized);
+      }
+      return next;
+    });
 
     try {
-      const channelId = await apiClient.approveToolCall(chatId, approval.tool_call_id, approved);
-      setPendingApprovals((prev) => prev.filter((item) => item.tool_call_id !== approval.tool_call_id));
+      const channelId = await apiClient.approveToolCall(chatId, firstToolCallId, approved);
       await resumeApprovalStream(channelId);
     } catch (error) {
       console.error("Approval error:", error);
+      setResolvedToolCallIds((prev) => {
+        const next = new Set(prev);
+        for (const toolCallId of newlyResolvedToolCallIds) {
+          next.delete(toolCallId);
+        }
+        return next;
+      });
       setIsStreaming(false);
       setStreamingContent("");
       streamHandleRef.current = null;
       alert("Failed to process approval. Please try again.");
       await refreshChat();
     } finally {
-      setProcessingApproval(null);
+      setProcessingApprovalGroupId(null);
     }
   }
 
@@ -647,9 +859,10 @@ export function ChatPage() {
     setIsStreaming(false);
     setStreamingContent("");
     setActiveTools({});
-    setPendingApprovals([]);
+    setStreamApprovalsByToolCallId({});
+    setResolvedToolCallIds(new Set());
     setDelegatedNoticesByToolCallId({});
-    setProcessingApproval(null);
+    setProcessingApprovalGroupId(null);
   }, [chatId]);
 
   // Auto-send initial draft once
@@ -687,7 +900,7 @@ export function ChatPage() {
   }, [chatId, initialDraft, initialAttachments, initialContent, chatQ.isLoading, chatQ.isError, hasUserMessages, requestPinLatestUserMessage, sendMsgM]);
 
   async function addAttachment(file: File) {
-    if (!chatId || isUploadingAttachment || sendMsgM.isPending || isStreaming || pendingApprovals.length > 0) return;
+    if (!chatId || isUploadingAttachment || sendMsgM.isPending || isStreaming || approvalGroups.length > 0) return;
 
     setAttachmentError(null);
     setIsUploadingAttachment(true);
@@ -702,11 +915,6 @@ export function ChatPage() {
         }
 
         const format = normalizeAudioFormat(file);
-        if (!format) {
-          setAttachmentError(UNSUPPORTED_AUDIO_ERROR);
-          return;
-        }
-
         const dataUrl = await fileToDataUrl(file);
         const base64 = stripDataUrlPrefix(dataUrl);
 
@@ -746,7 +954,7 @@ export function ChatPage() {
 
   function submitInput() {
     const trimmed = input.trim();
-    if (sendMsgM.isPending || isUploadingAttachment || isStreaming || processingApproval || pendingApprovals.length > 0) return;
+    if (sendMsgM.isPending || isUploadingAttachment || isStreaming || processingApprovalGroupId || approvalGroups.length > 0) return;
     if (!trimmed && pendingAttachments.length === 0) return;
 
     const content =
@@ -818,13 +1026,13 @@ export function ChatPage() {
             thinkingText={thinkingText}
             toolRuns={toolRuns}
             delegatedNotices={delegatedNotices}
-            pendingApprovals={pendingApprovals}
-            processingApproval={processingApproval}
+            approvalGroups={approvalGroups}
+            processingApprovalGroupId={processingApprovalGroupId}
             onOpenDelegatedChat={(delegatedChatId) => {
               navigate(`/chats/${encodeURIComponent(delegatedChatId)}`);
             }}
-            onApprovalDecision={(approval, approved) => {
-              void handleApproval(approval, approved);
+            onApprovalDecision={(group, approved) => {
+              void handleApprovalGroup(group, approved);
             }}
             assistantAvatarSrc={assistantAvatarSrc}
             assistantAvatarPlaceholder={assistantAvatarPlaceholder}
@@ -843,7 +1051,7 @@ export function ChatPage() {
             onChange={setInput}
             onSubmit={submitInput}
             rows={2}
-            disabled={sendMsgM.isPending || isStreaming || Boolean(processingApproval) || pendingApprovals.length > 0}
+            disabled={sendMsgM.isPending || isStreaming || Boolean(processingApprovalGroupId) || approvalGroups.length > 0}
             attachments={composerAttachments}
             isUploadingAttachment={isUploadingAttachment}
             uploadingAttachmentName={uploadingAttachmentName}

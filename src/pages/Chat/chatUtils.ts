@@ -6,7 +6,7 @@ import type { ChatAttachment } from "../../lib/files/types";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import type { ApprovalRequiredEvent } from "../../types";
 
-export type AudioAttachmentFormat = "wav" | "mp3" | "m4a" | "ogg";
+export type AudioAttachmentFormat = string;
 
 export type ChatMessageViewModel = {
   id?: string | null;
@@ -75,8 +75,24 @@ export type PendingChatAttachment =
 export const DEFAULT_ATTACHMENT_ERROR = "File uploads aren’t configured on this Sinas instance. Ask admin to configure it.";
 export const AUDIO_ATTACHMENTS_ENABLED = true;
 export const AUDIO_ATTACHMENTS_DISABLED_ERROR = "Audio attachments are not supported yet.";
-export const UNSUPPORTED_AUDIO_ERROR = "Unsupported audio format. Please use WAV, MP3, M4A, or OGG.";
-const SUPPORTED_AUDIO_FORMATS = new Set<AudioAttachmentFormat>(["wav", "mp3", "m4a", "ogg"]);
+const DEFAULT_AUDIO_FORMAT: AudioAttachmentFormat = "mp3";
+const AUDIO_FILE_EXTENSIONS = new Set<string>([
+  "wav",
+  "mp3",
+  "m4a",
+  "ogg",
+  "aac",
+  "flac",
+  "webm",
+  "mp4",
+  "oga",
+  "opus",
+  "wma",
+  "aiff",
+  "aif",
+  "amr",
+  "3gp",
+]);
 
 export const CHAT_ATTACHMENT_ACCEPT = "image/*,audio/*,.wav,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.txt";
 export const CHAT_SCROLL_TOP_OFFSET = 16;
@@ -113,24 +129,20 @@ function getFileExtension(filename: string): string {
 
 export function isAudioCandidate(file: File): boolean {
   if (file.type.toLowerCase().startsWith("audio/")) return true;
-  return SUPPORTED_AUDIO_FORMATS.has(getFileExtension(file.name) as AudioAttachmentFormat);
+  return AUDIO_FILE_EXTENSIONS.has(getFileExtension(file.name));
 }
 
-export function normalizeAudioFormat(file: File): AudioAttachmentFormat | null {
-  const mime = file.type.toLowerCase();
+export function normalizeAudioFormat(file: File): AudioAttachmentFormat {
+  const mime = file.type.toLowerCase().split(";")[0];
   const ext = getFileExtension(file.name);
 
-  if (mime === "audio/mpeg" || mime === "audio/mp3") return "mp3";
-  if (mime === "audio/mp4" || mime === "audio/m4a" || mime === "audio/x-m4a") return "m4a";
-  if (mime === "audio/wav" || mime === "audio/wave" || mime === "audio/x-wav" || mime === "audio/vnd.wave") return "wav";
-  if (mime === "audio/ogg" || mime === "application/ogg") return "ogg";
+  if (ext) return ext;
+  if (mime.startsWith("audio/")) {
+    const subtype = mime.slice("audio/".length).trim();
+    if (subtype) return subtype;
+  }
 
-  if (ext === "mp3") return "mp3";
-  if (ext === "m4a") return "m4a";
-  if (ext === "wav") return "wav";
-  if (ext === "ogg") return "ogg";
-
-  return null;
+  return DEFAULT_AUDIO_FORMAT;
 }
 
 export function fileToDataUrl(file: File): Promise<string> {
@@ -627,18 +639,11 @@ export function parseMessageContent(content: unknown): ParsedMessageContent {
 
     if (type === "audio") {
       const format = typeof part.format === "string" ? part.format.toLowerCase() : "";
-      if (SUPPORTED_AUDIO_FORMATS.has(format as AudioAttachmentFormat)) {
-        attachments.push({
-          kind: "audio",
-          name: typeof part.name === "string" ? part.name : "Audio attachment",
-          format: format as AudioAttachmentFormat,
-        });
-      } else {
-        attachments.push({
-          kind: "audio",
-          name: "Audio attachment",
-        });
-      }
+      attachments.push({
+        kind: "audio",
+        name: typeof part.name === "string" ? part.name : "Audio attachment",
+        ...(format ? { format } : {}),
+      });
       continue;
     }
 

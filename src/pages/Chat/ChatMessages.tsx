@@ -7,10 +7,8 @@ import styles from "./Chat.module.scss";
 import { HtmlPreviewCard } from "./HtmlPreviewCard";
 import SinasLoader from "../../components/Loader/Loader";
 import type { AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
-import type { ApprovalRequiredEvent } from "../../types";
 import {
   extractHtmlPreview,
-  getApprovalReason,
   getMessageText,
   getPlaceholderCssVars,
   getPlaceholderGlyphStyle,
@@ -43,6 +41,18 @@ export type DelegatedNotice = {
   chatId: string;
   previewText: string;
   pendingApprovalCount: number;
+};
+
+export type ApprovalGroup = {
+  id: string;
+  assistantMessageId: string | null;
+  functionNamespace: string;
+  functionName: string;
+  functionLabel: string;
+  count: number;
+  toolCallIds: string[];
+  previewQuery: string | null;
+  queries: string[];
 };
 
 type MessageAttachmentImageProps = {
@@ -165,8 +175,8 @@ function ComponentFrame({ payload }: ComponentFrameProps) {
   );
 }
 
-type ApprovalPromptRowProps = {
-  approval: ApprovalRequiredEvent;
+type ApprovalGroupPromptRowProps = {
+  group: ApprovalGroup;
   isProcessing: boolean;
   disableActions: boolean;
   onApprove: () => void;
@@ -176,8 +186,8 @@ type ApprovalPromptRowProps = {
   onAssistantAvatarError?: () => void;
 };
 
-const ApprovalPromptRow = memo(function ApprovalPromptRow({
-  approval,
+const ApprovalGroupPromptRow = memo(function ApprovalGroupPromptRow({
+  group,
   isProcessing,
   disableActions,
   onApprove,
@@ -185,7 +195,12 @@ const ApprovalPromptRow = memo(function ApprovalPromptRow({
   assistantAvatarSrc,
   assistantAvatarPlaceholder,
   onAssistantAvatarError,
-}: ApprovalPromptRowProps) {
+}: ApprovalGroupPromptRowProps) {
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const title = group.count === 1 ? `Approve ${group.functionLabel}?` : `Approve ${group.count} ${group.functionLabel}?`;
+  const queryPreview = group.previewQuery?.trim();
+  const detailsButtonLabel = isDetailsOpen ? "Hide details" : "Show details";
+
   return (
     <div className={`${styles.messageRow} ${styles.assistantRow}`}>
       <AssistantAvatar
@@ -204,9 +219,37 @@ const ApprovalPromptRow = memo(function ApprovalPromptRow({
         </div>
 
         <div className={styles.approvalContent}>
-          <h4 className={styles.approvalTitle}>{isProcessing ? "Processing your decision..." : "Please confirm this action"}</h4>
-          <p className={styles.approvalText}>{getApprovalReason(approval)}</p>
-          <p className={styles.approvalHint}>Approve to continue, or reject to stop this step.</p>
+          <h4 className={styles.approvalTitle}>{isProcessing ? "Processing your decision..." : title}</h4>
+          <p className={styles.approvalText}>
+            {queryPreview ? `First query: "${queryPreview}"` : "Approve to continue, or reject to stop this batch."}
+          </p>
+
+          {group.queries.length > 0 ? (
+            <>
+              <button
+                type="button"
+                className={styles.toolActivityInfoButton}
+                aria-expanded={isDetailsOpen}
+                aria-label={isDetailsOpen ? "Hide approval details" : "Show approval details"}
+                onClick={() => setIsDetailsOpen((prev) => !prev)}
+              >
+                <CircleHelp className={styles.toolActivityInfoIcon} aria-hidden="true" />
+                <span>{detailsButtonLabel}</span>
+              </button>
+
+              {isDetailsOpen ? (
+                <ul className={styles.messageFileAttachments}>
+                  {group.queries.map((query, index) => (
+                    <li key={`${group.id}-${index}`} className={styles.messageAttachmentFile}>
+                      <span className={styles.messageAttachmentFileMeta}>{query}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          ) : null}
+
+          <p className={styles.approvalHint}>Approve all to continue this batch, or reject all to stop it.</p>
 
           <div className={styles.approvalActions}>
             <button
@@ -215,7 +258,7 @@ const ApprovalPromptRow = memo(function ApprovalPromptRow({
               onClick={onApprove}
               disabled={disableActions}
             >
-              {isProcessing ? "Processing..." : "Approve"}
+              {isProcessing ? "Processing..." : "Approve all"}
             </button>
             <button
               type="button"
@@ -223,7 +266,7 @@ const ApprovalPromptRow = memo(function ApprovalPromptRow({
               onClick={onReject}
               disabled={disableActions}
             >
-              Reject
+              Reject all
             </button>
           </div>
         </div>
@@ -232,7 +275,7 @@ const ApprovalPromptRow = memo(function ApprovalPromptRow({
   );
 });
 
-ApprovalPromptRow.displayName = "ApprovalPromptRow";
+ApprovalGroupPromptRow.displayName = "ApprovalGroupPromptRow";
 
 type ToolProgressRowsProps = {
   tools: ToolRun[];
@@ -363,14 +406,11 @@ const DelegatedNoticeRows = memo(function DelegatedNoticeRows({
   return (
     <div className={styles.toolProgressInlineList}>
       {notices.map((notice) => {
-        const hasPreview = notice.previewText.trim().length > 0;
         const hasChatId = notice.chatId.trim().length > 0;
         const needsApproval = notice.pendingApprovalCount > 0;
         const statusText = needsApproval
           ? `Needs approval (${notice.pendingApprovalCount})`
-          : hasPreview
-            ? "Delegated result preview"
-            : "Open delegated chat to continue";
+          : "Open delegated chat to continue";
 
         return (
           <div key={notice.tool_call_id} className={`${styles.messageRow} ${styles.assistantRow}`}>
@@ -396,8 +436,6 @@ const DelegatedNoticeRows = memo(function DelegatedNoticeRows({
                   </button>
                 ) : null}
               </div>
-
-              {hasPreview ? <p className={styles.delegatedNoticePreview}>{notice.previewText}</p> : null}
             </div>
           </div>
         );
@@ -566,10 +604,10 @@ export type ChatMessagesProps = {
   thinkingText: string;
   toolRuns: ToolRun[];
   delegatedNotices: DelegatedNotice[];
-  pendingApprovals: ApprovalRequiredEvent[];
-  processingApproval: string | null;
+  approvalGroups: ApprovalGroup[];
+  processingApprovalGroupId: string | null;
   onOpenDelegatedChat?: (chatId: string) => void;
-  onApprovalDecision: (approval: ApprovalRequiredEvent, approved: boolean) => void;
+  onApprovalDecision: (group: ApprovalGroup, approved: boolean) => void;
   assistantAvatarSrc?: string;
   assistantAvatarPlaceholder?: AgentPlaceholderMeta;
   onAssistantAvatarError?: () => void;
@@ -587,8 +625,8 @@ export const ChatMessages = memo(function ChatMessages({
   thinkingText,
   toolRuns,
   delegatedNotices,
-  pendingApprovals,
-  processingApproval,
+  approvalGroups,
+  processingApprovalGroupId,
   onOpenDelegatedChat,
   onApprovalDecision,
   assistantAvatarSrc,
@@ -630,7 +668,7 @@ export const ChatMessages = memo(function ChatMessages({
           <SinasLoader size={28} />
           <span className={styles.loadingText}>Loading conversation...</span>
         </div>
-      ) : messages.length === 0 && pendingApprovals.length === 0 ? (
+      ) : messages.length === 0 && approvalGroups.length === 0 ? (
         <div className={styles.empty}>No messages yet</div>
       ) : (
         messages.map((message, index) => {
@@ -672,18 +710,18 @@ export const ChatMessages = memo(function ChatMessages({
         onAssistantAvatarError={onAssistantAvatarError}
       />
 
-      {pendingApprovals.map((approval) => {
-        const isProcessing = processingApproval === approval.tool_call_id;
-        const disableActions = Boolean(processingApproval) || isStreaming;
+      {approvalGroups.map((group) => {
+        const isProcessing = processingApprovalGroupId === group.id;
+        const disableActions = Boolean(processingApprovalGroupId) || isStreaming;
 
         return (
-          <ApprovalPromptRow
-            key={approval.tool_call_id}
-            approval={approval}
+          <ApprovalGroupPromptRow
+            key={group.id}
+            group={group}
             isProcessing={isProcessing}
             disableActions={disableActions}
-            onApprove={() => onApprovalDecision(approval, true)}
-            onReject={() => onApprovalDecision(approval, false)}
+            onApprove={() => onApprovalDecision(group, true)}
+            onReject={() => onApprovalDecision(group, false)}
             assistantAvatarSrc={assistantAvatarSrc}
             assistantAvatarPlaceholder={assistantAvatarPlaceholder}
             onAssistantAvatarError={onAssistantAvatarError}

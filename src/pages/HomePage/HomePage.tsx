@@ -24,7 +24,6 @@ import type { ChatAttachment } from "../../lib/files/types";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import {
   CHAT_ATTACHMENT_ACCEPT,
-  UNSUPPORTED_AUDIO_ERROR,
   fileToDataUrl,
   isAudioCandidate,
   normalizeAudioFormat,
@@ -457,10 +456,6 @@ export default function HomePage() {
         for (const attachment of audioAttachments) {
           assertAttachmentSizeWithinLimit(attachment.file);
           const format = normalizeAudioFormat(attachment.file);
-          if (!format) {
-            throw new Error(UNSUPPORTED_AUDIO_ERROR);
-          }
-
           setUploadingAttachmentName(attachment.file.name);
           const dataUrl = await fileToDataUrl(attachment.file);
           const base64 = stripDataUrlPrefix(dataUrl);
