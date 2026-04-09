@@ -9,6 +9,7 @@ import GridLayoutIcon from "../../icons/grid-layout.svg?react";
 import ListLayoutIcon from "../../icons/list-layout.svg?react";
 import SearchIcon from "../../icons/search.svg?react";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
+import { AppBackground } from "../../components/AppBackground/AppBackground";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { Input } from "../../components/Input/Input";
@@ -598,6 +599,7 @@ export default function HomePage() {
       <AppSidebar />
 
       <main ref={mainRef} className={styles.main}>
+        <AppBackground />
         <ThemeSwitch className={styles.themeSwitch} />
 
         <div className={styles.mainContent} style={selectedAgentPlaceholderCssVars}>

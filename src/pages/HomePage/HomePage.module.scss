@@ -13,6 +13,7 @@
   overflow: auto;
   display: flex;
   justify-content: center;
+  z-index: 0;
 }
 
 .themeSwitch {
@@ -378,22 +379,28 @@
 }
 
 :global(html[data-theme="dark"]) .agentCard {
-  border: 2px solid transparent;
-  background:
-    linear-gradient(180deg, rgba(58, 48, 38, 0.8) 0%, rgba(46, 42, 38, 0.5) 100%) padding-box,
-    linear-gradient(135deg, rgba(126, 116, 107, 0.45) 0%, rgba(102, 94, 87, 0.40) 40%, rgba(78, 71, 65, 0.55) 100%) border-box;
-  backdrop-filter: blur(15px) saturate(130%);
-  -webkit-backdrop-filter: blur(15px) saturate(130%);
+  border: 1px solid #4E4741;
+  background: #2E2A26;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:global(html[data-theme="light"]) .agentCard {
+  border: 1px solid #f7f4ef;
 }
 
 :global(html[data-theme="dark"]) .agentCard:hover {
-  border: 2px solid var(--Border-hover-black, rgba(125, 61, 0, 0.80));
-  box-shadow: 0 4px 4px 0 rgba(125, 61, 0, 0.60);
+  border: 1px solid #4E4741;
+  box-shadow:
+    0 16px 30px rgba(0, 0, 0, 0.34),
+    0 4px 10px rgba(0, 0, 0, 0.24);
 }
 
 :global(html[data-theme="light"]) .agentCard:hover {
-  border: 2px solid var(--Border-hover-white, rgba(255, 234, 214, 0.80));
-  box-shadow: 0 4px 4px 0 rgba(233, 114, 3, 0.20);
+  border: 1px solid #f7f4ef;
+  box-shadow:
+    0 12px 24px rgba(17, 17, 17, 0.10),
+    0 3px 8px rgba(17, 17, 17, 0.06);
 }
 
 .agentCardList {
@@ -612,12 +619,13 @@
   }
 
   :global(html[data-theme="dark"]) .agentCard:hover {
-    border: 2px solid transparent;
+    border: 1px solid #4E4741;
     box-shadow: none;
   }
 
   :global(html[data-theme="light"]) .agentCard:hover {
-    border: 2px solid rgba(255, 248, 240, 0.66);
+    border: 1px solid #f7f4ef;
     box-shadow: none;
   }
+
 }

@@ -7,8 +7,8 @@ import { apiClient } from "../../lib/api";
 import { useTheme } from "../../lib/useTheme";
 import { emailSchema, otpSchema } from "../../lib/validation";
 import RightArrowIcon from "../../icons/right-arrow.svg?react";
-import sinasLogo from "../../icons/sinas-logo.svg";
-import sinasLogoWhite from "../../icons/sinas-logo-white.svg";
+import sinasLogoLightFilled from "../../icons/sinas-logo-light-filled.svg";
+import sinasLogoDarkFilled from "../../icons/sinas-logo-dark-filled.svg";
 import { Input } from "../../components/Input/Input.tsx";
 import { Button } from "../../components/Button/Button.tsx";
 import SinasLoader from "../../components/Loader/Loader.tsx";
@@ -51,7 +51,7 @@ export function LoginPage() {
   // refresh label after save by depending on modal open state
   const workspaceUrl = useMemo(() => getWorkspaceUrl(), [workspaceModalOpen]);
   const workspaceLabel = useMemo(() => prettyHost(workspaceUrl), [workspaceUrl]);
-  const logoSrc = theme === "dark" ? sinasLogoWhite : sinasLogo;
+  const logoSrc = theme === "dark" ? sinasLogoLightFilled : sinasLogoDarkFilled;
 
   useEffect(() => {
     apiClient.setWorkspaceBaseUrl(workspaceUrl);

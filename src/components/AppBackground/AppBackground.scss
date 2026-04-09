@@ -1,0 +1,45 @@
+.app-background {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: paint;
+}
+
+.app-background::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(58vw, 760px);
+  height: min(58vh, 560px);
+  z-index: 1;
+  pointer-events: none;
+
+  /* Dot grid controls: color/opacity/size/spacing are theme variables. */
+  opacity: var(--app-bg-dot-opacity, 0.2);
+  background-image: radial-gradient(
+    circle,
+    var(--app-bg-dot-color) 0 var(--app-bg-dot-size, 1px),
+    transparent calc(var(--app-bg-dot-size, 1px) + 0.35px)
+  );
+  background-size: var(--app-bg-dot-step, 28px 28px);
+  background-position: top right;
+
+  /* Fade dots from bottom-left to top-right. */
+  -webkit-mask-image: linear-gradient(
+    to top right,
+    transparent 8%,
+    rgba(0, 0, 0, 0.24) 36%,
+    rgba(0, 0, 0, 0.76) 66%,
+    rgba(0, 0, 0, 1) 100%
+  );
+  mask-image: linear-gradient(
+    to top right,
+    transparent 8%,
+    rgba(0, 0, 0, 0.24) 36%,
+    rgba(0, 0, 0, 0.76) 66%,
+    rgba(0, 0, 0, 1) 100%
+  );
+}

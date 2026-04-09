@@ -14,8 +14,8 @@ import {
   useInteractions,
 } from "@floating-ui/react";
 
-import sinasLogo from "../../icons/sinas-logo.svg";
-import sinasLogoWhite from "../../icons/sinas-logo-white.svg";
+import sinasLogoLightFilled from "../../icons/sinas-logo-light-filled.svg";
+import sinasLogoDarkFilled from "../../icons/sinas-logo-dark-filled.svg";
 import PlusIcon from "../../icons/plus.svg?react";
 import LinkIcon from "../../icons/link.svg?react";
 import SettingsIcon from "../../icons/settings.svg?react";
@@ -206,7 +206,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
   const { theme } = useTheme();
   const ws = getWorkspaceUrl();
   const appId = getApplicationId();
-  const logoSrc = theme === "dark" ? sinasLogoWhite : sinasLogo;
+  const logoSrc = theme === "dark" ? sinasLogoLightFilled : sinasLogoDarkFilled;
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLogoutTooltipOpen, setIsLogoutTooltipOpen] = useState(false);

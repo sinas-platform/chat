@@ -28,6 +28,7 @@ import {
   type ToolRunStatus,
 } from "./chatUtils";
 import { AppSidebar } from "../../components/AppSidebar/AppSidebar";
+import { AppBackground } from "../../components/AppBackground/AppBackground";
 import { ChatComposer } from "../../components/ChatComposer/ChatComposer";
 import { ThemeSwitch } from "../../components/ThemeSwitch/ThemeSwitch";
 import { useAgentIconSources } from "../../hooks/useAgentIconSources";
@@ -999,6 +1000,7 @@ export function ChatPage() {
       <div className={styles.layout}>
         <MemoizedAppSidebar />
         <main className={styles.main}>
+          <AppBackground />
           <ThemeSwitch className={styles.themeSwitch} />
 
           <div className={styles.chatShell}>
@@ -1013,6 +1015,7 @@ export function ChatPage() {
     <div className={styles.layout}>
       <MemoizedAppSidebar activeChatId={chatId} />
       <main className={styles.main}>
+        <AppBackground />
         <ThemeSwitch className={styles.themeSwitch} />
 
         <div className={styles.chatShell} style={getPlaceholderCssVars(assistantAvatarPlaceholder)}>
