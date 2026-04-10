@@ -65,7 +65,7 @@
 .messageRow {
   display: flex;
   align-items: flex-end;
-  gap: 14px;
+  gap: 6px;
   width: 100%;
 }
 
@@ -102,56 +102,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  --assistant-avatar-ring-color: var(--agent-icon-color, var(--color-palette-violet));
-  --assistant-avatar-ring-soft-color: var(--agent-icon-soft-color, var(--color-palette-violet-soft));
-  --assistant-avatar-ring-color-fade: color-mix(in srgb, var(--assistant-avatar-ring-color) 22%, transparent);
-  --assistant-avatar-pulse-color: var(--assistant-avatar-ring-color);
-
-  &::after {
-    content: "";
-    position: absolute;
-    inset: -7px;
-    border-radius: 999px;
-    background: radial-gradient(
-      50% 50% at 50% 50%,
-      transparent 50%,
-      var(--assistant-avatar-ring-soft-color) 61%,
-      var(--assistant-avatar-ring-color-fade) 71%,
-      transparent 80%
-    );
-    opacity: 0.95;
-    z-index: -1;
-    pointer-events: none;
-    filter: blur(1.8px);
-  }
 }
 
 .assistantAvatarPulse {
-  &::before {
-    content: "";
-    position: absolute;
-    inset: -6px;
-    border-radius: 999px;
-    background: radial-gradient(
-      50% 50% at 50% 50%,
-      transparent 50%,
-      var(--assistant-avatar-pulse-color) 62%,
-      transparent 74%
-    );
-    opacity: 0.32;
-    z-index: -2;
-    pointer-events: none;
-    filter: blur(1.5px);
-    animation: assistantAvatarBorderPulse 2s ease-in-out infinite;
+  .assistantAvatarImage,
+  .assistantAvatarPlaceholderGlyph,
+  > svg {
+    transform-origin: center;
+    animation: assistantAvatarIconPulse 2.4s ease-in-out infinite;
   }
-}
-
-.assistantAvatarPlaceholder {
-  --assistant-avatar-ring-color: var(--agent-icon-color, var(--color-palette-violet));
-}
-
-.assistantAvatarCustomIcon {
-  --assistant-avatar-ring-color: var(--agent-icon-color, var(--color-palette-violet));
 }
 
 .assistantAvatarImage {
@@ -1346,20 +1305,22 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .assistantAvatarPulse::before {
+  .assistantAvatarPulse .assistantAvatarImage,
+  .assistantAvatarPulse .assistantAvatarPlaceholderGlyph,
+  .assistantAvatarPulse > svg {
     animation: none;
   }
 }
 
-@keyframes assistantAvatarBorderPulse {
+@keyframes assistantAvatarIconPulse {
   0%,
   100% {
     transform: scale(1);
-    opacity: 0.34;
+    opacity: 1;
   }
   50% {
-    transform: scale(1.08);
-    opacity: 0.46;
+    transform: scaleX(1.08) scaleY(1.18);
+    opacity: 0.9;
   }
 }
 
