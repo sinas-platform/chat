@@ -113,6 +113,10 @@ function getStoredWorkspaceConfigWithMigration(): WorkspaceConfig | null {
   return readStoredWorkspaceConfig() ?? migrateLegacyWorkspaceUrl() ?? getDefaultWorkspaceConfig();
 }
 
+function getPersistedWorkspaceConfigWithMigration(): WorkspaceConfig | null {
+  return readStoredWorkspaceConfig() ?? migrateLegacyWorkspaceUrl();
+}
+
 export function getWorkspaceUrlFromQuery(search: string = typeof window !== "undefined" ? window.location.search : ""): string {
   const params = new URLSearchParams(search);
   return normalizeWorkspaceUrlFromQueryParam(params.get("ws"));
@@ -180,6 +184,16 @@ export function setWorkspaceUrlInQuery(url: string): void {
   // `history.replaceState` does not emit `popstate`; dispatch one so router/location subscribers observe the new query.
   window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
   window.dispatchEvent(new Event(WORKSPACE_QUERY_CHANGE_EVENT));
+}
+
+export function ensureWorkspaceQueryParamFromResolvedWorkspace(): void {
+  if (typeof window === "undefined") return;
+  if (getWorkspaceUrlFromQuery(window.location.search)) return;
+
+  const resolvedWorkspaceUrl = getPersistedWorkspaceConfigWithMigration()?.url ?? "";
+  if (!resolvedWorkspaceUrl) return;
+
+  setWorkspaceUrlInQuery(resolvedWorkspaceUrl);
 }
 
 export function getWorkspaceUrl(): string {
