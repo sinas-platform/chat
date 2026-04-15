@@ -1032,7 +1032,7 @@ export function ChatPage() {
             approvalGroups={approvalGroups}
             processingApprovalGroupId={processingApprovalGroupId}
             onOpenDelegatedChat={(delegatedChatId) => {
-              navigate(`/chats/${encodeURIComponent(delegatedChatId)}`);
+              navigate({ pathname: `/chats/${encodeURIComponent(delegatedChatId)}`, search: location.search });
             }}
             onApprovalDecision={(group, approved) => {
               void handleApprovalGroup(group, approved);

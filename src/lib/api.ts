@@ -34,10 +34,17 @@ function normalizeBaseUrl(baseUrl?: string): string | undefined {
   return normalized || getWorkspaceUrl() || undefined;
 }
 
+function normalizeWorkspaceIdentity(workspaceUrl: string | null | undefined): string {
+  return (workspaceUrl ?? "").trim().replace(/\/+$/, "");
+}
+
 function redirectToLoginIfNeeded(): void {
   if (typeof window === "undefined") return;
-  if (window.location.pathname === "/login") return;
-  window.location.href = "/login";
+  const search = window.location.search;
+  const hash = window.location.hash;
+  const target = `/login${search}${hash}`;
+  if (`${window.location.pathname}${search}${hash}` === target) return;
+  window.location.href = target;
 }
 
 function getRuntimeApiKey(): string | null {
@@ -70,6 +77,11 @@ type SendMessageStreamOptions = {
   onChunk?: (chunk: MessageStreamChunk) => void;
 };
 
+type WorkspaceAwareRequestConfig = {
+  _retry?: boolean;
+  _workspaceUrl?: string;
+} & NonNullable<AxiosError["config"]>;
+
 class APIClient {
   private client: AxiosInstance;
 
@@ -92,12 +104,28 @@ class APIClient {
     this.client.defaults.baseURL = normalizeBaseUrl(baseUrl);
   }
 
+  private isWorkspaceCurrentlyActive(workspaceUrl: string): boolean {
+    const requestWorkspace = normalizeWorkspaceIdentity(workspaceUrl);
+    const activeWorkspace = normalizeWorkspaceIdentity(getWorkspaceUrl());
+    return Boolean(requestWorkspace) && requestWorkspace === activeWorkspace;
+  }
+
+  private redirectToLoginIfWorkspaceIsActive(workspaceUrl: string): void {
+    if (this.isWorkspaceCurrentlyActive(workspaceUrl)) {
+      redirectToLoginIfNeeded();
+    }
+  }
+
   private setupInterceptors() {
     this.client.interceptors.request.use((config) => {
       const ws = getWorkspaceUrl();
       if (!ws) {
         throw new Error("Workspace URL is not configured. Please select a workspace first.");
       }
+
+      config.baseURL = normalizeBaseUrl(ws);
+      const workspaceAwareConfig = config as WorkspaceAwareRequestConfig;
+      workspaceAwareConfig._workspaceUrl = ws;
 
       const token = getAuthToken(ws);
       const runtimeApiKey = getRuntimeApiKey();
@@ -118,9 +146,19 @@ class APIClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
-        const originalRequest = error.config as (typeof error.config & { _retry?: boolean }) | undefined;
+        const originalRequest = error.config as WorkspaceAwareRequestConfig | undefined;
 
         if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+          const requestWorkspace = normalizeWorkspaceIdentity(originalRequest._workspaceUrl ?? getWorkspaceUrl());
+          if (!requestWorkspace) {
+            return Promise.reject(error);
+          }
+
+          // Ignore stale 401s that came from a previously active workspace.
+          if (!this.isWorkspaceCurrentlyActive(requestWorkspace)) {
+            return Promise.reject(error);
+          }
+
           if (this.isRefreshing) {
             return new Promise((resolve, reject) => {
               this.failedQueue.push({ resolve, reject });
@@ -130,29 +168,30 @@ class APIClient {
           originalRequest._retry = true;
           this.isRefreshing = true;
 
-          const ws = getWorkspaceUrl();
-          const refreshToken = getRefreshToken(ws);
+          const refreshToken = getRefreshToken(requestWorkspace);
 
           if (!refreshToken) {
-            clearAuth(ws);
-            redirectToLoginIfNeeded();
+            clearAuth(requestWorkspace);
+            this.redirectToLoginIfWorkspaceIsActive(requestWorkspace);
             return Promise.reject(error);
           }
 
           try {
             const refreshed = await this.refreshToken(refreshToken);
-            setAuthToken(ws, refreshed.access_token);
+            setAuthToken(requestWorkspace, refreshed.access_token);
 
             this.processQueue(null);
 
             originalRequest.headers = originalRequest.headers ?? {};
             (originalRequest.headers as Record<string, string>).Authorization = `Bearer ${refreshed.access_token}`;
+            originalRequest.baseURL = normalizeBaseUrl(requestWorkspace);
+            originalRequest._workspaceUrl = requestWorkspace;
 
             return this.client(originalRequest);
           } catch (refreshErr) {
             this.processQueue(refreshErr);
-            clearAuth(ws);
-            redirectToLoginIfNeeded();
+            clearAuth(requestWorkspace);
+            this.redirectToLoginIfWorkspaceIsActive(requestWorkspace);
             return Promise.reject(refreshErr);
           } finally {
             this.isRefreshing = false;
@@ -321,7 +360,7 @@ class APIClient {
   }
 
   private getRuntimeBaseUrl(): string {
-    return String(this.client.defaults.baseURL || requireWorkspaceUrl()).replace(/\/+$/, "");
+    return String(normalizeBaseUrl() || requireWorkspaceUrl()).replace(/\/+$/, "");
   }
 
   private buildRuntimeFetchHeaders(baseHeaders: HeadersInit | undefined, accessToken: string | null): Headers {
@@ -360,12 +399,12 @@ class APIClient {
           response = await doFetch(accessToken);
         } catch (refreshErr) {
           clearAuth(ws);
-          redirectToLoginIfNeeded();
+          this.redirectToLoginIfWorkspaceIsActive(ws);
           throw refreshErr;
         }
       } else {
         clearAuth(ws);
-        redirectToLoginIfNeeded();
+        this.redirectToLoginIfWorkspaceIsActive(ws);
         throw new Error("Unauthorized");
       }
     }
@@ -833,12 +872,12 @@ class APIClient {
           response = await this.streamMessageRequest(chatId, data, accessToken, options.signal);
         } catch (refreshErr) {
           clearAuth(ws);
-          redirectToLoginIfNeeded();
+          this.redirectToLoginIfWorkspaceIsActive(ws);
           throw refreshErr;
         }
       } else {
         clearAuth(ws);
-        redirectToLoginIfNeeded();
+        this.redirectToLoginIfWorkspaceIsActive(ws);
         throw new Error("Unauthorized");
       }
     }
@@ -846,7 +885,7 @@ class APIClient {
     if (!response.ok) {
       if (response.status === 401) {
         clearAuth(ws);
-        redirectToLoginIfNeeded();
+        this.redirectToLoginIfWorkspaceIsActive(ws);
       }
 
       let detail = "";

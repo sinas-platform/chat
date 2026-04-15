@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, X } from "lucide-react";
 
@@ -104,6 +104,7 @@ const SORT_OPTIONS: Array<{ value: SortOptionValue; label: string }> = [
 
 export function AllChatsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const ws = getWorkspaceUrl();
   const appId = getApplicationId();
@@ -541,7 +542,7 @@ export function AllChatsPage() {
                         toggleChatSelection(chat.id);
                         return;
                       }
-                      navigate(`/chats/${chat.id}`);
+                      navigate({ pathname: `/chats/${chat.id}`, search: location.search });
                     }}
                   >
                     <span className={styles.chatTitle}>

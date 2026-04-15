@@ -1,6 +1,7 @@
 const LEGACY_WORKSPACE_KEY = "sinasWorkspaceUrl";
 const WORKSPACE_CONFIG_KEY = "sinasWorkspaceConfig";
 const WORKSPACE_CONFIG_VERSION = 1;
+export const WORKSPACE_QUERY_CHANGE_EVENT = "sinas:workspace-query-change";
 
 type StoredWorkspaceConfig = {
   version?: number;
@@ -83,12 +84,102 @@ function getDefaultWorkspaceConfig(): WorkspaceConfig | null {
   return ENV_DEFAULT_APP_ID ? { url: DEFAULT_WORKSPACE, applicationId: ENV_DEFAULT_APP_ID } : { url: DEFAULT_WORKSPACE };
 }
 
-export function getWorkspaceConfig(): WorkspaceConfig | null {
+function normalizeWorkspaceUrlFromQueryParam(value: string | null): string {
+  const raw = (value ?? "").trim();
+  if (!raw) return "";
+
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+  try {
+    const parsed = new URL(withProtocol);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    return normalizeWorkspaceUrl(parsed.toString());
+  } catch {
+    return "";
+  }
+}
+
+function getLegacyWorkspaceConfigWithoutMigration(): WorkspaceConfig | null {
+  const legacy = normalizeWorkspaceUrl(localStorage.getItem(LEGACY_WORKSPACE_KEY));
+  if (!legacy) return null;
+  return { url: legacy };
+}
+
+function getStoredWorkspaceConfigWithoutMigration(): WorkspaceConfig | null {
+  return readStoredWorkspaceConfig() ?? getLegacyWorkspaceConfigWithoutMigration() ?? getDefaultWorkspaceConfig();
+}
+
+function getStoredWorkspaceConfigWithMigration(): WorkspaceConfig | null {
   return readStoredWorkspaceConfig() ?? migrateLegacyWorkspaceUrl() ?? getDefaultWorkspaceConfig();
+}
+
+export function getWorkspaceUrlFromQuery(search: string = typeof window !== "undefined" ? window.location.search : ""): string {
+  const params = new URLSearchParams(search);
+  return normalizeWorkspaceUrlFromQueryParam(params.get("ws"));
+}
+
+export function removeWorkspaceUrlFromSearch(search: string = typeof window !== "undefined" ? window.location.search : ""): string {
+  const params = new URLSearchParams(search);
+  params.delete("ws");
+  const next = params.toString();
+  return next ? `?${next}` : "";
+}
+
+function toCompactWorkspaceQueryValue(normalizedWorkspaceUrl: string): string {
+  try {
+    const parsed = new URL(normalizedWorkspaceUrl);
+    const hasNonRootPath = parsed.pathname && parsed.pathname !== "/";
+    return `${parsed.host}${hasNonRootPath ? parsed.pathname : ""}${parsed.search}${parsed.hash}`;
+  } catch {
+    return normalizedWorkspaceUrl.replace(/^https?:\/\//i, "");
+  }
+}
+
+function encodeWorkspaceQueryValue(value: string): string {
+  return encodeURIComponent(value)
+    .replace(/%3A/gi, ":")
+    .replace(/%2F/gi, "/");
+}
+
+function getWorkspaceConfigFromQuery(search: string = typeof window !== "undefined" ? window.location.search : ""): WorkspaceConfig | null {
+  const url = getWorkspaceUrlFromQuery(search);
+  if (!url) return null;
+
+  const fallbackConfig = getStoredWorkspaceConfigWithoutMigration();
+  const applicationId = normalizeApplicationId(fallbackConfig?.applicationId ?? ENV_DEFAULT_APP_ID);
+  return applicationId ? { url, applicationId } : { url };
+}
+
+export function getWorkspaceConfig(): WorkspaceConfig | null {
+  return getWorkspaceConfigFromQuery() ?? getStoredWorkspaceConfigWithMigration();
 }
 
 export function setWorkspaceConfig(config: WorkspaceConfig): void {
   writeStoredWorkspaceConfig(config);
+}
+
+export function setWorkspaceUrlInQuery(url: string): void {
+  if (typeof window === "undefined") return;
+
+  const normalized = normalizeWorkspaceUrlFromQueryParam(url);
+  if (!normalized) return;
+
+  const compactQueryValue = toCompactWorkspaceQueryValue(normalized);
+  const currentUrl = new URL(window.location.href);
+  const params = new URLSearchParams(currentUrl.search);
+  params.delete("ws");
+  const nonWorkspaceQuery = params.toString();
+  const workspaceEntry = `ws=${encodeWorkspaceQueryValue(compactQueryValue)}`;
+  const nextSearch = nonWorkspaceQuery ? `?${nonWorkspaceQuery}&${workspaceEntry}` : `?${workspaceEntry}`;
+
+  const previousHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const nextHref = `${currentUrl.pathname}${nextSearch}${currentUrl.hash}`;
+  if (previousHref === nextHref) return;
+
+  window.history.replaceState(window.history.state, "", `${currentUrl.pathname}${nextSearch}${currentUrl.hash}`);
+  // `history.replaceState` does not emit `popstate`; dispatch one so router/location subscribers observe the new query.
+  window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+  window.dispatchEvent(new Event(WORKSPACE_QUERY_CHANGE_EVENT));
 }
 
 export function getWorkspaceUrl(): string {

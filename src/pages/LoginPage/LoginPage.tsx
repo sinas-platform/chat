@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../lib/authContext.tsx";
-import { getWorkspaceUrl, setWorkspaceUrl } from "../../lib/workspace";
+import { getWorkspaceUrl, setWorkspaceUrl, setWorkspaceUrlInQuery } from "../../lib/workspace";
 import { apiClient } from "../../lib/api";
 import { useTheme } from "../../lib/useTheme";
 import { emailSchema, otpSchema } from "../../lib/validation";
@@ -32,6 +32,7 @@ function prettyHost(url: string) {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, verifyOTP } = useAuth();
   const { theme } = useTheme();
 
@@ -49,7 +50,7 @@ export function LoginPage() {
   const isEmailActionLoading = loading;
 
   // refresh label after save by depending on modal open state
-  const workspaceUrl = useMemo(() => getWorkspaceUrl(), [workspaceModalOpen]);
+  const workspaceUrl = useMemo(() => getWorkspaceUrl(), [workspaceModalOpen, location.search]);
   const workspaceLabel = useMemo(() => prettyHost(workspaceUrl), [workspaceUrl]);
   const logoSrc = theme === "dark" ? sinasLogoLightFilled : sinasLogoDarkFilled;
 
@@ -95,13 +96,14 @@ export function LoginPage() {
 
     try {
       await verifyOTP(sessionId, parsedOtp.data);
-      navigate("/", { replace: true });
+      const activeSearch = typeof window !== "undefined" ? window.location.search : location.search;
+      navigate({ pathname: "/", search: activeSearch }, { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.detail || err?.message || "Invalid OTP code");
     } finally {
       setLoading(false);
     }
-  }, [navigate, sessionId, verifyOTP]);
+  }, [location.search, navigate, sessionId, verifyOTP]);
 
   const submitOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,6 +127,7 @@ export function LoginPage() {
 
   const onWorkspaceSave = (url: string) => {
     setWorkspaceUrl(url);
+    setWorkspaceUrlInQuery(url);
     apiClient.setWorkspaceBaseUrl(url);
 
     // reset login state

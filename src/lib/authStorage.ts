@@ -3,6 +3,8 @@ const workspaceKey = (workspaceUrl: string) => {
   return normalized;
 };
 
+const LEGACY_GLOBAL_AUTH_KEYS = ["auth_token", "auth_session"] as const;
+
 export const getAuthToken = (workspaceUrl: string): string | null => {
   return localStorage.getItem(`authToken:${workspaceKey(workspaceUrl)}`);
 };
@@ -40,8 +42,14 @@ export const clearStoredUser = (workspaceUrl: string) => {
 };
 
 export const clearAuth = (workspaceUrl: string) => {
-    clearAuthToken(workspaceUrl);
-    clearRefreshToken(workspaceUrl);
-    clearStoredUser(workspaceUrl);
-  };
+  clearAuthToken(workspaceUrl);
+  clearRefreshToken(workspaceUrl);
+  clearStoredUser(workspaceUrl);
+};
+
+export const clearLegacyGlobalAuthKeys = () => {
+  LEGACY_GLOBAL_AUTH_KEYS.forEach((key) => {
+    localStorage.removeItem(key);
+  });
+};
   

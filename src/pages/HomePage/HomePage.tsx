@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Bot } from "lucide-react";
 
@@ -211,6 +211,7 @@ function AgentCard({ agent, isActive, onSelect, iconSrc, placeholder, onIconErro
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const ws = getWorkspaceUrl();
   const hasWorkspaceUrl = ws.length > 0;
   const visibleAgentsPreference = useVisibleAgentsPreference();
@@ -496,7 +497,7 @@ export default function HomePage() {
           ]
         : draft;
 
-      navigate(`/chats/${chat.id}`, {
+      navigate({ pathname: `/chats/${chat.id}`, search: location.search }, {
         state: {
           initialContent,
           initialDraft: draft,
@@ -608,7 +609,11 @@ export default function HomePage() {
               <div className={styles.agentPickerTitle}>Select workspace</div>
               <div className={styles.errorState} role="alert">
                 <span>Workspace URL is not configured. Select a workspace before loading agents.</span>
-                <button type="button" className={styles.retryButton} onClick={() => navigate("/login")}>
+                <button
+                  type="button"
+                  className={styles.retryButton}
+                  onClick={() => navigate({ pathname: "/login", search: location.search })}
+                >
                   Open workspace selector
                 </button>
               </div>

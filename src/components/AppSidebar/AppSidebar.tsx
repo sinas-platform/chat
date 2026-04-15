@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Bot, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
@@ -25,7 +25,7 @@ import { apiClient } from "../../lib/api";
 import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { useAuth } from "../../lib/authContext";
 import { useTheme } from "../../lib/useTheme";
-import { getApplicationId, getWorkspaceUrl } from "../../lib/workspace";
+import { getApplicationId, getWorkspaceUrl, removeWorkspaceUrlFromSearch } from "../../lib/workspace";
 import type { AgentResponse, Chat } from "../../types";
 import { Button } from "../Button/Button";
 import SinasLoader from "../Loader/Loader";
@@ -202,6 +202,7 @@ function SidebarChatTitle({ title }: { title: string }) {
 
 export function AppSidebar({ activeChatId }: AppSidebarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useAuth();
   const { theme } = useTheme();
   const ws = getWorkspaceUrl();
@@ -317,7 +318,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
 
   function navigateWithMobileClose(path: string) {
     closeMobileSidebar();
-    navigate(path);
+    navigate({ pathname: path, search: location.search });
   }
 
   function onCreateNewChat() {
@@ -331,7 +332,7 @@ export function AppSidebar({ activeChatId }: AppSidebarProps) {
     try {
       closeMobileSidebar();
       await logout();
-      navigate("/login", { replace: true });
+      navigate({ pathname: "/login", search: removeWorkspaceUrlFromSearch(location.search) }, { replace: true });
     } finally {
       setIsLoggingOut(false);
     }

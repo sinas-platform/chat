@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { apiClient } from "./api";
-import { getWorkspaceUrl } from "./workspace";
+import { getWorkspaceUrl, WORKSPACE_QUERY_CHANGE_EVENT } from "./workspace";
 import {
   clearAuth,
+  clearLegacyGlobalAuthKeys,
   getAuthToken,
   getRefreshToken,
   getStoredUser,
@@ -27,8 +28,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeWorkspaceUrl, setActiveWorkspaceUrl] = useState(() => getWorkspaceUrl());
 
   const refreshTimerRef = useRef<number | null>(null);
+  const bootstrapRunRef = useRef(0);
 
   const clearRefreshTimer = () => {
     if (refreshTimerRef.current) {
@@ -37,19 +40,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const startRefreshTimer = () => {
+  const startRefreshTimer = (workspaceUrl: string) => {
     clearRefreshTimer();
 
     refreshTimerRef.current = window.setInterval(async () => {
-      const ws = getWorkspaceUrl();
-      const refreshToken = getRefreshToken(ws);
+      const refreshToken = getRefreshToken(workspaceUrl);
 
       if (!refreshToken) return;
 
       try {
         const resp = await apiClient.refreshToken(refreshToken);
-        setAuthToken(ws, resp.access_token);
-        setTokenState(resp.access_token);
+        setAuthToken(workspaceUrl, resp.access_token);
+        if (getWorkspaceUrl() === workspaceUrl) {
+          setTokenState(resp.access_token);
+        }
       } catch {
         // if refresh fails, we just stop trying; next API call will 401 and redirect
         clearRefreshTimer();
@@ -58,41 +62,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const ws = getWorkspaceUrl();
+    const syncWorkspace = () => {
+      const nextWorkspaceUrl = getWorkspaceUrl();
+      setActiveWorkspaceUrl((current) => (current === nextWorkspaceUrl ? current : nextWorkspaceUrl));
+    };
 
-    const storedToken = getAuthToken(ws);
-    const storedUserJson = getStoredUser(ws);
+    syncWorkspace();
+    window.addEventListener("popstate", syncWorkspace);
+    window.addEventListener(WORKSPACE_QUERY_CHANGE_EVENT, syncWorkspace);
 
-    if (storedToken) setTokenState(storedToken);
+    return () => {
+      window.removeEventListener("popstate", syncWorkspace);
+      window.removeEventListener(WORKSPACE_QUERY_CHANGE_EVENT, syncWorkspace);
+    };
+  }, []);
+
+  useEffect(() => {
+    const ws = activeWorkspaceUrl;
+    const runId = ++bootstrapRunRef.current;
+
+    clearLegacyGlobalAuthKeys();
+    clearRefreshTimer();
+    apiClient.setWorkspaceBaseUrl(ws || undefined);
+    setLoading(true);
+
+    const storedToken = ws ? getAuthToken(ws) : null;
+    const storedUserJson = ws ? getStoredUser(ws) : null;
+
+    setTokenState(storedToken);
+
     if (storedUserJson) {
       try {
         setUser(JSON.parse(storedUserJson) as User);
       } catch {
-        // ignore
+        setUser(null);
       }
-    }
-
-    // verify the token if we have it (optional but nice)
-    if (storedToken) {
-      apiClient
-        .me()
-        .then((me) => {
-          setUser(me);
-          setStoredUser(ws, JSON.stringify(me));
-          startRefreshTimer();
-        })
-        .catch(() => {
-          clearAuth(ws);
-          setTokenState(null);
-          setUser(null);
-        })
-        .finally(() => setLoading(false));
     } else {
-      setLoading(false);
+      setUser(null);
     }
 
+    if (!storedToken || !ws) {
+      setLoading(false);
+      return;
+    }
+
+    apiClient
+      .me()
+      .then((me) => {
+        if (bootstrapRunRef.current !== runId) return;
+        setUser(me);
+        setStoredUser(ws, JSON.stringify(me));
+        startRefreshTimer(ws);
+      })
+      .catch(() => {
+        if (bootstrapRunRef.current !== runId) return;
+        clearAuth(ws);
+        setTokenState(null);
+        setUser(null);
+      })
+      .finally(() => {
+        if (bootstrapRunRef.current !== runId) return;
+        setLoading(false);
+      });
+
+    return () => {
+      if (bootstrapRunRef.current === runId) {
+        clearRefreshTimer();
+      }
+    };
+  }, [activeWorkspaceUrl]);
+
+  useEffect(() => {
     return () => clearRefreshTimer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async (email: string) => {
@@ -104,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const ws = getWorkspaceUrl();
     const resp = await apiClient.verifyOTP({ session_id: sessionId, otp_code: otpCode });
 
+    clearLegacyGlobalAuthKeys();
     setAuthToken(ws, resp.access_token);
     setRefreshToken(ws, resp.refresh_token);
     setStoredUser(ws, JSON.stringify(resp.user));
@@ -111,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTokenState(resp.access_token);
     setUser(resp.user);
 
-    startRefreshTimer();
+    startRefreshTimer(ws);
   };
 
   const logout = async () => {
@@ -126,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    clearLegacyGlobalAuthKeys();
     clearAuth(ws);
     setTokenState(null);
     setUser(null);

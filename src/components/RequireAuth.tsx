@@ -19,7 +19,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 
   // If either is missing, treat as logged out
   if (!user || !token) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return <Navigate to={{ pathname: "/login", search: location.search }} replace state={{ from: location }} />;
   }
 
   return <>{children}</>;
