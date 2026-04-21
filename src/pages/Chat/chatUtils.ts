@@ -2,9 +2,10 @@ import type { CSSProperties } from "react";
 
 import type { AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { UploadChatAttachmentError } from "../../lib/files/filesService";
+import { hasUnsupportedBrowserImageExtension, isUnsupportedBrowserImageMimeType } from "../../lib/files/imageSupport";
 import type { ChatAttachment } from "../../lib/files/types";
 import { getWorkspaceUrl } from "../../lib/workspace";
-import type { ApprovalRequiredEvent } from "../../types";
+import type { ApprovalRequiredEvent, PendingApproval } from "../../types";
 
 export type AudioAttachmentFormat = string;
 
@@ -12,6 +13,9 @@ export type ChatMessageViewModel = {
   id?: string | null;
   role?: string | null;
   content?: unknown;
+  tool_calls?: unknown[] | null;
+  tool_call_id?: string | null;
+  name?: string | null;
   created_at?: string | null;
 };
 
@@ -55,6 +59,29 @@ export interface ToolRun {
   error?: string | null;
 }
 
+export type BackgroundActivityStatus = "completed" | "running" | "pending_approval" | "failed" | "unknown";
+
+export type BackgroundActivityItem = {
+  toolCallId: string;
+  title: string;
+  functionName: string;
+  displayName: string;
+  arguments: unknown;
+  status: BackgroundActivityStatus;
+  toolMessageId?: string | null;
+  toolContent?: unknown;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  error?: string | null;
+};
+
+export type AssistantBackgroundActivity = {
+  assistantMessageId: string | null;
+  items: BackgroundActivityItem[];
+};
+
+export const STREAMING_ASSISTANT_ACTIVITY_ID = "__streaming_assistant_activity__";
+
 export type PendingChatAttachment =
   | {
       kind: "uploaded";
@@ -94,7 +121,7 @@ const AUDIO_FILE_EXTENSIONS = new Set<string>([
   "3gp",
 ]);
 
-export const CHAT_ATTACHMENT_ACCEPT = "image/*,audio/*,.wav,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.txt";
+export const CHAT_ATTACHMENT_ACCEPT = "image/*,.heic,.heif,audio/*,.wav,.mp3,.m4a,.ogg,.pdf,.doc,.docx,.txt";
 export const CHAT_SCROLL_TOP_OFFSET = 16;
 export const CHAT_NEAR_BOTTOM_THRESHOLD = 72;
 
@@ -188,6 +215,21 @@ export function getAudioAttachmentErrorMessage(error: unknown): string {
 export function normalizeToolName(name: string | null | undefined): string {
   const trimmed = name?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : "tool";
+}
+
+export function toToolDisplayName(name: string | null | undefined): string {
+  const normalizedName = normalizeToolName(name);
+  const withoutNamespace = normalizedName.includes("__")
+    ? normalizedName.slice(normalizedName.lastIndexOf("__") + 2)
+    : normalizedName;
+  const cleaned = withoutNamespace.replace(/[_-]+/g, " ").trim().toLowerCase();
+  return cleaned.length > 0 ? cleaned : "tool";
+}
+
+export function getBackgroundActivityTitle(description: string | null | undefined, functionName: string | null | undefined): string {
+  const trimmed = description?.trim();
+  if (trimmed && trimmed.length > 0) return trimmed;
+  return toToolDisplayName(functionName);
 }
 
 export function getToolDescription(description: string | null | undefined, toolName: string): string {
@@ -317,6 +359,290 @@ function getNonEmptyString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function getCanonicalAssistantMessageId(value: string | null): string {
+  return value ?? "__orphan_assistant__";
+}
+
+function toStatusRank(status: BackgroundActivityStatus): number {
+  if (status === "completed") return 5;
+  if (status === "failed") return 4;
+  if (status === "running") return 3;
+  if (status === "pending_approval") return 2;
+  return 1;
+}
+
+function mergeBackgroundActivityStatus(
+  left: BackgroundActivityStatus,
+  right: BackgroundActivityStatus,
+): BackgroundActivityStatus {
+  return toStatusRank(right) > toStatusRank(left) ? right : left;
+}
+
+function earliestIsoTimestamp(left: string | null | undefined, right: string | null | undefined): string | null | undefined {
+  if (!left) return right ?? left;
+  if (!right) return left;
+  return left <= right ? left : right;
+}
+
+function latestIsoTimestamp(left: string | null | undefined, right: string | null | undefined): string | null | undefined {
+  if (!left) return right ?? left;
+  if (!right) return left;
+  return left >= right ? left : right;
+}
+
+function getArgumentsValue(value: unknown): unknown {
+  if (value == null) return null;
+  if (typeof value !== "string") return value;
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+
+  const parsed = tryParseJsonString(trimmed);
+  return parsed ?? trimmed;
+}
+
+export function extractToolCallIdFromToolCall(value: unknown): string | null {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  const directId =
+    getNonEmptyString(record.tool_call_id) ?? getNonEmptyString(record.id) ?? getNonEmptyString(record.call_id);
+  if (directId) return directId;
+
+  const fnRecord = asRecord(record.function);
+  if (!fnRecord) return null;
+  return getNonEmptyString(fnRecord.tool_call_id) ?? getNonEmptyString(fnRecord.id);
+}
+
+export function buildAssistantMessageIdByToolCallId(
+  messages: ChatMessageViewModel[] | undefined,
+): Map<string, string> {
+  const messageIdByToolCallId = new Map<string, string>();
+  if (!Array.isArray(messages)) return messageIdByToolCallId;
+
+  for (const message of messages) {
+    if (message.role !== "assistant") continue;
+    const messageId = getNonEmptyString(message.id);
+    if (!messageId || !Array.isArray(message.tool_calls)) continue;
+
+    for (const toolCall of message.tool_calls) {
+      const toolCallId = extractToolCallIdFromToolCall(toolCall);
+      if (!toolCallId || messageIdByToolCallId.has(toolCallId)) continue;
+      messageIdByToolCallId.set(toolCallId, messageId);
+    }
+  }
+
+  return messageIdByToolCallId;
+}
+
+function normalizePendingApproval(
+  approval: PendingApproval | ApprovalRequiredEvent,
+): { toolCallId: string } | null {
+  const toolCallId = getNonEmptyString(approval.tool_call_id);
+  if (!toolCallId) return null;
+  return { toolCallId };
+}
+
+function mergeBackgroundActivityItem(
+  persistedItem: BackgroundActivityItem,
+  liveItem: BackgroundActivityItem,
+): BackgroundActivityItem {
+  const mergedStatus = mergeBackgroundActivityStatus(persistedItem.status, liveItem.status);
+  return {
+    toolCallId: persistedItem.toolCallId,
+    title: persistedItem.title || liveItem.title || persistedItem.displayName || liveItem.displayName,
+    functionName: persistedItem.functionName || liveItem.functionName,
+    displayName: persistedItem.displayName || liveItem.displayName,
+    arguments: persistedItem.arguments ?? liveItem.arguments ?? null,
+    status: mergedStatus,
+    toolMessageId: persistedItem.toolMessageId ?? liveItem.toolMessageId ?? null,
+    toolContent: persistedItem.toolContent ?? liveItem.toolContent,
+    startedAt: earliestIsoTimestamp(persistedItem.startedAt, liveItem.startedAt) ?? null,
+    completedAt: latestIsoTimestamp(persistedItem.completedAt, liveItem.completedAt) ?? null,
+    error: liveItem.error ?? persistedItem.error ?? null,
+  };
+}
+
+export function buildBackgroundActivitiesFromMessages(
+  messages: ChatMessageViewModel[] | undefined,
+  pendingApprovals?: Array<PendingApproval | ApprovalRequiredEvent>,
+): AssistantBackgroundActivity[] {
+  if (!Array.isArray(messages) || messages.length === 0) return [];
+
+  const assistantOrder: string[] = [];
+  const activitiesByAssistantId = new Map<string, BackgroundActivityItem[]>();
+  const itemByToolCallId = new Map<string, BackgroundActivityItem>();
+
+  for (const message of messages) {
+    if (message.role !== "assistant") continue;
+    const assistantMessageId = getNonEmptyString(message.id);
+    if (!Array.isArray(message.tool_calls) || message.tool_calls.length === 0) continue;
+    const assistantKey = getCanonicalAssistantMessageId(assistantMessageId);
+
+    if (!activitiesByAssistantId.has(assistantKey)) {
+      activitiesByAssistantId.set(assistantKey, []);
+      assistantOrder.push(assistantKey);
+    }
+
+    const activityItems = activitiesByAssistantId.get(assistantKey);
+    if (!activityItems) continue;
+
+    for (const toolCall of message.tool_calls) {
+      const toolCallId = extractToolCallIdFromToolCall(toolCall);
+      if (!toolCallId || itemByToolCallId.has(toolCallId)) continue;
+
+      const toolCallRecord = asRecord(toolCall);
+      const functionRecord = asRecord(toolCallRecord?.function);
+      const functionName = normalizeToolName(getNonEmptyString(functionRecord?.name) ?? getNonEmptyString(message.name));
+      const displayName = toToolDisplayName(functionName);
+      const title = getBackgroundActivityTitle(getNonEmptyString(toolCallRecord?.description), functionName);
+      const args = getArgumentsValue(functionRecord?.arguments);
+
+      const nextItem: BackgroundActivityItem = {
+        toolCallId,
+        title,
+        functionName,
+        displayName,
+        arguments: args,
+        status: "unknown",
+        startedAt: getNonEmptyString(message.created_at),
+      };
+
+      activityItems.push(nextItem);
+      itemByToolCallId.set(toolCallId, nextItem);
+    }
+  }
+
+  for (const message of messages) {
+    if (message.role !== "tool") continue;
+    const toolCallId = getNonEmptyString(message.tool_call_id);
+    if (!toolCallId) continue;
+
+    const existing = itemByToolCallId.get(toolCallId);
+    if (!existing) continue;
+
+    existing.status = "completed";
+    existing.toolMessageId = getNonEmptyString(message.id);
+    existing.toolContent = message.content;
+    existing.completedAt = getNonEmptyString(message.created_at);
+  }
+
+  if (Array.isArray(pendingApprovals)) {
+    for (const pendingApproval of pendingApprovals) {
+      const normalized = normalizePendingApproval(pendingApproval);
+      if (!normalized) continue;
+
+      const existing = itemByToolCallId.get(normalized.toolCallId);
+      if (!existing || existing.status === "completed") continue;
+      existing.status = "pending_approval";
+    }
+  }
+
+  return assistantOrder
+    .map((assistantKey) => ({
+      assistantMessageId: assistantKey === getCanonicalAssistantMessageId(null) ? null : assistantKey,
+      items: activitiesByAssistantId.get(assistantKey) ?? [],
+    }))
+    .filter((activity) => activity.items.length > 0);
+}
+
+export function mergeLiveAndPersistedActivities(
+  persistedActivities: AssistantBackgroundActivity[],
+  liveActivities: AssistantBackgroundActivity[],
+): AssistantBackgroundActivity[] {
+  const assistantOrder: string[] = [];
+  const itemOrderByToolCallId = new Map<string, number>();
+  let nextItemOrder = 0;
+
+  const entriesByToolCallId = new Map<
+    string,
+    {
+      assistantMessageId: string | null;
+      item: BackgroundActivityItem;
+    }
+  >();
+
+  const registerAssistantId = (assistantMessageId: string | null) => {
+    const key = getCanonicalAssistantMessageId(assistantMessageId);
+    if (!assistantOrder.includes(key)) {
+      assistantOrder.push(key);
+    }
+    return key;
+  };
+
+  const upsertItems = (activities: AssistantBackgroundActivity[], source: "persisted" | "live") => {
+    for (const activity of activities) {
+      registerAssistantId(activity.assistantMessageId);
+
+      for (const item of activity.items) {
+        const toolCallId = getNonEmptyString(item.toolCallId);
+        if (!toolCallId) continue;
+
+        if (!itemOrderByToolCallId.has(toolCallId)) {
+          itemOrderByToolCallId.set(toolCallId, nextItemOrder);
+          nextItemOrder += 1;
+        }
+
+        const existing = entriesByToolCallId.get(toolCallId);
+        if (!existing) {
+          entriesByToolCallId.set(toolCallId, {
+            assistantMessageId: activity.assistantMessageId,
+            item: { ...item, toolCallId },
+          });
+          continue;
+        }
+
+        if (source === "persisted") {
+          existing.assistantMessageId = existing.assistantMessageId ?? activity.assistantMessageId;
+          existing.item = mergeBackgroundActivityItem(item, existing.item);
+          continue;
+        }
+
+        existing.item = mergeBackgroundActivityItem(existing.item, item);
+        if (!existing.assistantMessageId) {
+          existing.assistantMessageId = activity.assistantMessageId;
+        }
+      }
+    }
+  };
+
+  upsertItems(persistedActivities, "persisted");
+  upsertItems(liveActivities, "live");
+
+  const groupedByAssistantId = new Map<string, { assistantMessageId: string | null; items: BackgroundActivityItem[] }>();
+
+  for (const { assistantMessageId, item } of entriesByToolCallId.values()) {
+    const assistantKey = getCanonicalAssistantMessageId(assistantMessageId);
+    const existing = groupedByAssistantId.get(assistantKey);
+    if (!existing) {
+      groupedByAssistantId.set(assistantKey, {
+        assistantMessageId,
+        items: [{ ...item }],
+      });
+      continue;
+    }
+
+    existing.items.push({ ...item });
+  }
+
+  for (const group of groupedByAssistantId.values()) {
+    group.items.sort((left, right) => {
+      const leftOrder = itemOrderByToolCallId.get(left.toolCallId) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = itemOrderByToolCallId.get(right.toolCallId) ?? Number.MAX_SAFE_INTEGER;
+      return leftOrder - rightOrder;
+    });
+  }
+
+  return assistantOrder
+    .map((assistantKey) => groupedByAssistantId.get(assistantKey))
+    .filter((group): group is { assistantMessageId: string | null; items: BackgroundActivityItem[] } => Boolean(group))
+    .filter((group) => group.items.length > 0)
+    .map((group) => ({
+      assistantMessageId: group.assistantMessageId,
+      items: group.items,
+    }));
 }
 
 function isMeaningfulHtmlString(value: string): boolean {
@@ -616,10 +942,36 @@ export function parseMessageContent(content: unknown): ParsedMessageContent {
     if (type === "image") {
       const imageUrl = part.image;
       if (typeof imageUrl === "string" && imageUrl.length > 0) {
-        attachments.push({
-          kind: "image",
-          url: imageUrl,
-        });
+        const imageMimeType =
+          typeof part.mime_type === "string"
+            ? part.mime_type
+            : typeof part.mime === "string"
+              ? part.mime
+              : undefined;
+        const fallbackName = getFilenameFromUrl(imageUrl);
+        if (
+          isUnsupportedBrowserImageMimeType(imageMimeType) ||
+          hasUnsupportedBrowserImageExtension(imageUrl) ||
+          hasUnsupportedBrowserImageExtension(fallbackName)
+        ) {
+          attachments.push({
+            kind: "file",
+            url: imageUrl,
+            name:
+              typeof part.filename === "string"
+                ? part.filename
+                : typeof part.name === "string"
+                  ? part.name
+                  : fallbackName,
+            mime:
+              typeof part.mime_type === "string" ? part.mime_type : typeof part.mime === "string" ? part.mime : undefined,
+          });
+        } else {
+          attachments.push({
+            kind: "image",
+            url: imageUrl,
+          });
+        }
       }
       continue;
     }
@@ -671,7 +1023,7 @@ export function shouldRenderMessage(message: ChatMessageViewModel): boolean {
 
   // Hide assistant tool-call scaffolding messages that have no visible text/attachments.
   if (message.role === "assistant" && !hasRenderableMessageContent(message.content)) {
-    return false;
+    return Array.isArray(message.tool_calls) && message.tool_calls.length > 0;
   }
 
   return true;

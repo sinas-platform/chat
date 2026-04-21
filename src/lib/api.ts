@@ -2,6 +2,7 @@ import axios, { type AxiosError, type AxiosInstance } from "axios";
 import { env } from "./env";
 import { getWorkspaceUrl, requireWorkspaceUrl } from "./workspace";
 import { clearAuth, getAuthToken, getRefreshToken, setAuthToken } from "./authStorage";
+import { isBrowserRenderableImage } from "./files/imageSupport";
 import type { ChatAttachment, FileResponse, FileUpload, TempUrlResponse } from "./files/types";
 
 import type {
@@ -212,7 +213,11 @@ class APIClient {
   }
 
   private attachmentToContentPart(attachment: ChatAttachment): Record<string, unknown> {
-    const isImage = attachment.mime.toLowerCase().startsWith("image/");
+    const isImage = isBrowserRenderableImage({
+      mimeType: attachment.mime,
+      name: attachment.name,
+      url: attachment.url,
+    });
     if (isImage) {
       return { type: "image", image: attachment.url };
     }

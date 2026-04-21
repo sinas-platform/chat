@@ -21,6 +21,7 @@ import { useVisibleAgentsPreference } from "../../hooks/useVisibleAgentsPreferen
 import { apiClient } from "../../lib/api";
 import { buildAgentPlaceholderMetaById, type AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import { uploadChatAttachment, UploadChatAttachmentError } from "../../lib/files/filesService";
+import { isBrowserRenderableImage } from "../../lib/files/imageSupport";
 import type { ChatAttachment } from "../../lib/files/types";
 import { getWorkspaceUrl } from "../../lib/workspace";
 import {
@@ -474,7 +475,7 @@ export default function HomePage() {
           const uploaded = await uploadChatAttachment(attachment.file, chat.id);
           uploadedAttachments.push(uploaded);
 
-          if (uploaded.mime.toLowerCase().startsWith("image/")) {
+          if (isBrowserRenderableImage({ mimeType: uploaded.mime, name: uploaded.name, url: uploaded.url })) {
             uploadedContentParts.push({ type: "image", image: uploaded.url });
             continue;
           }

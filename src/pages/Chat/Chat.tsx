@@ -10,18 +10,26 @@ import {
   CHAT_ATTACHMENT_ACCEPT,
   CHAT_NEAR_BOTTOM_THRESHOLD,
   CHAT_SCROLL_TOP_OFFSET,
+  buildAssistantMessageIdByToolCallId,
+  buildBackgroundActivitiesFromMessages,
   extractErrorMessage,
   extractToolCallId,
   fileToDataUrl,
+  getBackgroundActivityTitle,
   getAttachmentErrorMessage,
   getAudioAttachmentErrorMessage,
   getPlaceholderCssVars,
   getToolDescription,
   isAudioCandidate,
+  mergeLiveAndPersistedActivities,
   normalizeAudioFormat,
   normalizeToolName,
   shouldRenderMessage,
+  STREAMING_ASSISTANT_ACTIVITY_ID,
   stripDataUrlPrefix,
+  toToolDisplayName,
+  type AssistantBackgroundActivity,
+  type BackgroundActivityItem,
   type ChatMessageViewModel,
   type PendingChatAttachment,
   type ToolRun,
@@ -36,6 +44,7 @@ import { useChatScrollBehavior } from "../../hooks/useChatScrollBehavior";
 import { buildAgentPlaceholderMetaById } from "../../lib/agentPlaceholders";
 import { apiClient, type ChatStreamHandle } from "../../lib/api";
 import { uploadChatAttachment } from "../../lib/files/filesService";
+import { isBrowserRenderableImage } from "../../lib/files/imageSupport";
 import type { ChatAttachment } from "../../lib/files/types";
 import type {
   AgentResponse,
@@ -128,44 +137,6 @@ function asNonEmptyString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function extractToolCallIdFromToolCall(value: unknown): string | null {
-  if (!value || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
-
-  const directId = asNonEmptyString(record.tool_call_id) ?? asNonEmptyString(record.id) ?? asNonEmptyString(record.call_id);
-  if (directId) return directId;
-
-  const fn = record.function;
-  if (fn && typeof fn === "object") {
-    const fnRecord = fn as Record<string, unknown>;
-    return asNonEmptyString(fnRecord.tool_call_id) ?? asNonEmptyString(fnRecord.id);
-  }
-
-  return null;
-}
-
-function buildAssistantMessageIdByToolCallId(messages: ChatWithMessages["messages"] | undefined): Map<string, string> {
-  const messageIdByToolCallId = new Map<string, string>();
-  if (!Array.isArray(messages)) return messageIdByToolCallId;
-
-  for (const message of messages) {
-    if (message.role !== "assistant" || typeof message.id !== "string" || !Array.isArray(message.tool_calls)) {
-      continue;
-    }
-
-    const messageId = message.id.trim();
-    if (!messageId) continue;
-
-    for (const toolCall of message.tool_calls) {
-      const toolCallId = extractToolCallIdFromToolCall(toolCall);
-      if (!toolCallId || messageIdByToolCallId.has(toolCallId)) continue;
-      messageIdByToolCallId.set(toolCallId, messageId);
-    }
-  }
-
-  return messageIdByToolCallId;
 }
 
 function extractApprovalQueries(args: Record<string, unknown>): string[] {
@@ -307,15 +278,12 @@ export function ChatPage() {
     };
   }, [assistantAgent, onAgentIconError]);
 
-  const messages: ChatMessageViewModel[] = useMemo(() => {
+  const chatMessages = useMemo<ChatMessageViewModel[]>(() => {
     if (!chatData) return [];
-    const rawMessages = Array.isArray(chatData.messages) ? (chatData.messages as ChatMessageViewModel[]) : [];
-    return rawMessages.filter(shouldRenderMessage);
+    return Array.isArray(chatData.messages) ? (chatData.messages as ChatMessageViewModel[]) : [];
   }, [chatData]);
-  const hasUserMessages = useMemo(() => {
-    const rawMessages = Array.isArray(chatData?.messages) ? (chatData.messages as ChatMessageViewModel[]) : [];
-    return rawMessages.some((message) => message.role === "user");
-  }, [chatData]);
+  const messages = useMemo(() => chatMessages.filter(shouldRenderMessage), [chatMessages]);
+  const hasUserMessages = useMemo(() => chatMessages.some((message) => message.role === "user"), [chatMessages]);
 
   const toolRuns = useMemo(() => {
     return Object.values(activeTools).sort((left, right) => {
@@ -357,7 +325,6 @@ export function ChatPage() {
   }, [fetchedApprovals, streamApprovalsByToolCallId]);
   const resolvedApprovalIds = useMemo(() => {
     const resolvedIds = new Set<string>();
-    const chatMessages = Array.isArray(chatData?.messages) ? chatData.messages : [];
 
     for (const message of chatMessages) {
       if (message.role !== "tool" || typeof message.tool_call_id !== "string") continue;
@@ -378,7 +345,7 @@ export function ChatPage() {
     }
 
     return resolvedIds;
-  }, [chatData?.messages, activeTools, resolvedToolCallIds]);
+  }, [chatMessages, activeTools, resolvedToolCallIds]);
   const pendingApprovals = useMemo(() => {
     const visibleApprovals: ApprovalRequiredEvent[] = [];
 
@@ -390,8 +357,69 @@ export function ChatPage() {
     return visibleApprovals;
   }, [approvalCandidatesByToolCallId, resolvedApprovalIds]);
   const assistantMessageIdByToolCallId = useMemo(
-    () => buildAssistantMessageIdByToolCallId(Array.isArray(chatData?.messages) ? chatData.messages : undefined),
-    [chatData?.messages]
+    () => buildAssistantMessageIdByToolCallId(chatMessages),
+    [chatMessages]
+  );
+  const persistedBackgroundActivities = useMemo(
+    () => buildBackgroundActivitiesFromMessages(chatMessages, Array.isArray(chatData?.pending_approvals) ? chatData.pending_approvals : []),
+    [chatMessages, chatData?.pending_approvals]
+  );
+  const liveBackgroundActivities = useMemo<AssistantBackgroundActivity[]>(() => {
+    const activitiesByAssistantMessageId = new Map<string, BackgroundActivityItem[]>();
+    const ensureAssistantItems = (assistantMessageId: string | null) => {
+      const normalizedAssistantId = assistantMessageId ?? STREAMING_ASSISTANT_ACTIVITY_ID;
+      let existingItems = activitiesByAssistantMessageId.get(normalizedAssistantId);
+      if (!existingItems) {
+        existingItems = [];
+        activitiesByAssistantMessageId.set(normalizedAssistantId, existingItems);
+      }
+      return existingItems;
+    };
+
+    for (const toolRun of Object.values(activeTools)) {
+      const toolCallId = toolRun.id.trim();
+      if (!toolCallId) continue;
+
+      const assistantMessageId = assistantMessageIdByToolCallId.get(toolCallId) ?? null;
+      const functionName = normalizeToolName(toolRun.name);
+      const items = ensureAssistantItems(assistantMessageId);
+      items.push({
+        toolCallId,
+        title: getBackgroundActivityTitle(toolRun.description, functionName),
+        functionName,
+        displayName: toToolDisplayName(functionName),
+        arguments: null,
+        status: toolRun.status === "running" ? "running" : toolRun.status === "error" ? "failed" : "completed",
+        startedAt: toolRun.startedAt,
+        error: toolRun.error ?? null,
+      });
+    }
+
+    for (const approval of Object.values(streamApprovalsByToolCallId)) {
+      const toolCallId = approval.tool_call_id.trim();
+      if (!toolCallId) continue;
+
+      const assistantMessageId = assistantMessageIdByToolCallId.get(toolCallId) ?? null;
+      const functionName = normalizeToolName(approval.function_name);
+      const items = ensureAssistantItems(assistantMessageId);
+      items.push({
+        toolCallId,
+        title: getBackgroundActivityTitle(null, functionName),
+        functionName,
+        displayName: toToolDisplayName(functionName),
+        arguments: approval.arguments,
+        status: "pending_approval",
+      });
+    }
+
+    return Array.from(activitiesByAssistantMessageId.entries()).map(([assistantMessageId, items]) => ({
+      assistantMessageId,
+      items,
+    }));
+  }, [activeTools, assistantMessageIdByToolCallId, streamApprovalsByToolCallId]);
+  const backgroundActivities = useMemo(
+    () => mergeLiveAndPersistedActivities(persistedBackgroundActivities, liveBackgroundActivities),
+    [persistedBackgroundActivities, liveBackgroundActivities]
   );
   const approvalGroups = useMemo<ApprovalGroup[]>(() => {
     const groupsById = new Map<string, ApprovalGroup>();
@@ -885,12 +913,19 @@ export function ChatPage() {
       initialAttachments.length > 0
         ? [
             ...(initialDraft ? [{ type: "text", text: initialDraft }] : []),
-            ...initialAttachments.map((attachment) => ({
-              type: attachment.mime.toLowerCase().startsWith("image/") ? "image" : "file",
-              ...(attachment.mime.toLowerCase().startsWith("image/")
-                ? { image: attachment.url }
-                : { file_url: attachment.url, filename: attachment.name, mime_type: attachment.mime }),
-            })),
+            ...initialAttachments.map((attachment) => {
+              const isRenderableImage = isBrowserRenderableImage({
+                mimeType: attachment.mime,
+                name: attachment.name,
+                url: attachment.url,
+              });
+              return {
+                type: isRenderableImage ? "image" : "file",
+                ...(isRenderableImage
+                  ? { image: attachment.url }
+                  : { file_url: attachment.url, filename: attachment.name, mime_type: attachment.mime }),
+              };
+            }),
           ]
         : initialDraft;
 
@@ -906,7 +941,9 @@ export function ChatPage() {
     setAttachmentError(null);
     setIsUploadingAttachment(true);
     setUploadingAttachmentName(file.name);
-    replaceUploadingThumbnail(file.type.toLowerCase().startsWith("image/") ? URL.createObjectURL(file) : null);
+    replaceUploadingThumbnail(
+      isBrowserRenderableImage({ mimeType: file.type, name: file.name }) ? URL.createObjectURL(file) : null
+    );
 
     try {
       if (isAudioCandidate(file)) {
@@ -973,7 +1010,7 @@ export function ChatPage() {
               }
 
               const attachment = item.attachment;
-              return attachment.mime.toLowerCase().startsWith("image/")
+              return isBrowserRenderableImage({ mimeType: attachment.mime, name: attachment.name, url: attachment.url })
                 ? ({ type: "image", image: attachment.url } as const)
                 : ({
                     type: "file",
@@ -1028,6 +1065,7 @@ export function ChatPage() {
             streamingContent={streamingContent}
             thinkingText={thinkingText}
             toolRuns={toolRuns}
+            backgroundActivities={backgroundActivities}
             delegatedNotices={delegatedNotices}
             approvalGroups={approvalGroups}
             processingApprovalGroupId={processingApprovalGroupId}

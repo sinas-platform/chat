@@ -48,7 +48,7 @@ export interface Chat {
   
   export interface ChatCreate {
     title?: string;
-    input?: Record<string, any>;
+    input?: Record<string, unknown>;
   }
   
 export interface ChatWithMessages extends Chat {
@@ -60,17 +60,33 @@ export interface PendingApproval {
   tool_call_id: string;
   function_namespace: string;
   function_name: string;
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
 }
   
-  export type MessageContent = string | any[];
+  export type MessageContent = string | Array<string | Record<string, unknown>>;
+
+  export interface MessageToolCallFunction {
+    name?: string | null;
+    arguments?: string | Record<string, unknown> | null;
+    tool_call_id?: string | null;
+    id?: string | null;
+  }
+
+  export interface MessageToolCall {
+    id?: string | null;
+    type?: string | null;
+    description?: string | null;
+    function?: MessageToolCallFunction | null;
+    tool_call_id?: string | null;
+    call_id?: string | null;
+  }
   
   export interface Message {
     id: string;
     chat_id: string;
     role: "user" | "assistant" | "system" | "tool";
     content: MessageContent | null;
-    tool_calls: any[] | null;
+    tool_calls: MessageToolCall[] | null;
     tool_call_id: string | null;
     name: string | null;
     created_at: string;
@@ -86,7 +102,7 @@ export interface ApprovalRequiredEvent {
   tool_call_id: string;
   function_namespace: string;
   function_name: string;
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
 }
 
 export interface ToolStartEvent {

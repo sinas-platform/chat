@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent, type
 
 import AttachmentIcon from "../../icons/attachment.svg?react";
 import MicrophoneIcon from "../../icons/microphone.svg?react";
+import { isBrowserRenderableImage } from "../../lib/files/imageSupport";
 import type { ChatAttachment } from "../../lib/files/types";
 import { useSpeechToText } from "../../lib/useSpeechToText";
 import { AttachmentChip } from "../AttachmentChip/AttachmentChip";
@@ -214,7 +215,11 @@ export function ChatComposer({
                   key={`${attachment.name}-${attachment.uploaded_at}-${index}`}
                   name={attachment.name}
                   size={attachment.size}
-                  thumbnailUrl={attachment.mime.toLowerCase().startsWith("image/") ? attachment.url : undefined}
+                  thumbnailUrl={
+                    isBrowserRenderableImage({ mimeType: attachment.mime, name: attachment.name, url: attachment.url })
+                      ? attachment.url
+                      : undefined
+                  }
                   onRemove={onRemoveAttachment ? () => onRemoveAttachment(index) : undefined}
                   disabled={disabled || isUploadingAttachment}
                 />

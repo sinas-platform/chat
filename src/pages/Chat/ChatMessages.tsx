@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState, type RefObject } from "react";
+import { Fragment, memo, useEffect, useMemo, useState, type RefObject } from "react";
 import { Bot, CircleHelp, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -8,6 +8,9 @@ import { HtmlPreviewCard } from "./HtmlPreviewCard";
 import SinasLoader from "../../components/Loader/Loader";
 import type { AgentPlaceholderMeta } from "../../lib/agentPlaceholders";
 import {
+  STREAMING_ASSISTANT_ACTIVITY_ID,
+  type AssistantBackgroundActivity,
+  type BackgroundActivityItem,
   extractHtmlPreview,
   getMessageText,
   getPlaceholderCssVars,
@@ -73,7 +76,9 @@ function MessageAttachmentImage({ attachment, compact }: MessageAttachmentImageP
         aria-label="Attached image preview unavailable"
       >
         <span className={styles.messageAttachmentImageFallbackTitle}>Image unavailable</span>
-        <span className={styles.messageAttachmentImageFallbackText}>This preview link may have expired.</span>
+        <span className={styles.messageAttachmentImageFallbackText}>
+          Couldn't load this image. The link may have expired or the format may be unsupported.
+        </span>
       </div>
     );
   }
@@ -277,30 +282,82 @@ const ApprovalGroupPromptRow = memo(function ApprovalGroupPromptRow({
 
 ApprovalGroupPromptRow.displayName = "ApprovalGroupPromptRow";
 
-type ToolProgressRowsProps = {
-  tools: ToolRun[];
+type BackgroundActivitySummary = {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  pendingApproval: number;
+  unknown: number;
+};
+
+function summarizeBackgroundActivities(items: BackgroundActivityItem[]): BackgroundActivitySummary {
+  const summary: BackgroundActivitySummary = {
+    total: items.length,
+    completed: 0,
+    failed: 0,
+    running: 0,
+    pendingApproval: 0,
+    unknown: 0,
+  };
+
+  for (const item of items) {
+    if (item.status === "completed") summary.completed += 1;
+    else if (item.status === "failed") summary.failed += 1;
+    else if (item.status === "running") summary.running += 1;
+    else if (item.status === "pending_approval") summary.pendingApproval += 1;
+    else summary.unknown += 1;
+  }
+
+  return summary;
+}
+
+function toBackgroundSummaryText(summary: BackgroundActivitySummary): string {
+  if (summary.failed > 0) {
+    return `${summary.completed} completed, ${summary.failed} ${summary.failed === 1 ? "had an issue" : "had issues"}.`;
+  }
+
+  if (summary.running > 0 && summary.completed === 0 && summary.pendingApproval === 0 && summary.unknown === 0) {
+    return `${summary.running} background ${summary.running === 1 ? "step is" : "steps are"} running.`;
+  }
+
+  if (summary.pendingApproval > 0 && summary.completed === 0 && summary.running === 0 && summary.unknown === 0) {
+    return `${summary.pendingApproval} ${summary.pendingApproval === 1 ? "step is" : "steps are"} waiting for approval.`;
+  }
+
+  if (summary.completed === summary.total) {
+    return `${summary.completed} background ${summary.completed === 1 ? "step" : "steps"} completed.`;
+  }
+
+  return `${summary.completed} completed, ${summary.running} running, ${summary.pendingApproval} pending approval, ${summary.unknown} unknown.`;
+}
+
+function toBackgroundActivityStatusText(status: BackgroundActivityItem["status"]): string {
+  if (status === "completed") return "Completed";
+  if (status === "failed") return "Failed";
+  if (status === "running") return "Running";
+  if (status === "pending_approval") return "Pending approval";
+  return "No result yet";
+}
+
+type BackgroundActivityRowsProps = {
+  items: BackgroundActivityItem[];
   assistantAvatarSrc?: string;
   assistantAvatarPlaceholder?: AgentPlaceholderMeta;
   onAssistantAvatarError?: () => void;
 };
 
-const ToolProgressRows = memo(function ToolProgressRows({
-  tools,
+const BackgroundActivityRows = memo(function BackgroundActivityRows({
+  items,
   assistantAvatarSrc,
   assistantAvatarPlaceholder,
   onAssistantAvatarError,
-}: ToolProgressRowsProps) {
+}: BackgroundActivityRowsProps) {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const completedTools = tools.filter((tool) => tool.status !== "running");
+  if (items.length === 0) return null;
 
-  if (completedTools.length === 0) return null;
-
-  const completedCount = completedTools.filter((tool) => tool.status === "done").length;
-  const failedCount = completedTools.filter((tool) => tool.status === "error").length;
-  const summaryText =
-    failedCount === 0
-      ? `${completedTools.length} background ${completedTools.length === 1 ? "step" : "steps"} completed.`
-      : `${completedCount} completed, ${failedCount} ${failedCount === 1 ? "had an issue" : "had issues"}.`;
+  const summary = summarizeBackgroundActivities(items);
+  const summaryText = toBackgroundSummaryText(summary);
 
   return (
     <div className={styles.toolProgressInlineList}>
@@ -314,7 +371,7 @@ const ToolProgressRows = memo(function ToolProgressRows({
         <div
           className={joinClasses(
             styles.toolActivitySummaryCard,
-            failedCount > 0 && styles.toolActivitySummaryCardError,
+            summary.failed > 0 && styles.toolActivitySummaryCardError,
             isDetailsOpen && styles.toolActivitySummaryCardExpanded,
           )}
           role="status"
@@ -341,35 +398,36 @@ const ToolProgressRows = memo(function ToolProgressRows({
 
           {isDetailsOpen ? (
             <div className={styles.toolActivityDetailsList}>
-              {completedTools.map((tool) => {
-                const isDone = tool.status === "done";
-                const statusText = isDone ? "Completed" : "Failed";
+              {items.map((tool) => {
+                const isDone = tool.status === "completed";
+                const isError = tool.status === "failed";
+                const statusText = toBackgroundActivityStatusText(tool.status);
 
                 return (
                   <div
-                    key={tool.id}
+                    key={tool.toolCallId}
                     className={joinClasses(
                       styles.toolProgressCard,
                       styles.toolActivityDetailsCard,
                       isDone && styles.toolProgressDone,
-                      tool.status === "error" && styles.toolProgressError,
+                      isError && styles.toolProgressError,
                     )}
                   >
                     <span
                       className={joinClasses(
                         styles.toolProgressDot,
                         isDone && styles.toolProgressDotDone,
-                        tool.status === "error" && styles.toolProgressDotError,
+                        isError && styles.toolProgressDotError,
                       )}
                       aria-hidden="true"
                     />
                     <div className={styles.toolProgressContent}>
-                      <p className={styles.toolProgressDescription}>{tool.description}</p>
+                      <p className={styles.toolProgressDescription}>{tool.title}</p>
                       <p className={styles.toolProgressMeta}>
-                        <code className={styles.toolProgressName}>{tool.name}</code>
+                        <code className={styles.toolProgressName}>{tool.functionName}</code>
                         <span className={styles.toolProgressStatus}>{statusText}</span>
                       </p>
-                      {tool.status === "error" && tool.error ? (
+                      {tool.status === "failed" && tool.error ? (
                         <p className={styles.toolProgressErrorText}>{tool.error}</p>
                       ) : null}
                     </div>
@@ -384,7 +442,7 @@ const ToolProgressRows = memo(function ToolProgressRows({
   );
 });
 
-ToolProgressRows.displayName = "ToolProgressRows";
+BackgroundActivityRows.displayName = "BackgroundActivityRows";
 
 type DelegatedNoticeRowsProps = {
   notices: DelegatedNotice[];
@@ -468,13 +526,15 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant" || isComponentToolMessage || isHtmlPreviewToolMessage;
   const shouldHideAssistantBubble = isAssistant && showAssistantAvatarLoading;
+  const hasVisibleAssistantMessageContent =
+    isComponentToolMessage || isHtmlPreviewToolMessage || messageText.trim().length > 0 || attachments.length > 0;
   const [openRunningToolId, setOpenRunningToolId] = useState<string | null>(null);
   const isRunningToolDetailsOpen = runningTool ? openRunningToolId === runningTool.id : false;
   const htmlPreviewFallbackText =
     htmlPreview?.text?.trim() ||
     (messageText.trim().length > 0 && messageText.trim() !== htmlPreview?.html.trim() ? messageText : undefined);
 
-  const messageBubble = !shouldHideAssistantBubble ? (
+  const messageBubble = !shouldHideAssistantBubble && (isUser || hasVisibleAssistantMessageContent) ? (
     <div className={`${styles.message} ${isUser ? styles.userMsg : styles.assistantMsg}`}>
       <div className={styles.messageBody}>
         {isComponentToolMessage && componentPayload ? (
@@ -542,6 +602,10 @@ const ChatMessageRow = memo(function ChatMessageRow({
     </div>
   ) : null;
 
+  if (isAssistant && !messageBubble && !(runningTool && isRunningToolDetailsOpen)) {
+    return null;
+  }
+
   return (
     <div className={`${styles.messageRow} ${isUser ? styles.userRow : styles.assistantRow}`} ref={rowRef}>
       {isAssistant ? (
@@ -603,6 +667,7 @@ export type ChatMessagesProps = {
   streamingContent: string;
   thinkingText: string;
   toolRuns: ToolRun[];
+  backgroundActivities: AssistantBackgroundActivity[];
   delegatedNotices: DelegatedNotice[];
   approvalGroups: ApprovalGroup[];
   processingApprovalGroupId: string | null;
@@ -624,6 +689,7 @@ export const ChatMessages = memo(function ChatMessages({
   streamingContent,
   thinkingText,
   toolRuns,
+  backgroundActivities,
   delegatedNotices,
   approvalGroups,
   processingApprovalGroupId,
@@ -643,11 +709,32 @@ export const ChatMessages = memo(function ChatMessages({
     getMessageText(lastMessage.content).length === 0;
   const showStreamingRow = isStreaming || streamingContent.length > 0;
   const latestRunningTool = useMemo(() => [...toolRuns].reverse().find((tool) => tool.status === "running"), [toolRuns]);
-  const completedToolRuns = useMemo(() => toolRuns.filter((tool) => tool.status !== "running"), [toolRuns]);
-  const toolSummaryKey = useMemo(() => {
-    if (completedToolRuns.length === 0) return "no-completed-tools";
-    return completedToolRuns.map((tool) => tool.id).join("|");
-  }, [completedToolRuns]);
+  const backgroundActivitiesByAssistantMessageId = useMemo(() => {
+    const map = new Map<string, BackgroundActivityItem[]>();
+    const orphanItems: BackgroundActivityItem[] = [];
+    const streamingItems: BackgroundActivityItem[] = [];
+
+    for (const activity of backgroundActivities) {
+      if (activity.assistantMessageId === STREAMING_ASSISTANT_ACTIVITY_ID) {
+        streamingItems.push(...activity.items);
+        continue;
+      }
+
+      if (!activity.assistantMessageId) {
+        orphanItems.push(...activity.items);
+        continue;
+      }
+
+      map.set(activity.assistantMessageId, activity.items);
+    }
+
+    return {
+      byAssistantMessageId: map,
+      orphanItems,
+      streamingItems,
+    };
+  }, [backgroundActivities]);
+  const hasBackgroundActivity = backgroundActivities.length > 0;
 
   const [isScrolled, setIsScrolled] = useState(false);
   useEffect(() => {
@@ -668,7 +755,7 @@ export const ChatMessages = memo(function ChatMessages({
           <SinasLoader size={28} />
           <span className={styles.loadingText}>Loading conversation...</span>
         </div>
-      ) : messages.length === 0 && approvalGroups.length === 0 ? (
+      ) : messages.length === 0 && approvalGroups.length === 0 && !hasBackgroundActivity ? (
         <div className={styles.empty}>No messages yet</div>
       ) : (
         messages.map((message, index) => {
@@ -678,29 +765,54 @@ export const ChatMessages = memo(function ChatMessages({
             isLastMessage &&
             message.role === "assistant" &&
             getMessageText(message.content).length === 0;
+          const assistantMessageId = typeof message.id === "string" ? message.id.trim() : "";
+          const activityItems =
+            message.role === "assistant" && assistantMessageId
+              ? (backgroundActivitiesByAssistantMessageId.byAssistantMessageId.get(assistantMessageId) ?? [])
+              : [];
+          const rowKey = message.id ?? `${message.role ?? "message"}-${message.created_at ?? "unknown"}-${index}`;
 
           return (
-            <ChatMessageRow
-              key={message.id ?? `${message.role ?? "message"}-${message.created_at ?? "unknown"}-${index}`}
-              message={message}
-              showAssistantAvatarLoading={shouldShowAssistantLoading}
-              showAssistantAvatarPulse={shouldShowAssistantLoading}
-              assistantAvatarSrc={assistantAvatarSrc}
-              assistantAvatarPlaceholder={assistantAvatarPlaceholder}
-              onAssistantAvatarError={onAssistantAvatarError}
-              rowRef={index === latestUserMessageIndex ? onLastUserMessageRef : undefined}
-            />
+            <Fragment key={rowKey}>
+              <ChatMessageRow
+                message={message}
+                showAssistantAvatarLoading={shouldShowAssistantLoading}
+                showAssistantAvatarPulse={shouldShowAssistantLoading}
+                assistantAvatarSrc={assistantAvatarSrc}
+                assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+                onAssistantAvatarError={onAssistantAvatarError}
+                rowRef={index === latestUserMessageIndex ? onLastUserMessageRef : undefined}
+              />
+              {activityItems.length > 0 ? (
+                <BackgroundActivityRows
+                  items={activityItems}
+                  assistantAvatarSrc={assistantAvatarSrc}
+                  assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+                  onAssistantAvatarError={onAssistantAvatarError}
+                />
+              ) : null}
+            </Fragment>
           );
         })
       )}
 
-      <ToolProgressRows
-        key={toolSummaryKey}
-        tools={toolRuns}
-        assistantAvatarSrc={assistantAvatarSrc}
-        assistantAvatarPlaceholder={assistantAvatarPlaceholder}
-        onAssistantAvatarError={onAssistantAvatarError}
-      />
+      {backgroundActivitiesByAssistantMessageId.orphanItems.length > 0 ? (
+        <BackgroundActivityRows
+          items={backgroundActivitiesByAssistantMessageId.orphanItems}
+          assistantAvatarSrc={assistantAvatarSrc}
+          assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+          onAssistantAvatarError={onAssistantAvatarError}
+        />
+      ) : null}
+
+      {backgroundActivitiesByAssistantMessageId.streamingItems.length > 0 ? (
+        <BackgroundActivityRows
+          items={backgroundActivitiesByAssistantMessageId.streamingItems}
+          assistantAvatarSrc={assistantAvatarSrc}
+          assistantAvatarPlaceholder={assistantAvatarPlaceholder}
+          onAssistantAvatarError={onAssistantAvatarError}
+        />
+      ) : null}
 
       <DelegatedNoticeRows
         notices={delegatedNotices}
